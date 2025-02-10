@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+        App_Sesur
+{% endblock %}
+
+
+{% block content %}
+    <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
+    <div class="row">
+        <div class="col-sm-6">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Registrar Instalaciones</h5>
+              <p class="card-text">Espacion reservado para el programador de Instalaciones, si va ingresar en este espacion debel ingresar su usuario y contraseña.</p>
+              <a href="{% url 'login' %}" class="btn btn-primary">Registrar</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Programacion de Instalaciones</h5>
+              <p class="card-text">Programacion de Instalaciones, departamento de seguridad electronica, area tecnica.</p>
+              <a href="{% url 'instalaciones' %}" class="btn btn-primary">Hoja de Instalaciones</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Revistas Servir</h5>
+              <p class="card-text">Lisa de chequeo para revistas en los edificios que tienen servicio de porteria remota.</p>
+              <a href="{% url 'chequeo' %}" class="btn btn-primary">Lista de chequeo</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+{% endblock %}

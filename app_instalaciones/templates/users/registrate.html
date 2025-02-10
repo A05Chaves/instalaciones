@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+        App_Sesur
+{% endblock %}
+
+
+{% block content %}
+  
+    <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
+    <div class="col-12 col-lg-6 offset-lg-3">
+        <h1> Registro</h1>
+        <p class="text-danger">{{ error }}</p>
+        <form action="{% url 'registrate' %}" method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="nombre">Nombre</label>
+                <input type="text" class="form-control" id="nombre" name="nombre" required value="{{ nombre|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="apellido">Apellido</label>
+                <input type="text" class="form-control" id="apellido" name="apellido" required value="{{ apellido|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="username">Nombre de usuario</label>
+                <input type="text" class="form-control" id="v" name="username" required value="{{ username|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="email">Correo electrónico</label>
+                <input type="email" class="form-control" id="email" name="email" required value="{{ email|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Crear cuenta</button>
+        </form>
+        <br/>
+        <p>¿Ya tienes cuenta? <a href="{% url 'login' %}">Conéctate</a></p>
+    </div>
+
+{% endblock %}

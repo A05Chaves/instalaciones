@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+        App_Sesur
+{% endblock %}
+
+
+{% block content %}
+  
+    <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
+    <div class="container-fluid">
+        <h1> Instalaciones</h1>
+        
+        <table class="table table-dark table-striped table-hover table-bordered">
+            
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">PVG</th>
+                <th scope="col">FECHA</th>
+                <th scope="col">CODIGO</th>
+                <th scope="col">CLIENTE</th>
+                <th scope="col">CIUDAD</th>
+                <th scope="col">DIRECCION</th>
+                <th scope="col">TECNICOS</th>
+                <th scope="col">EJECUTIVO</th>
+              </tr>
+            </thead>
+        
+            <tbody>
+            {% for instalacion in instalaciones %}
+              <tr>
+                
+                <th scope="row">1</th>
+                
+                <td>{{instalacion.pvg}}</td>
+                <td>{{instalacion.fecha}}</td>
+                <td>{{instalacion.codigo}}</td>
+                <td>{{instalacion.cliente}}</td>
+                <td>{{instalacion.ciudad}}</td>
+                <td>{{instalacion.direccion}}</td>
+                <td>{{instalacion.tecnicos}}</td>
+                <td>{{instalacion.ejecutivo}}</td>
+                <td><button type="button" class="btn btn-success">Finalizar</button></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+                
+        
+    </div>
+  
+
+{% endblock %}

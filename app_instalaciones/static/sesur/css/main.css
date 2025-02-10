@@ -1,0 +1,30 @@
+html{
+    position:relative;
+    min-height: 100%;
+    padding-bottom:100px;
+}
+
+.prueba1{
+    background:radial-gradient(circle at 45.63% 50.38%, #c5fcff 0, #5389f2 50%, #002550 100%);
+}
+
+.titulo1{
+    color: rgb(40, 53, 66);
+    font-size: 60px;
+    font-family: Vegur, 'PT Sans', Verdana, sans-serif;
+    text-align: center;
+}
+
+footer{
+    position:absolute;
+    bottom:0;
+    width: 100%;
+    background: #444444;
+    color:white;
+    padding:10px;
+
+}
+footer a, footer a:hover{
+    color: #ffffff;
+    text-decoration: none;
+}
