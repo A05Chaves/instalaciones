@@ -1,30 +1,36 @@
-html{
-    position:relative;
+html {
+    position: relative;
     min-height: 100%;
-    padding-bottom:100px;
+    padding-bottom: 100px;
 }
 
-.prueba1{
-    background:radial-gradient(circle at 45.63% 50.38%, #c5fcff 0, #5389f2 50%, #002550 100%);
+.prueba1 {
+    background: radial-gradient(circle at 45.63% 50.38%, #c5fcff 0, #5389f2 50%, #002550 100%);
 }
 
-.titulo1{
-    color: rgb(40, 53, 66);
+.titulo1 {
+    color: rgb(7, 7, 7);
     font-size: 60px;
     font-family: Vegur, 'PT Sans', Verdana, sans-serif;
     text-align: center;
 }
 
-footer{
-    position:absolute;
-    bottom:0;
+footer {
+    position: absolute;
+    bottom: 0;
     width: 100%;
-    background: #444444;
-    color:white;
-    padding:10px;
+    background: #e6e5e5;
+    color: rgb(199, 190, 190);
+    padding: 10px;
 
 }
-footer a, footer a:hover{
-    color: #ffffff;
+
+footer a:hover {
+    color: #080808;
     text-decoration: none;
+}
+
+.fecha {
+    color: rgb(5, 5, 5);
+
 }
