@@ -1,85 +1,87 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-        App_Sesur
+App_Sesur
 {% endblock %}
 
 
 {% block content %}
-  
-    <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
-    <div class="col-12 col-lg-6 offset-lg-3">
-        <h1>Registro de Instalaciones</h1>
-        <p class="text-danger">{{ error }}</p>
-        <p class="text-success">{{ mensaje }}</p>
-        <form action="{% url 'registro_inst' %}" method="POST">
-          {% csrf_token %}
-            <div class="form-row">
-              <div class="form-group col-md-6">
-                <label for="inputPVG">PVG</label>
-                <input type="number" class="form-control" id="pvg" name="pvg" placeholder="numero de pedido" required value={{pvg|default:""}}>
-              </div>
-              <div class="form-group col-md-6">
-                <label for="date">FECHA</label>
-                <input type="datetime-local" class="form-control" id="fecha" name="fecha" value="fecha"/>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="inputCODIGO">CODIGO</label>
-              <input type="number" class="form-control" id="codigo" name="codigo" placeholder="ingrese abonado">
-            </div>
-            <div class="form-group">
-              <label for="inputCLIENTE">CLIENTE</label>
-              <input type="text" class="form-control" id="cliente" name="cliente" placeholder="razon social">
-            </div>
 
-            <div class="form-group">
-              <label for="inputCIUDAD">CIUDAD</label>
-              <input type="text" class="form-control" id="ciudad" name="ciudad" placeholder="sede">
-            </div>
-
-            <div class="form-group col-md-6">
-              <label for="inputDIRECCION">DIRECCION</label>
-              <input type="text" class="form-control" id="direccion" name="direccion">
-            </div>
-
-            <div class="form-row">
-              
-              
-              <div class="form-group col-md-4">
-                <label for="inputTECNICOS">TECNICO 1</label>
-                <select id="tecnicos" name="tecnico1" class="form-control">
-                  <option selected>...</option>
-                  <option>TECNICO A</option>
-                  <option>TECNICO B</option>
-                </select>
-              </div>
-              
-              <div class="form-group col-md-4">
-                <label for="inputTECNICOS">TECNICO 2</label>
-                <select id="inputTECNICOS" name="tecnico2" class="form-control">
-                  <option selected>...</option>
-                  <option>TECNICO A</option>
-                  <option>TECNICO B</option>
-                </select>
-              </div>
-              <div class="form-group col-md-4">
-                <label for="inputEJECUTIVO">EJECUTIVO</label>
-                <select id="inputEJECUTIVO" name="ejecutivo" class="form-control">
-                    <option selected>...</option>
-                    <option>EJECUTIVO A</option>
-                    <option>EJECUTIVO B</option>
-                  </select>
-              </div>
-            </div>
-
-
-              <div class="form-group col-md-2">
-                <label for="finalizacion" name="finalizacion">FINALIZACION</label>
-              </div>
-            
-            <button type="submit" class="btn btn-primary">Ingresar Instalacion</button>
-        </form>  
+<h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
+<div class="col-12 col-lg-6 offset-lg-3">
+  <h1>Registro de Instalaciones</h1>
+  <p class="text-danger">{{ error }}</p>
+  <p class="text-success">{{ mensaje }}</p>
+  <form action="{% url 'registro_inst' %}" method="POST">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group col-md-6">
+        <label for="inputPVG">PVG</label>
+        <input type="number" class="form-control" id="pvg" name="pvg" placeholder="numero de pedido" required
+          value={{pvg|default:""}}>
+      </div>
+      <div class="form-group col-md-6">
+        <label for="date">FECHA</label>
+        <input type="datetime-local" class="form-control" id="fecha" name="fecha" value="fecha" />
+      </div>
     </div>
+    <div class="form-group">
+      <label for="inputCODIGO">CODIGO</label>
+      <input type="number" class="form-control" id="codigo" name="codigo" placeholder="ingrese abonado">
+    </div>
+    <div class="form-group">
+      <label for="inputCLIENTE">CLIENTE</label>
+      <input type="text" class="form-control" id="cliente" name="cliente" placeholder="razon social">
+    </div>
+
+    <div class="form-group">
+      <label for="inputCIUDAD">CIUDAD</label>
+      <input type="text" class="form-control" id="ciudad" name="ciudad" placeholder="Ingrese Sede">
+    </div>
+
+    <div class="form-group">
+      <label for="inputDIRECCION">DIRECCION</label>
+      <input type="text" class="form-control" id="direccion" name="direccion">
+    </div>
+
+    <div class="form-row">
+
+
+      <div class="form-group col-md-4">
+        <label for="inputTECNICOS">TECNICO 1</label>
+        <select id="tecnicos" name="tecnico1" class="form-control">
+          <option selected>...</option>
+          <option>Ricardo Ascuntar</option>
+          <option>Giovanny Figueroa</option>
+        </select>
+      </div>
+
+      <div class="form-group col-md-4">
+        <label for="inputTECNICOS">TECNICO 2</label>
+        <select id="inputTECNICOS" name="tecnico2" class="form-control">
+          <option selected>...</option>
+          <option>Ricardo Ascuntar</option>
+          <option>Giovanny Figueroa</option>
+        </select>
+      </div>
+      <div class="form-group col-md-4">
+        <label for="inputEJECUTIVO">EJECUTIVO</label>
+        <select id="inputEJECUTIVO" name="ejecutivo" class="form-control">
+          <option selected>...</option>
+          <option>Francisco Silva</option>
+          <option>Andrea Trujillo</option>
+          <option>Yamile David</option>
+        </select>
+      </div>
+    </div>
+
+
+    <div class="form-group col-md-2">
+      <label for="finalizacion" name="finalizacion">FINALIZACION</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Ingresar Instalacion</button>
+  </form>
+</div>
 
 {% endblock %}

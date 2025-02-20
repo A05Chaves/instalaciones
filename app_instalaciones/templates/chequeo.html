@@ -7,7 +7,8 @@ App_Sesur
 
 {% block content %}
 
-<h1 class="titulo1">LISTA DE CHEQUEO EDIFICIOS 1</h1>
+<h1 class="titulo1">LISTA DE CHEQUEO EDIFICIOS</h1>
+&nbsp;
 <form>
     <div class="fecha">
         <label for="input">FECHA</label>&nbsp;&nbsp;
@@ -24,8 +25,12 @@ App_Sesur
             <input type="number" class="form-control" id="inputCode" placeholder="Codigo">
         </div>
         <div class="form-group col-md-2">
-            <label for="inputAddress">N° FORMULARIO</label>
-            <input type="number" class="form-control" id="inputCounter" placeholder="Formulario">
+            &nbsp;&nbsp;
+            <label for="inputAddress">NUMERO DE ORDEN</label>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <label for="inputAddress">0000001</label>
+            <!--<label for="list"> 000001</label>--->
+            <!-- <input type="number" class="form-control" id="inputCounter" placeholder="Formulario"> --->
         </div>
     </div>
     <div class="form-group">
@@ -33,38 +38,348 @@ App_Sesur
         <input type="text" class="form-control" id="inputAddress" placeholder="Direccion">
     </div>
     <div class="form-group">
-        <label for="inputDescription">DESCRIPCION</label>
-        <input type="text" class="form-control" id="inputDescription" placeholder="Ingrese descripcion de la visita">
+        <label for="inputDescription">TIPO DE VISITA</label>
+        <!--<input type="text" class="form-control" id="inputDescription" placeholder="Ingrese descripcion de la visita"> -->
+        <select id="inputState" class="form-control">
+            <option selected>...</option>
+            <option>Revista Programada</option>
+            <option>Mantenimiento preventivo</option>
+            <option>Mantenimiento correctivo</option>
+        </select>
     </div>
     <div class="form-row">
         <div class="form-group col-md-6">
-            <label for="inputCity">City</label>
+            <label for="inputCity">CIUDAD</label>
             <input type="text" class="form-control" id="inputCity">
         </div>
         <div class="form-group col-md-4">
-            <label for="inputState">State</label>
+            <label for="inputState">DEPARTAMENTO</label>
             <select id="inputState" class="form-control">
                 <option selected>Choose...</option>
-                <option>...</option>
+                <option>Nariño</option>
             </select>
         </div>
+        <!--
         <div class="form-group col-md-2">
             <label for="inputZip">Zip</label>
             <input type="text" class="form-control" id="inputZip">
         </div>
+        -->
     </div>
-    <div class="form-group">
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="gridCheck">
-            <label class="form-check-label" for="gridCheck">
-                Check me out
-            </label>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            <input class="form-check-input" type="checkbox" id="gridCheck">
-            <label class="form-check-label" for="gridCheck">
-                Check me out
-            </label>
-        </div>
+    <h2>LISTA DE TAREAS</h2>
+    <div class="d-flex p-2">
+        <table class="table table-light">
+            <thead>
+                <tr>
+                    <th scope="col">ITEM</th>
+                    <th scope="col">EQUIPO</th>
+                    <th scope="col">CANTIDAD</th>
+                    <th scope="col">ESTADO</th>
+                    <th scope="col">OBSERVACIÓN</th>
+
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">1</th>
+                    <td>FRENTE CALLE</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">2</th>
+                    <td>CONTROL DE ACCESO</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">3</th>
+                    <td>CIERRA PUERTAS</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">4</th>
+                    <td>ELECTROIMANES</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">5</th>
+                    <td>NVR/XVR</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">6</th>
+                    <td>CAMARAS</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">7</th>
+                    <td>MONITORES</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">8</th>
+                    <td>PUERTAS VEHICULARES</td>
+                    <td>
+                        <select class="form-select" aria-label="Default select example">
+                            <option selected>N/A</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox1" value="option1">
+                            <label class="form-check-label" for="inlineCheckbox1">Bueno</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="inlineCheckbox2" value="option2">
+                            <label class="form-check-label" for="inlineCheckbox2">Mant.</label>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-success">Subir Foto</button>
+                    </td>
+                </tr>
+
+            </tbody>
+        </table>
     </div>
     <button type="submit" class="btn btn-primary">Sign in</button>
 </form>
