@@ -1,1 +1,3 @@
-#from .cuadroInstalaciones import *
+from app_instalaciones import *
+
+

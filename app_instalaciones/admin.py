@@ -1,5 +1,6 @@
 from django.contrib import admin
-from app_instalaciones.models.cuadroInstalaciones import cuadroInst
+from app_instalaciones.models.cuadroInstalaciones import cuadroInst, listaCh
 
 #DE ESTA FORMA LA BASE QUE AGREGAMOS YA APARECE EN EL PANEL ADMINISTRATIVO
 admin.site.register(cuadroInst)
+admin.site.register(listaCh)
