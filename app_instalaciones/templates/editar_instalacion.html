@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block titulo %}Editar Instalación{% endblock %}
+{% block content %}
+
+<h2>Editar Instalación</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Guardar</button>
+    <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{% endblock %}
