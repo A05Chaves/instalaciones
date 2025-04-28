@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 
 # PAGINA INICIAL DEL PROYECTO
+# VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
 
 
 def home(request):
