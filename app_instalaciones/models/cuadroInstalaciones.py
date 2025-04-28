@@ -1,5 +1,4 @@
 from django.db import models
-#from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 
@@ -25,19 +24,36 @@ class CuadroInsta(models.Model):
         (4, "-----")
     ]
 
+    BODEGA = [
+        ("SI", "Sí"),
+        ("NO", "No")
+    ]
+
     pvg = models.IntegerField(default=0)
-    # Establecido como auto_now_add para que se registre automáticamente
     fecha = models.DateTimeField()
     codigo = models.IntegerField(default=0)
     cliente = models.CharField(max_length=100)
     ciudad = models.CharField(max_length=30)
     direccion = models.CharField(max_length=100)
-    tecnico1 = models.IntegerField(choices=TECNICOS, default=1)
-    tecnico2 = models.IntegerField(choices=TECNICOS, default=1)
-    ejecutivo = models.IntegerField(choices=EJECUTIVOS, default=1)
+    instalacion = models.TextField(null=True, blank=True)
+    dias_cotizados = models.IntegerField(null=True, blank=True)
+    cantidad_tecnicos = models.IntegerField(null=True, blank=True)
+    en_bodega = models.CharField(choices=BODEGA, max_length=2, default="NO")
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_terminacion = models.DateField(null=True, blank=True)
+    finaliza = models.DateField(null=True, blank=True)
+    orden = models.CharField(max_length=50, null=True, blank=True)
+    tecnico1 = models.IntegerField(
+        choices=TECNICOS, default=1)  # ✅ IntegerField
+    tecnico2 = models.IntegerField(
+        choices=TECNICOS, default=1)  # ✅ IntegerField
+    estado = models.CharField(max_length=50, null=True, blank=True)
+    observacion = models.TextField(null=True, blank=True)
+    ejecutivo = models.IntegerField(
+        choices=EJECUTIVOS, default=1)  # ✅ IntegerField
     finalizacion = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     usuario = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
-  
+
     def __str__(self):
         return f"Instalación #{self.codigo} - {self.cliente}"

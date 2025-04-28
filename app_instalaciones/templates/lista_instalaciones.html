@@ -1,119 +1,124 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-Lista de Instalaciones
+Lista de Instalaciones - App_Sesur
 {% endblock %}
 
 {% block content %}
-<h1>Lista de Instalaciones Registradas</h1>
+<h1 class="titulo1">Lista Completa de Instalaciones Registradas</h1>
 
-{% if messages %}
-{% for message in messages %}
-<div class="alert alert-{{ message.tags }} alert-dismissible fade show d-flex align-items-center auto-dismiss-alert"
-    role="alert"
-    style="border-left: 5px solid {% if message.tags == 'success' %}#198754{% elif message.tags == 'error' %}#dc3545{% elif message.tags == 'warning' %}#ffc107{% else %}#0d6efd{% endif %};">
-    <i class="fas 
-        {% if message.tags == 'success' %}fa-check-circle
-        {% elif message.tags == 'error' %}fa-times-circle
-        {% elif message.tags == 'warning' %}fa-exclamation-triangle
-        {% else %}fa-info-circle
-        {% endif %} me-2"></i>
-    <div>{{ message }}</div>
-    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+<div class="container-fluid">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if instalaciones %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-bordered align-middle">
+            <thead class="table-dark">
+                <tr class="text-center">
+                    <th>ID</th>
+                    <th>PVG</th>
+                    <th>Fecha de Ingreso</th>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Ciudad</th>
+                    <th>Dirección</th>
+                    <th>Instalación</th>
+                    <th>Días Cotizados</th>
+                    <th>Cantidad Técnicos</th>
+                    <th>¿En Bodega?</th>
+                    <th>Fecha Inicio</th>
+                    <th>Fecha Terminación</th>
+                    <th>Finaliza</th>
+                    <th>Orden</th>
+                    <th>Técnicos</th>
+                    <th>Estado</th>
+                    <th>Observación</th>
+                    <th>Ejecutivo</th>
+                    <th>Finalización</th>
+                    <th>Usuario</th>
+                    <th>Actualizado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for instalacion in instalaciones %}
+                <tr>
+                    <td class="text-center">{{ instalacion.id }}</td>
+                    <td class="text-center">{{ instalacion.pvg }}</td>
+                    <td class="text-center">{{ instalacion.fecha|date:"Y-m-d H:i" }}</td>
+                    <td class="text-center">{{ instalacion.codigo }}</td>
+                    <td>{{ instalacion.cliente }}</td>
+                    <td>{{ instalacion.ciudad }}</td>
+                    <td>{{ instalacion.direccion }}</td>
+                    <td>{{ instalacion.instalacion|default:"-" }}</td>
+                    <td class="text-center">{{ instalacion.dias_cotizados|default:"-" }}</td>
+                    <td class="text-center">{{ instalacion.cantidad_tecnicos|default:"-" }}</td>
+                    <td class="text-center">{{ instalacion.en_bodega|default:"-" }}</td>
+                    <td class="text-center">{{ instalacion.fecha_inicio|date:"Y-m-d" }}</td>
+                    <td class="text-center">{{ instalacion.fecha_terminacion|date:"Y-m-d" }}</td>
+                    <td class="text-center">
+                        {% if instalacion.finaliza %}
+                        {{ instalacion.finaliza|date:"Y-m-d" }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">{{ instalacion.orden|default:"-" }}</td>
+                    <td>
+                        <div class="text-center">
+                            {% if instalacion.get_tecnico1_display %}
+                            <i class="fas fa-user-gear"></i> {{ instalacion.get_tecnico1_display }}
+                            {% endif %}
+                            <br>
+                            {% if instalacion.get_tecnico2_display %}
+                            <i class="fas fa-user-gear"></i> {{ instalacion.get_tecnico2_display }}
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <td>{{ instalacion.estado|default:"-" }}</td>
+                    <td>{{ instalacion.observacion|default:"-" }}</td>
+                    <td>
+                        <i class="fas fa-user-tie"></i> {{ instalacion.get_ejecutivo_display }}
+                    </td>
+                    <td class="text-center">
+                        {% if instalacion.finalizacion %}
+                        {{ instalacion.finalizacion|date:"Y-m-d H:i" }}
+                        {% else %}
+                        Pendiente
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ instalacion.usuario }}</td>
+                    <td class="text-center">{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td class="text-center">
+                        {% if request.user.is_staff %}
+                        <a href="{% url 'editar_instalacion' instalacion.id %}" class="btn btn-sm btn-warning"
+                            title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'eliminar_instalacion' instalacion.id %}" class="btn btn-sm btn-danger"
+                            title="Eliminar"
+                            onclick="return confirm('¿Estás seguro de que deseas eliminar esta instalación?');">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                        {% else %}
+                        <span>-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No hay instalaciones registradas aún.</p>
+    {% endif %}
 </div>
-{% endfor %}
-{% endif %}
-
-{% if instalaciones %}
-<div class="table-responsive">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>PVG</th>
-                <th>Fecha de Ingreso</th>
-                <th>Código</th>
-                <th>Cliente</th>
-                <th>Ciudad</th>
-                <th>Dirección</th>
-                <th>Técnicos</th>
-                <th>Ejecutivo</th>
-                <th>Finalización</th>
-                <th>Usuario</th>
-                <th>Actualizado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for instalacion in instalaciones %}
-            <tr>
-                <td>{{ instalacion.id }}</td>
-                <td>{{ instalacion.pvg }}</td>
-                <td>{{ instalacion.fecha|date:"Y-m-d H:i:s" }}</td>
-                <td>{{ instalacion.codigo }}</td>
-                <td>{{ instalacion.cliente }}</td>
-                <td>{{ instalacion.ciudad }}</td>
-                <td>{{ instalacion.direccion }}</td>
-                <td>
-                    <span class="d-block mb-1">
-                        <i class="fas fa-user-gear" style="color: #0d6efd;"></i>
-                        <span style="color: black;">{{ instalacion.get_tecnico1_display }}</span>
-                    </span>
-                    {% if instalacion.get_tecnico2_display %}
-                    <span class="d-block">
-                        <i class="fas fa-user-gear" style="color: #0d6efd;"></i>
-                        <span style="color: black;">{{ instalacion.get_tecnico2_display }}</span>
-                    </span>
-                    {% endif %}
-                </td>
-                <td>
-                    <i class="fas fa-user-tie" style="color: #0d6efd;"></i>
-                    <span style="color: black;">{{ instalacion.get_ejecutivo_display }}</span>
-                </td>
-                <td>
-                    {% if instalacion.finalizacion %}
-                    {{ instalacion.finalizacion|date:"Y-m-d H:i:s" }}
-                    {% else %}
-                    Pendiente
-                    {% endif %}
-                </td>
-                <td>{{ instalacion.usuario }}</td>
-                <td>{{ instalacion.updated_at|date:"Y-m-d H:i:s" }}</td>
-
-                {% if request.user.is_staff %}
-                <td>
-                    <a href="{% url 'editar_instalacion' instalacion.id %}" class="btn btn-sm btn-warning me-1"
-                        title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <a href="{% url 'eliminar_instalacion' instalacion.id %}" class="btn btn-sm btn-danger"
-                        title="Eliminar"
-                        onclick="return confirm('¿Estás seguro de que deseas eliminar esta instalación?');">
-                        <i class="fas fa-trash-alt"></i>
-                    </a>
-                </td>
-                {% else %}
-                <td>-</td>
-                {% endif %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<p>No hay instalaciones registradas aún.</p>
-{% endif %}
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Cierra las alertas automáticamente después de 3 segundos
-    setTimeout(function () {
-        const alerts = document.querySelectorAll('.auto-dismiss-alert');
-        alerts.forEach(function (alert) {
-            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-            bsAlert.close();
-        });
-    }, 3000);
-</script>
 {% endblock %}

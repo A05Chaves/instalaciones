@@ -72,3 +72,54 @@ def eliminar_instalacion(request, id):
     instalacion.delete()
     messages.success(request, "Instalación eliminada correctamente.")
     return redirect('lista_instalaciones')
+
+
+# se utiliza para importar los archivos excel en la vista de carga de excel
+
+@login_required
+def importar_instalaciones(request):
+    if request.method == 'POST':
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = request.FILES['archivo_excel']
+
+            try:
+                # Leer el archivo Excel
+                df = pd.read_excel(archivo)
+
+                # Iterar y crear instalaciones
+                for index, row in df.iterrows():
+                    CuadroInsta.objects.create(
+                        pvg=row.get('pvg', 0),
+                        fecha=row.get('fecha'),
+                        codigo=row.get('codigo', 0),
+                        cliente=row.get('cliente', ''),
+                        ciudad=row.get('ciudad', ''),
+                        direccion=row.get('direccion', ''),
+                        instalacion=row.get('instalacion', ''),
+                        dias_cotizados=row.get('dias_cotizados', 0),
+                        cantidad_tecnicos=row.get('cantidad_tecnicos', 0),
+                        en_bodega=row.get('en_bodega', 'NO'),
+                        fecha_inicio=row.get('fecha_inicio'),
+                        fecha_terminacion=row.get('fecha_terminacion'),
+                        finaliza=row.get('finaliza'),
+                        orden=row.get('orden', ''),
+                        tecnico1=row.get('tecnico1', 1),
+                        tecnico2=row.get('tecnico2', 1),
+                        estado=row.get('estado', ''),
+                        observacion=row.get('observacion', ''),
+                        ejecutivo=row.get('ejecutivo', 1),
+                        finalizacion=row.get('finalizacion'),
+                        usuario=request.user  # Usuario que hace la carga
+                    )
+
+                messages.success(
+                    request, "✅ Instalaciones importadas exitosamente.")
+                return redirect('lista_instalaciones')
+            except Exception as e:
+                messages.error(request, f"❌ Error al importar: {e}")
+
+    else:
+        form = ExcelUploadForm()
+
+    return render(request, 'importar_instalaciones.html', {'form': form})

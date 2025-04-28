@@ -11,9 +11,12 @@ urlpatterns = [
     path('login/', user_views.login, name='login'),
     path('registrate/', user_views.registrate, name='registrate'),
     path('logout/', user_views.logout, name='logout'),
-    path('lista_instalaciones/', views.lista_instalaciones, name='lista_instalaciones'),
-    path('instalacion/editar/<int:id>/', views.editar_instalacion, name='editar_instalacion'),
-    path('instalacion/eliminar/<int:id>/', views.eliminar_instalacion, name='eliminar_instalacion'),
+    path('lista_instalaciones/', views.lista_instalaciones,
+         name='lista_instalaciones'),
+    path('instalacion/editar/<int:id>/',
+         views.editar_instalacion, name='editar_instalacion'),
+    path('instalacion/eliminar/<int:id>/',
+         views.eliminar_instalacion, name='eliminar_instalacion'),
+    # path('importar/', views.importar_instalaciones,name = 'importar_instalaciones'),
 
-    
 ]

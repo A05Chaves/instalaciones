@@ -1,13 +1,47 @@
 {% extends 'base.html' %}
-{% block titulo %}Editar Instalación{% endblock %}
+
+{% load widget_tweaks %}
+
+{% block titulo %}
+Editar Instalación - App_Sesur
+{% endblock %}
+
 {% block content %}
+<h1 class="titulo1">Editar Instalación</h1>
 
-<h2>Editar Instalación</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-success">Guardar</button>
-    <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">Cancelar</a>
-</form>
+<div class="container col-12 col-lg-6 offset-lg-3">
+    <h1>Editar Instalación ID {{ instalacion.id }}</h1>
 
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="POST" action="{% url 'editar_instalacion' instalacion.id %}">
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div class="form-group mb-3">
+            {{ field.label_tag }}
+
+            {% if field.errors %}
+            {{ field|add_class:"form-control is-invalid" }}
+            <div class="invalid-feedback d-block">
+                {% for error in field.errors %}
+                <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+            {% else %}
+            {{ field|add_class:"form-control" }}
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-success">Guardar Cambios</button>
+        <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
 {% endblock %}

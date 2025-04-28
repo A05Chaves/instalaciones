@@ -8,6 +8,7 @@ Registro de Instalaciones - App_Sesur
 
 {% block content %}
 <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
+
 <div class="container col-12 col-lg-6 offset-lg-3">
   <h1>Registro de Instalaciones</h1>
 
@@ -19,149 +20,25 @@ Registro de Instalaciones - App_Sesur
   {% endfor %}
   {% endif %}
 
-  <form action="{% url 'registro_inst' %}" method="POST">
+  <form method="POST" action="{% url 'registro_inst' %}">
     {% csrf_token %}
 
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="pvg">PVG</label>
-        <input type="number" class="form-control {% if form.pvg.errors %}is-invalid{% endif %}" id="pvg" name="pvg"
-          value="{{ form.pvg.value|default_if_none:'' }}" required>
-        {% if form.pvg.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.pvg.errors %}
-          <span>{{ error }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-      <div class="form-group col-md-6">
-        <label for="fecha">Fecha</label>
-        <input type="datetime-local" class="form-control {% if form.fecha.errors %}is-invalid{% endif %}" id="fecha"
-          name="fecha" value="{{ form.fecha.value|default_if_none:'' }}" required>
-        {% if form.fecha.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.fecha.errors %}
-          <span>{{ error }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
+    {% for field in form %}
+    <div class="form-group mb-3">
+      {{ field.label_tag }}
 
-    <div class="form-group">
-      <label for="codigo">Código</label>
-      <input type="number" class="form-control {% if form.codigo.errors %}is-invalid{% endif %}" id="codigo"
-        name="codigo" value="{{ form.codigo.value|default_if_none:'' }}">
-      {% if form.codigo.errors %}
+      {% if field.errors %}
+      {{ field|add_class:"form-control is-invalid" }}
       <div class="invalid-feedback d-block">
-        {% for error in form.codigo.errors %}
+        {% for error in field.errors %}
         <span>{{ error }}</span>
         {% endfor %}
       </div>
+      {% else %}
+      {{ field|add_class:"form-control" }}
       {% endif %}
     </div>
-
-    <div class="form-group">
-      <label for="cliente">Cliente</label>
-      <input type="text" class="form-control {% if form.cliente.errors %}is-invalid{% endif %}" id="cliente"
-        name="cliente" value="{{ form.cliente.value|default_if_none:'' }}">
-      {% if form.cliente.errors %}
-      <div class="invalid-feedback d-block">
-        {% for error in form.cliente.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-
-    <div class="form-group">
-      <label for="ciudad">Ciudad</label>
-      <input type="text" class="form-control {% if form.ciudad.errors %}is-invalid{% endif %}" id="ciudad"
-        name="ciudad" value="{{ form.ciudad.value|default_if_none:'' }}">
-      {% if form.ciudad.errors %}
-      <div class="invalid-feedback d-block">
-        {% for error in form.ciudad.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-
-    <div class="form-group">
-      <label for="direccion">Dirección</label>
-      <input type="text" class="form-control {% if form.direccion.errors %}is-invalid{% endif %}" id="direccion"
-        name="direccion" value="{{ form.direccion.value|default_if_none:'' }}">
-      {% if form.direccion.errors %}
-      <div class="invalid-feedback d-block">
-        {% for error in form.direccion.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-
-    <div class="form-row">
-      <div class="form-group col-md-6">
-        <label for="tecnico1">Técnico 1</label>
-        <select class="form-control {% if form.tecnico1.errors %}is-invalid{% endif %}" id="tecnico1" name="tecnico1">
-          {% for key, name in form.fields.tecnico1.choices %}
-          <option value="{{ key }}" {% if form.tecnico1.value == key %}selected{% endif %}>{{ name }}</option>
-          {% endfor %}
-        </select>
-        {% if form.tecnico1.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.tecnico1.errors %}
-          <span>{{ error }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-      <div class="form-group col-md-6">
-        <label for="tecnico2">Técnico 2</label>
-        <select class="form-control {% if form.tecnico2.errors %}is-invalid{% endif %}" id="tecnico2" name="tecnico2">
-          {% for key, name in form.fields.tecnico2.choices %}
-          <option value="{{ key }}" {% if form.tecnico2.value == key %}selected{% endif %}>{{ name }}</option>
-          {% endfor %}
-        </select>
-        {% if form.tecnico2.errors %}
-        <div class="invalid-feedback d-block">
-          {% for error in form.tecnico2.errors %}
-          <span>{{ error }}</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="ejecutivo">Ejecutivo</label>
-      <select class="form-control {% if form.ejecutivo.errors %}is-invalid{% endif %}" id="ejecutivo" name="ejecutivo">
-        {% for key, name in form.fields.ejecutivo.choices %}
-        <option value="{{ key }}" {% if form.ejecutivo.value == key %}selected{% endif %}>{{ name }}</option>
-        {% endfor %}
-      </select>
-      {% if form.ejecutivo.errors %}
-      <div class="invalid-feedback d-block">
-        {% for error in form.ejecutivo.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-
-    <div class="form-group">
-      <label for="finalizacion">Finalización</label>
-      <input type="datetime-local" class="form-control {% if form.finalizacion.errors %}is-invalid{% endif %}"
-        id="finalizacion" name="finalizacion" value="{{ form.finalizacion.value|default_if_none:'' }}">
-      {% if form.finalizacion.errors %}
-      <div class="invalid-feedback d-block">
-        {% for error in form.finalizacion.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
+    {% endfor %}
 
     <button type="submit" class="btn btn-primary">Registrar</button>
   </form>
