@@ -125,3 +125,18 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/login/'
+
+"""
+# configuracion de correo para envio de recuperacion de contraseña
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  # o el proveedor que uses
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'tu_correo@gmail.com'
+EMAIL_HOST_PASSWORD = 'tu_contraseña'
+DEFAULT_FROM_EMAIL = 'Sistema <tu_correo@gmail.com>'
+"""
+
+
+# enlace para hacer pruebas locales
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -1,75 +1,96 @@
+from django.shortcuts import render, redirect
+from django.contrib.auth.models import User, Group
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.urls import reverse
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from django.shortcuts import  redirect, render
+from django.shortcuts import redirect, render
+
+# MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
 
-#METODO PARA INGRESAR AL MODULO DE REGISTRO DE INSTALACIONES
 def login(request):
+    if request.user.is_authenticated:
+        return redirect('registro_inst')  # ya está logueado
+
     contexto = {}
-    #este condicional funciona valildando la informacion que viene del registro de usuario
+
     if request.method == "GET":
-        greetings =  request.GET.get('greetings')
-        print("greetins: {}".format('greetings'))
+        greetings = request.GET.get('greetings')
+        print("greetings: {}".format(greetings))
         if greetings == "true":
-            contexto['mensaje'] = "!!!!!!!!Cuenta creada correctamente, autenticate"
-    #esta condicion funciona para validar si el usuario ya existe y no puede ingresar
+            contexto['mensaje'] = "¡Cuenta creada correctamente! Autentícate para continuar."
     else:
         username = request.POST.get('username')
         password = request.POST.get('password')
-        #con esta sentencia se busca el usuario en la base de datos para validar y entrar.
+
         user = authenticate(request, username=username, password=password)
-        #este condicional valida si el usurio existe y si en este caso es true, lo lleva a la pagina de registro de instalaciones
-      
         if user is not None:
             auth_login(request, user)
-            return render(request, "registro_inst.html")
-            #return redirect(reverse('registro_inst'))
+            return redirect('registro_inst')
         else:
-            contexto['error'] = "Valide su clave y contraseña"
-       
+            contexto['error'] = "Usuario o contraseña incorrectos. Intenta nuevamente."
+
     return render(request, "users/login.html", contexto)
 
-#METODO PARA REGISTRAR USUARIOS A LA BASE DE DATOS
+# METODO PARA REGISTRAR USUARIOS A LA BASE DE DATOS
+
+
 def registrate(request):
-    
     contexto = {}
-    
-    if request.method =="POST":
-        print("post")
+
+    if request.method == "POST":
         nombre = request.POST.get('nombre')
         apellido = request.POST.get('apellido')
         username = request.POST.get('username')
         email = request.POST.get('email')
         password = request.POST.get('password')
-        #vamos a verificar que el usuario no este duplicado
-        user_exist = User.objects.filter(username = username).exists()
-        if user_exist:
-            error = "El usuario ingresado ya existe"
-            contexto['error'] = error
-            #de esta forma el fomulario no pierde la informacion al mostrarse el error
-            contexto['nombre'] = nombre
-            contexto['apellido'] = apellido
-            contexto['username'] = username
-            contexto['email'] = email
-        else:
-            #este metodo lo utilizamos solo para ver si se imprime en pantalla lo ingresado 
-            print("Crear usuario")
-            #ahora vamos a crear el usuario
-            User.objects.create_user(username, email, password, first_name = nombre, last_name = apellido)
-            #esta parte se crea para que se muestre un mensaje cuando se crea la cuenta correctamente
-            url = "{}?greetings=true".format(reverse('login'))
-            return redirect(url)
-            
-    else:
-        print("get")
-    
-    
+        confirm_password = request.POST.get('confirm_password')
+
+        # Verificación: contraseñas coinciden
+        if password != confirm_password:
+            contexto['error'] = "Las contraseñas no coinciden."
+            contexto.update({'nombre': nombre, 'apellido': apellido,
+                            'username': username, 'email': email})
+            return render(request, "users/registrate.html", contexto)
+
+        # Verificación: seguridad de la contraseña
+        if len(password) < 8:
+            contexto['error'] = "La contraseña debe tener al menos 8 caracteres."
+        elif not re.search(r"[A-Za-z]", password):
+            contexto['error'] = "La contraseña debe incluir al menos una letra."
+        elif not re.search(r"\d", password):
+            contexto['error'] = "La contraseña debe incluir al menos un número."
+        # elif not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        #     contexto['error'] = "La contraseña debe incluir al menos un carácter especial."  # opcional
+
+        if 'error' in contexto:
+            contexto.update({'nombre': nombre, 'apellido': apellido,
+                            'username': username, 'email': email})
+            return render(request, "users/registrate.html", contexto)
+
+        # Verificación: usuario duplicado
+        if User.objects.filter(username=username).exists():
+            contexto['error'] = "El usuario ingresado ya existe."
+            contexto.update({'nombre': nombre, 'apellido': apellido,
+                            'username': username, 'email': email})
+            return render(request, "users/registrate.html", contexto)
+
+        # Crear usuario
+        user = User.objects.create_user(
+            username, email, password, first_name=nombre, last_name=apellido)
+
+        grupo_visores, _ = Group.objects.get_or_create(name='Visor')
+        user.groups.add(grupo_visores)
+
+        return redirect(f"{reverse('login')}?greetings=true")
+
     return render(request, "users/registrate.html", contexto)
 
-#METODO PARA SALIR COMO USUARIO REGISTRADO
+# METODO PARA SALIR COMO USUARIO REGISTRADO
+
+
 def logout(request):
     auth_logout(request)
     return redirect(reverse('home'))
