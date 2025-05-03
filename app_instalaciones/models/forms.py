@@ -73,3 +73,9 @@ class CuadroInstaForm(forms.ModelForm):
         if CuadroInsta.objects.filter(pvg=pvg).exists():
             raise ValidationError("El PVG ingresado ya está registrado.")
         return pvg
+
+# subir informacion de instalacinoes con excel 2 de mayo 2025
+
+
+class ExcelUploadForm(forms.Form):
+    archivo_excel = forms.FileField(label="Selecciona un archivo Excel")

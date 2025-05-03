@@ -140,3 +140,12 @@ DEFAULT_FROM_EMAIL = 'Sistema <tu_correo@gmail.com>'
 
 # enlace para hacer pruebas locales
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Tiempo en segundos (por ejemplo, 10 minutos)
+SESSION_COOKIE_AGE = 600  # 10 minutos
+
+# La sesión se elimina al cerrar el navegador (opcional)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Asegúrate de tener activado el almacenamiento de sesiones en la base de datos
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'

@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import path
 from app_instalaciones.home_views import views, user_views
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import LogoutView
 
 
 urlpatterns = [
@@ -27,5 +28,6 @@ urlpatterns = [
         template_name='users/password_reset_confirm.html'), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='users/password_reset_complete.html'), name='password_reset_complete'),
-
+    path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
+    path('importar-excel/', views.importar_excel, name='importar_excel'),
 ]

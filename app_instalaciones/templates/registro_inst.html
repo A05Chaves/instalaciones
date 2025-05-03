@@ -9,6 +9,14 @@ Registro de Instalaciones - App_Sesur
 {% block content %}
 <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
 
+{% if request.user.is_superuser %}
+<div class="text-end mb-3">
+  <a href="{% url 'importar_excel' %}" class="btn btn-success">
+    <i class="fas fa-file-excel"></i> Importar desde Excel
+  </a>
+</div>
+{% endif %}
+
 <div class="container col-12 col-lg-6 offset-lg-3">
   <h1>Registro de Instalaciones</h1>
 

@@ -1,10 +1,11 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from app_instalaciones.models.forms import CuadroInstaForm
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
+from app_instalaciones.models.forms import CuadroInstaForm, ExcelUploadForm
+from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, RegistroImportacion
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
+import openpyxl
 
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
@@ -74,52 +75,61 @@ def eliminar_instalacion(request, id):
     return redirect('lista_instalaciones')
 
 
-# se utiliza para importar los archivos excel en la vista de carga de excel
+# se utiliza para importar los archivos excel en la vista de carga de excel 2 de mayo 2025
 
-@login_required
-def importar_instalaciones(request):
+@user_passes_test(lambda u: u.is_superuser)
+def importar_excel(request):
     if request.method == 'POST':
         form = ExcelUploadForm(request.POST, request.FILES)
         if form.is_valid():
             archivo = request.FILES['archivo_excel']
+            nombre = archivo.name
 
-            try:
-                # Leer el archivo Excel
-                df = pd.read_excel(archivo)
-
-                # Iterar y crear instalaciones
-                for index, row in df.iterrows():
-                    CuadroInsta.objects.create(
-                        pvg=row.get('pvg', 0),
-                        fecha=row.get('fecha'),
-                        codigo=row.get('codigo', 0),
-                        cliente=row.get('cliente', ''),
-                        ciudad=row.get('ciudad', ''),
-                        direccion=row.get('direccion', ''),
-                        instalacion=row.get('instalacion', ''),
-                        dias_cotizados=row.get('dias_cotizados', 0),
-                        cantidad_tecnicos=row.get('cantidad_tecnicos', 0),
-                        en_bodega=row.get('en_bodega', 'NO'),
-                        fecha_inicio=row.get('fecha_inicio'),
-                        fecha_terminacion=row.get('fecha_terminacion'),
-                        finaliza=row.get('finaliza'),
-                        orden=row.get('orden', ''),
-                        tecnico1=row.get('tecnico1', 1),
-                        tecnico2=row.get('tecnico2', 1),
-                        estado=row.get('estado', ''),
-                        observacion=row.get('observacion', ''),
-                        ejecutivo=row.get('ejecutivo', 1),
-                        finalizacion=row.get('finalizacion'),
-                        usuario=request.user  # Usuario que hace la carga
-                    )
-
-                messages.success(
-                    request, "✅ Instalaciones importadas exitosamente.")
+            # Verificar si el archivo ya fue importado
+            if RegistroImportacion.objects.filter(nombre_archivo=nombre).exists():
+                messages.warning(
+                    request, f"⚠️ El archivo '{nombre}' ya fue cargado anteriormente.")
                 return redirect('lista_instalaciones')
-            except Exception as e:
-                messages.error(request, f"❌ Error al importar: {e}")
 
+            wb = openpyxl.load_workbook(archivo)
+            hoja = wb.active
+
+            for fila in hoja.iter_rows(min_row=11, values_only=True):
+                if fila[0] is None:
+                    continue
+
+                CuadroInsta.objects.create(
+                    fecha_pvg=fila[0],
+                    pvg=fila[1],
+                    codigo=fila[2],
+                    cliente=fila[3],
+                    ciudad=fila[4],
+                    instalacion=fila[5],
+                    dias_cotizados=fila[6],
+                    cantidad_tecnicos=fila[7],
+                    en_bodega=fila[8],
+                    fecha_inicio=fila[9],
+                    fecha_terminacion=fila[10],
+                    finaliza=fila[11],
+                    orden=fila[12],
+                    tecnico=fila[13],
+                    estado=fila[14],
+                    observacion=fila[15],
+                    pendientes=fila[16],
+                    qtecnicos=fila[17],
+                    indicador=fila[18]
+                )
+
+            # Registrar la importación
+            RegistroImportacion.objects.create(
+                nombre_archivo=nombre,
+                usuario=request.user
+            )
+
+            messages.success(
+                request, f"✅ El archivo '{nombre}' fue importado exitosamente.")
+            return redirect('lista_instalaciones')
     else:
         form = ExcelUploadForm()
 
-    return render(request, 'importar_instalaciones.html', {'form': form})
+    return render(request, 'importar_excel.html', {'form': form})

@@ -34,3 +34,9 @@ footer a:hover {
     color: rgb(5, 5, 5);
 
 }
+
+thead.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}

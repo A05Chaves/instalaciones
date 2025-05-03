@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <h3>Importar archivo Excel</h3>
+
+    {% if request.user.is_superuser %}
+    <div class="mb-4 text-end">
+        <a href="{% static 'plantillas/plantilla_importacion_instalaciones.xlsx' %}" class="btn btn-success" download>
+            <i class="fas fa-file-excel"></i> Descargar Plantilla
+        </a>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-success" data-bs-toggle="tooltip" data-bs-placement="top" title="📌 Instrucciones:
+        - Usa la plantilla proporcionada.
+        - Formato de fecha: YYYY-MM-DD.
+        - Campos obligatorios: PVG, Código, Cliente, Ciudad, Instalación, Fecha Inicio, Estado.">
+            Importar
+        </button>
+
+    </form>
+</div>
+{% endblock %}

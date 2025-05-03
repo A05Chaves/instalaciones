@@ -57,3 +57,14 @@ class CuadroInsta(models.Model):
 
     def __str__(self):
         return f"Instalación #{self.codigo} - {self.cliente}"
+
+    # guarda los registros de importacion de archivos excel
+
+
+class RegistroImportacion(models.Model):
+    nombre_archivo = models.CharField(max_length=255, unique=True)
+    fecha_importacion = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.nombre_archivo} - {self.fecha_importacion.strftime('%Y-%m-%d %H:%M')}"
