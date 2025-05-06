@@ -20,12 +20,16 @@ Editar Instalación - App_Sesur
     {% endfor %}
     {% endif %}
 
-    <!-- Mostrar errores generales -->
+    <!-- Mostrar errores generales del formulario -->
     {% if form.non_field_errors %}
-    <div class="alert alert-danger">
-        {% for error in form.non_field_errors %}
-        <p>{{ error }}</p>
-        {% endfor %}
+    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <div>
+            {% for error in form.non_field_errors %}
+            <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
     </div>
     {% endif %}
 
@@ -49,8 +53,14 @@ Editar Instalación - App_Sesur
         </div>
         {% endfor %}
 
-        <button type="submit" class="btn btn-success">Guardar Cambios</button>
-        <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">Cancelar</a>
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
+                <i class="fas fa-times-circle"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save"></i> Guardar Cambios
+            </button>
+        </div>
     </form>
 </div>
 {% endblock %}

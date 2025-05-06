@@ -14,7 +14,19 @@ App_Sesur
         <h5 class="card-title">Registrar Instalaciones</h5>
         <p class="card-text">Espacion reservado para el programador de Instalaciones, si va ingresar en este espacion
           debel ingresar su usuario y contraseña.</p>
-        <a href="{% url 'login' %}" class="btn btn-primary">Registrar</a>
+        {% if request.user.is_authenticated %}
+        {% if not request.user.groups.all.0.name == "Visor" %}
+        <a href="{% url 'registro_inst' %}" class="btn btn-primary">Registrar Instalación</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled title="No tienes permisos para registrar">
+          Registrar Instalación
+        </button>
+        {% endif %}
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary">Iniciar sesión para registrar</a>
+        {% endif %}
+
+
       </div>
     </div>
   </div>

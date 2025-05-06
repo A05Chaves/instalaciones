@@ -15,12 +15,19 @@ from django.http import HttpResponse
 
 
 def home(request):
-    contexto = {}
-    return render(request, "home.html", contexto)
+    if not request.user.is_authenticated:
+        return redirect('login')  # 🔒 redirige al login si no está autenticado
+    # ✅ muestra home si ya está autenticado
+    return render(request, "home.html")
 
 
 @login_required
 def registro_inst(request):
+    if request.user.groups.filter(name='Visor').exists():
+        messages.warning(
+            request, "⚠️ No tienes permisos para registrar instalaciones.")
+        return redirect('home')
+
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST)
         if form.is_valid():
@@ -34,11 +41,13 @@ def registro_inst(request):
                 request, 'Por favor, corrige los errores en el formulario.')
     else:
         form = CuadroInstaForm()
+
     return render(request, 'registro_inst.html', {'form': form})
 
 
 def lista_instalaciones(request):
     # Obtener todas las instalaciones ordenadas por fecha
+    # pylint: disable=no-member
     instalaciones = CuadroInsta.objects.all().order_by(
         '-id')  # pylint: disable=no-member
     return render(request, 'lista_instalaciones.html', {'instalaciones': instalaciones})
@@ -58,6 +67,7 @@ def editar_instalacion(request, id):
         form = CuadroInstaForm(request.POST, instance=instalacion)
         if form.is_valid():
             nuevo_pvg = form.cleaned_data['pvg']
+            # pylint: disable=no-member
             if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():
                 messages.error(
                     request, f"⚠️ Ya existe una instalación con el PVG {nuevo_pvg}.")
@@ -93,7 +103,7 @@ def importar_excel(request):
         if form.is_valid():
             archivo = request.FILES['archivo_excel']
             nombre = archivo.name
-
+            # pylint: disable=no-member
             if RegistroImportacion.objects.filter(nombre_archivo=nombre).exists():
                 messages.warning(
                     request, f"⚠️ El archivo '{nombre}' ya fue cargado anteriormente.")

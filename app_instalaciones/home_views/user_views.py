@@ -1,3 +1,4 @@
+import re
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.models import User
@@ -12,7 +13,7 @@ from django.shortcuts import redirect, render
 
 def login(request):
     if request.user.is_authenticated:
-        return redirect('registro_inst')  # ya está logueado
+        return redirect('home')  # ya está logueado
 
     contexto = {}
 
@@ -28,7 +29,7 @@ def login(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             auth_login(request, user)
-            return redirect('registro_inst')
+            return redirect('home')
         else:
             contexto['error'] = "Usuario o contraseña incorrectos. Intenta nuevamente."
 
