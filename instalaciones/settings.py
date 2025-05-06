@@ -71,7 +71,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'instalaciones.wsgi.application'
 
+# Bases de datos RAilway
 
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get(
+            "DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600
+    )
+}
+
+""""
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -81,7 +91,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
+"""
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -150,3 +160,15 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # Asegúrate de tener activado el almacenamiento de sesiones en la base de datos
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+
+# Archivos para conexion railway
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+# se utiliza para usar archivos multimedia como imagenes, videos, etc
+""""
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+"""
