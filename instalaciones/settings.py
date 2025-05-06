@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+# from dotenv import load_dotenv  # type: ignore
+# load_dotenv()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -70,7 +73,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'instalaciones.wsgi.application'
-
+"""
 # Bases de datos RAilway
 
 DATABASES = {
@@ -81,7 +84,7 @@ DATABASES = {
     )
 }
 
-""""
+"""
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -91,7 +94,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-"""
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -161,14 +164,20 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Asegúrate de tener activado el almacenamiento de sesiones en la base de datos
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-
+""""
 # Archivos para conexion railway
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
 # se utiliza para usar archivos multimedia como imagenes, videos, etc
-""""
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+SECRET_KEY = mi_clave_secreta_segura
+DEBUG = True
+ALLOWED_HOSTS = 127.0.0.1, localhost
+
 """

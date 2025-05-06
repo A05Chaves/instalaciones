@@ -7,12 +7,14 @@ class CuadroInstaForm(forms.ModelForm):
     fecha = forms.DateTimeField(
         widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
     )
+    """
     finalizacion = forms.DateTimeField(
         label='Fecha de Finalización (opcional)',
         input_formats=['%Y-%m-%dT%H:%M'],
         widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
         required=False
     )
+    """
     fecha_inicio = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),
         required=False
@@ -48,6 +50,17 @@ class CuadroInstaForm(forms.ModelForm):
         widget=forms.Textarea(attrs={'rows': 3}), required=False
     )
 
+    # Este metodo se encarga de inhabilitar la casilla pvg cuando se edita un registro
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Si es edición, desactivar visual y funcionalmente el campo 'pvg'
+        if self.instance and self.instance.pk:
+            self.fields['pvg'].disabled = True
+            self.fields['pvg'].widget.attrs.update({
+                'class': 'form-control bg-light text-muted'
+            })
+
     class Meta:
         model = CuadroInsta
         fields = [
@@ -55,7 +68,7 @@ class CuadroInstaForm(forms.ModelForm):
             'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
             'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
             'tecnico1', 'tecnico2', 'estado', 'observacion',
-            'ejecutivo', 'finalizacion'
+            'ejecutivo'  # 'finalizacion'
         ]
 
     def clean(self):
