@@ -57,9 +57,15 @@ def editar_instalacion(request, id):
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST, instance=instalacion)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Instalación actualizada correctamente.")
-            return redirect('lista_instalaciones')
+            nuevo_pvg = form.cleaned_data['pvg']
+            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():
+                messages.error(
+                    request, f"⚠️ Ya existe una instalación con el PVG {nuevo_pvg}.")
+            else:
+                form.save()
+                messages.success(
+                    request, "Instalación actualizada correctamente.")
+                return redirect('lista_instalaciones')
     else:
         form = CuadroInstaForm(instance=instalacion)
     return render(request, 'editar_instalacion.html', {'form': form, 'instalacion': instalacion})
@@ -203,7 +209,7 @@ def importar_excel(request):
                 return response
 
             messages.success(
-                request, f"✅ El archivo '{nombre}' fue importado exitosamente.")
+                request, f"El archivo '{nombre}' fue importado exitosamente.")
             return redirect('lista_instalaciones')
     else:
         form = ExcelUploadForm()

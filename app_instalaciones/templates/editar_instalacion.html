@@ -20,6 +20,15 @@ Editar Instalación - App_Sesur
     {% endfor %}
     {% endif %}
 
+    <!-- Mostrar errores generales -->
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <form method="POST" action="{% url 'editar_instalacion' instalacion.id %}">
         {% csrf_token %}
 

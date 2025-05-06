@@ -69,10 +69,14 @@ class CuadroInstaForm(forms.ModelForm):
         return cleaned_data
 
     def clean_pvg(self):
-        pvg = self.cleaned_data.get('pvg')
-        if CuadroInsta.objects.filter(pvg=pvg).exists():
-            raise ValidationError("El PVG ingresado ya está registrado.")
+        pvg = self.cleaned_data['pvg']
+        instancia = self.instance
+
+        if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():
+            raise forms.ValidationError(
+                "⚠️ Ya existe una instalación con este PVG.")
         return pvg
+
 
 # subir informacion de instalacinoes con excel 2 de mayo 2025
 
