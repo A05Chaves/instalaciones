@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.timezone import now
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
 from django.core.exceptions import ValidationError
 from datetime import timedelta
@@ -46,7 +47,6 @@ class CuadroInstaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Si es edición, desactivar visual y funcionalmente el campo 'pvg'
         if self.instance and self.instance.pk:
             self.fields['pvg'].disabled = True
             self.fields['pvg'].widget.attrs.update({
@@ -69,29 +69,29 @@ class CuadroInstaForm(forms.ModelForm):
         fecha_inicio = cleaned_data.get('fecha_inicio')
         dias_cotizados = cleaned_data.get('dias_cotizados')
         orden = cleaned_data.get('orden')
+        estado = cleaned_data.get('estado')
 
         # Validación: Los técnicos no pueden ser iguales
         if tecnico1 and tecnico2 and str(tecnico1) == str(tecnico2):
             raise forms.ValidationError(
-                "Los técnicos asignados deben ser diferentes."
-            )
+                "Los técnicos asignados deben ser diferentes.")
 
         # Calcular la fecha de terminación automáticamente
         if fecha_inicio and dias_cotizados is not None:
             try:
-                # Sumar los días cotizados a la fecha de inicio
                 fecha_terminacion = fecha_inicio + \
                     timedelta(days=dias_cotizados)
-                # Asignar la fecha calculada al campo
                 cleaned_data['fecha_terminacion'] = fecha_terminacion
             except Exception as e:
                 raise forms.ValidationError(
-                    f"Error al calcular la fecha de terminación: {str(e)}"
-                )
+                    f"Error al calcular la fecha de terminación: {str(e)}")
 
-        # Lógica del campo estado
+        # Lógica del campo estado y fecha de finalización
         if orden:
-            cleaned_data['estado'] = "FINALIZADO"
+            cleaned_data['estado'] = "LEGALIZADO"
+            # Registrar la fecha de finalización si el estado cambia a "LEGALIZADO"
+            if not cleaned_data.get('finaliza'):
+                cleaned_data['finaliza'] = now().date()
         elif fecha_inicio:
             cleaned_data['estado'] = "PROGRAMADO"
         else:
@@ -102,11 +102,9 @@ class CuadroInstaForm(forms.ModelForm):
     def clean_pvg(self):
         pvg = self.cleaned_data['pvg']
         instancia = self.instance
-
         if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():
             raise forms.ValidationError(
-                "⚠️ Ya existe una instalación con este PVG."
-            )
+                "⚠️ Ya existe una instalación con este PVG.")
         return pvg
 
 
