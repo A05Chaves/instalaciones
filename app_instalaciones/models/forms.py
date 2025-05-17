@@ -1,20 +1,14 @@
 from django import forms
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
 from django.core.exceptions import ValidationError
+from datetime import timedelta
 
 
 class CuadroInstaForm(forms.ModelForm):
     fecha = forms.DateTimeField(
         widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
     )
-    """
-    finalizacion = forms.DateTimeField(
-        label='Fecha de Finalización (opcional)',
-        input_formats=['%Y-%m-%dT%H:%M'],
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        required=False
-    )
-    """
+
     fecha_inicio = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),
         required=False
@@ -41,19 +35,17 @@ class CuadroInstaForm(forms.ModelForm):
     cantidad_tecnicos = forms.IntegerField(required=False)
     en_bodega = forms.ChoiceField(choices=CuadroInsta.BODEGA, required=False)
 
-    tecnico1 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)  # ✅ AÑADIDO
-    tecnico2 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)  # ✅ AÑADIDO
-    ejecutivo = forms.ChoiceField(choices=CuadroInsta.EJECUTIVOS)  # ✅ AÑADIDO
+    tecnico1 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)
+    tecnico2 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)
+    ejecutivo = forms.ChoiceField(choices=CuadroInsta.EJECUTIVOS)
 
     estado = forms.CharField(max_length=50, required=False)
     observacion = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 3}), required=False
     )
 
-    # Este metodo se encarga de inhabilitar la casilla pvg cuando se edita un registro
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         # Si es edición, desactivar visual y funcionalmente el campo 'pvg'
         if self.instance and self.instance.pk:
             self.fields['pvg'].disabled = True
@@ -67,18 +59,44 @@ class CuadroInstaForm(forms.ModelForm):
             'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
             'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
             'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
-            'tecnico1', 'tecnico2', 'estado', 'observacion',
-            'ejecutivo'  # 'finalizacion'
+            'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
         ]
 
     def clean(self):
         cleaned_data = super().clean()
         tecnico1 = cleaned_data.get('tecnico1')
         tecnico2 = cleaned_data.get('tecnico2')
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        dias_cotizados = cleaned_data.get('dias_cotizados')
+        orden = cleaned_data.get('orden')
 
+        # Validación: Los técnicos no pueden ser iguales
         if tecnico1 and tecnico2 and str(tecnico1) == str(tecnico2):
             raise forms.ValidationError(
-                "Los técnicos asignados deben ser diferentes.")
+                "Los técnicos asignados deben ser diferentes."
+            )
+
+        # Calcular la fecha de terminación automáticamente
+        if fecha_inicio and dias_cotizados is not None:
+            try:
+                # Sumar los días cotizados a la fecha de inicio
+                fecha_terminacion = fecha_inicio + \
+                    timedelta(days=dias_cotizados)
+                # Asignar la fecha calculada al campo
+                cleaned_data['fecha_terminacion'] = fecha_terminacion
+            except Exception as e:
+                raise forms.ValidationError(
+                    f"Error al calcular la fecha de terminación: {str(e)}"
+                )
+
+        # Lógica del campo estado
+        if orden:
+            cleaned_data['estado'] = "FINALIZADO"
+        elif fecha_inicio:
+            cleaned_data['estado'] = "PROGRAMADO"
+        else:
+            cleaned_data['estado'] = "PENDIENTE"
+
         return cleaned_data
 
     def clean_pvg(self):
@@ -87,12 +105,11 @@ class CuadroInstaForm(forms.ModelForm):
 
         if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():
             raise forms.ValidationError(
-                "⚠️ Ya existe una instalación con este PVG.")
+                "⚠️ Ya existe una instalación con este PVG."
+            )
         return pvg
 
 
-# subir informacion de instalacinoes con excel 2 de mayo 2025
-
-
+# Subir información de instalaciones con Excel - 2 de mayo 2025
 class ExcelUploadForm(forms.Form):
     archivo_excel = forms.FileField(label="Selecciona un archivo Excel")
