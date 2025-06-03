@@ -55,29 +55,51 @@ def lista_instalaciones(request):
 # AGREGADO 25 DE ABRIL
 
 
+def is_editor_or_admin(user):
+    """ Verifica si el usuario es administrador o pertenece al grupo de editores """
+    return user.is_staff or user.groups.filter(name='editor').exists()
+
+
 @login_required
+@user_passes_test(is_editor_or_admin)
 def editar_instalacion(request, id):
-    if not request.user.is_staff:
+    # Verificación de permisos: solo administradores o editores
+    if not is_editor_or_admin(request.user):
         messages.error(
-            request, "Acceso denegado: solo los administradores pueden editar instalaciones.")
+            request, "Acceso denegado: solo los administradores o editores pueden editar instalaciones.")
         return redirect('lista_instalaciones')
 
+    # Obtención de la instalación existente
     instalacion = get_object_or_404(CuadroInsta, id=id)
+
+    # Procesamiento del formulario
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST, instance=instalacion)
+
         if form.is_valid():
             nuevo_pvg = form.cleaned_data['pvg']
-            # pylint: disable=no-member
+            # Verificación de existencia de otro registro con el mismo PVG
             if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():
                 messages.error(
                     request, f"⚠️ Ya existe una instalación con el PVG {nuevo_pvg}.")
             else:
-                form.save()
-                messages.success(
-                    request, "Instalación actualizada correctamente.")
-                return redirect('lista_instalaciones')
+                # Guardar el formulario si el PVG es único
+                try:
+                    form.save()
+                    messages.success(
+                        request, "Instalación actualizada correctamente.")
+                    return redirect('lista_instalaciones')
+                except Exception as e:
+                    messages.error(request, f"Error al guardar: {str(e)}")
+        else:
+            # Mostrar errores específicos del formulario
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Error en {field}: {error}")
     else:
+        # Cargar el formulario con los datos existentes
         form = CuadroInstaForm(instance=instalacion)
+
     return render(request, 'editar_instalacion.html', {'form': form, 'instalacion': instalacion})
 
 

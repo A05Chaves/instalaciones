@@ -52,7 +52,7 @@ class CuadroInsta(models.Model):
     observacion = models.TextField(null=True, blank=True)
     ejecutivo = models.IntegerField(null=True,
                                     choices=EJECUTIVOS, default=1)  # ✅ IntegerField
-    finalizacion = models.DateTimeField(blank=True, null=True)
+    # finalizacion = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     usuario = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
