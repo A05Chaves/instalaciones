@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: instalaciones
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn proyecto_django.wsgi"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        value: "pon-una-clave-segura-aqui"
+      - key: DEBUG
+        value: "0"
