@@ -10,7 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
-import dj_database_url
+import dj_database_url  # type: ignore
 from pathlib import Path
 # from dotenv import load_dotenv  # type: ignore
 # load_dotenv()
@@ -193,7 +193,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Whitenoise
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
-# Database
+# Database archivo de conexion
 DATABASES = {
     'default': dj_database_url.config(default='sqlite:///db.sqlite3')
 }
