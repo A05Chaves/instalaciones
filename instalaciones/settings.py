@@ -10,30 +10,26 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
-import dj_database_url  # type: ignore
 from pathlib import Path
-# from dotenv import load_dotenv  # type: ignore
-# load_dotenv()
+import dj_database_url  # type: ignore
 
+# Variable de entorno para cambiar entre desarrollo y producción
+AMBIENTE = os.getenv("AMBIENTE", "local")  # por defecto "local"
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
+# Clave secreta (reemplaza en producción)
 SECRET_KEY = 'django-insecure-07#m5gr7!rj7#@ns^+i*-=hzjyxvv1z3b0)kzf%j&#24#=#0h%'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True antes de publicar
+# DEBUG y ALLOWED_HOSTS se determinan según el entorno
+if AMBIENTE == "produccion":
+    DEBUG = False
+    ALLOWED_HOSTS = ['*']  # Mejor poner tu dominio real de Render
+else:
+    DEBUG = True
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
-ALLOWED_HOSTS = []
-
-
-# Application definition
-
+# Aplicaciones instaladas
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -42,9 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'app_instalaciones',
-    'widget_tweaks'
+    'widget_tweaks',
 ]
 
+# Middleware (con Whitenoise si estamos en producción)
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -55,8 +52,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+if AMBIENTE == "produccion":
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
+# URL principal
 ROOT_URLCONF = 'instalaciones.urls'
 
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -74,126 +76,48 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'instalaciones.wsgi.application'
-"""
-# Bases de datos RAilway
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get(
-            "DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=600
-    )
-}
-
-"""
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Bases de datos
+if AMBIENTE == "produccion":
+    DATABASES = {
+        'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
+# Validadores de contraseña
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+# Internacionalización
+LANGUAGE_CODE = 'es-co'
+TIME_ZONE = 'America/Bogota'
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = 'static/'
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = 'home'  # Usa el name de tu url de inicio
-
-"""
-# configuracion de correo para envio de recuperacion de contraseña
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'  # o el proveedor que uses
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'tu_correo@gmail.com'
-EMAIL_HOST_PASSWORD = 'tu_contraseña'
-DEFAULT_FROM_EMAIL = 'Sistema <tu_correo@gmail.com>'
-"""
-
-
-# enlace para hacer pruebas locales
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# Tiempo en segundos (por ejemplo, 10 minutos)
-SESSION_COOKIE_AGE = 600  # 10 minutos
-
-# La sesión se elimina al cerrar el navegador (opcional)
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-
-# Asegúrate de tener activado el almacenamiento de sesiones en la base de datos
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-
-""""
-# Archivos para conexion railway
+# Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-
-# se utiliza para usar archivos multimedia como imagenes, videos, etc
-
 MEDIA_URL = '/media/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# Login y sesiones
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = 'home'
 
-SECRET_KEY = mi_clave_secreta_segura
-DEBUG = True
-ALLOWED_HOSTS = 127.0.0.1, localhost
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-"""
-# para publicar en render
-
-ALLOWED_HOSTS = ['*']  # O pon el dominio de Render si prefieres seguridad
-
-# Static files
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# Whitenoise
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-
-# Database archivo de conexion
-DATABASES = {
-    'default': dj_database_url.config(default='sqlite:///db.sqlite3')
-}
+SESSION_COOKIE_AGE = 600
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
