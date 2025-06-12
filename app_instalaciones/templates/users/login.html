@@ -4,7 +4,6 @@
 App_Sesur
 {% endblock %}
 
-
 {% block content %}
 
 <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
@@ -20,7 +19,6 @@ App_Sesur
             <input type="text" class="form-control" id="username" name="username" required
                 value="{{ username|default:'' }}">
         </div>
-
         <div class="form-group">
             <label for="password">Contraseña</label>
             <input type="password" class="form-control" id="password" name="password" required>
@@ -33,6 +31,4 @@ App_Sesur
     <!--<p>¿No tienes cuenta? <a href="{% url 'registrate' %}">Regístrate</a></p>-->
     <p><a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a></p>
 </div>
-
-
 {% endblock %}

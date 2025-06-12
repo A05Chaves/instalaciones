@@ -77,7 +77,7 @@ def editar_instalacion(request, id):
         if form.is_valid():
             nuevo_pvg = form.cleaned_data['pvg']
             # Verificación de existencia de otro registro con el mismo PVG
-            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():messages.error(request, f"⚠️ Ya existe una instalación con el PVG {nuevo_pvg}.")  # pylint: disable=no-member
+            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():messages.error(request, f"Ya existe una instalación con el PVG {nuevo_pvg}.")  # pylint: disable=no-member
             else:
                 # Guardar el formulario si el PVG es único
                 try:

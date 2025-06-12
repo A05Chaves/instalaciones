@@ -13,9 +13,7 @@
   <!-- DataTables con Bootstrap 5 -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
-
 </head>
-
 
 <body class="prueba1">
   <div class="prueba1"></div>
@@ -26,8 +24,9 @@
         <!-- Logo -->
         <a class="navbar-brand d-flex align-items-center" href="https://www.seguridad-delsur.com/">
           <!-- <img src="{% static 'sesur/img/logo.png' %}" alt="Logo" width="50" height="50" class="me-2">-->
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMUB4U_sV8yEJ1cfjkA67qIptdjoGv6PCB1g&s" alt="Logo" width="50" height="50" class="me-2">
-          <strong>Sesur</strong>
+          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMUB4U_sV8yEJ1cfjkA67qIptdjoGv6PCB1g&s"
+            alt="Logo" width="50" height="50" class="me-2">
+          <strong>Seguridad del Sur ltda</strong>
         </a>
 
         <!-- Botón hamburguesa -->
@@ -98,39 +97,16 @@
       </div>
     </nav>
   </header>
-
-
-
   <div class="container main-container">
     {% block content %}{% endblock %}
-
 
     <!--jQuery y DataTables JS -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
-    <!-- Inicialización de DataTables 
-    <script>
-      $(document).ready(function () {
-        $('#tabla-instalaciones').DataTable({
-          language: {
-            url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-          },
-          pageLength: 10,
-          lengthMenu: [5, 10, 25, 50],
-          order: [[0, 'desc']],
-          columnDefs: [
-            { targets: 0, visible: false, searchable: false }  // 👈 oculta la primera columna (ID)
-          ]
-        });
-      });
-    </script>
-  -->
-
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
 
     <!-- script para cierre de sesion -->
     <script>
@@ -155,8 +131,6 @@
 
       inactivityTime();
     </script>
-
-
 
   </div>
   <footer class="bg-dark text-white text-center py-3 mt-5">
@@ -197,7 +171,6 @@
     updateDateTime();
     setInterval(updateDateTime, 1000); // Actualizar cada segundo
   </script>
-
 
   <script>
     // Cierra las alertas automáticamente después de 3 segundos

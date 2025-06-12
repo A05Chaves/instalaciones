@@ -39,7 +39,6 @@ Editar Instalación - App_Sesur
         {% for field in form %}
         <div class="form-group mb-3">
             {{ field.label_tag }}
-
             {% if field.errors %}
             {{ field|add_class:"form-control is-invalid" }}
             <div class="invalid-feedback d-block">
@@ -52,7 +51,6 @@ Editar Instalación - App_Sesur
             {% endif %}
         </div>
         {% endfor %}
-
         <div class="d-flex justify-content-between">
             <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
                 <i class="fas fa-times-circle"></i> Cancelar
