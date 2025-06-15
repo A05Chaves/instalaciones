@@ -1,7 +1,6 @@
 from django import forms
 from django.utils.timezone import now
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
-from django.core.exceptions import ValidationError
 from datetime import timedelta
 
 
@@ -47,11 +46,35 @@ class CuadroInstaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Campos que siempre deben ir deshabilitados en edición
         if self.instance and self.instance.pk:
-            self.fields['pvg'].disabled = True
-            self.fields['pvg'].widget.attrs.update({
+            readonly_fields = ['pvg', 'fecha', 'tecnico1', 'tecnico2']
+            for field in readonly_fields:
+                self.fields[field].disabled = True
+                self.fields[field].widget.attrs.update({
+                    'class': 'form-control bg-light text-muted'
+                })
+
+        # Siempre deshabilitados, incluso nuevos
+        disabled_fields = ['fecha_terminacion', 'finaliza', 'estado']
+        for field in disabled_fields:
+            self.fields[field].disabled = True
+            self.fields[field].widget.attrs.update({
                 'class': 'form-control bg-light text-muted'
             })
+
+        self.fields['orden'].widget.attrs.update({
+            'placeholder': 'Para anular escriba ANULADO',
+            'class': 'form-control text-muted'
+        })
+
+    # El campo 'orden' solo editable si está vacío
+    # if self.instance and self.instance.pk and self.instance.orden:
+    #   self.fields['orden'].disabled = True
+    #    self.fields['orden'].widget.attrs.update({
+    #       'class': 'form-control bg-light text-muted'
+    #   })
 
     class Meta:
         model = CuadroInsta
@@ -69,27 +92,41 @@ class CuadroInstaForm(forms.ModelForm):
         fecha_inicio = cleaned_data.get('fecha_inicio')
         dias_cotizados = cleaned_data.get('dias_cotizados')
         orden = cleaned_data.get('orden')
-        estado = cleaned_data.get('estado')
 
-        # Validación: Los técnicos no pueden ser iguales
+        # Restaurar valores de campos deshabilitados
+        if not cleaned_data.get('fecha') and self.instance and self.instance.fecha:
+            cleaned_data['fecha'] = self.instance.fecha
+        if not cleaned_data.get('tecnico1') and self.instance and self.instance.tecnico1:
+            cleaned_data['tecnico1'] = self.instance.tecnico1
+        if not cleaned_data.get('tecnico2') and self.instance and self.instance.tecnico2:
+            cleaned_data['tecnico2'] = self.instance.tecnico2
+        if not cleaned_data.get('orden') and self.instance and self.instance.orden:
+            cleaned_data['orden'] = self.instance.orden
+
+        # Validación: técnicos deben ser diferentes
         if tecnico1 and tecnico2 and str(tecnico1) == str(tecnico2):
             raise forms.ValidationError(
                 "Los técnicos asignados deben ser diferentes.")
 
-        # Calcular la fecha de terminación automáticamente
+        # Calcular fecha_terminacion
         if fecha_inicio and dias_cotizados is not None:
             try:
-                fecha_terminacion = fecha_inicio + \
+                cleaned_data['fecha_terminacion'] = fecha_inicio + \
                     timedelta(days=dias_cotizados)
-                cleaned_data['fecha_terminacion'] = fecha_terminacion
             except Exception as e:
                 raise forms.ValidationError(
                     f"Error al calcular la fecha de terminación: {str(e)}")
 
-        # Lógica del campo estado y fecha de finalización
+        # Si orden contiene 'anulado' → estado ANULADO
+        if orden and str(orden).strip().lower() == "anulado":
+            cleaned_data['estado'] = "ANULADO"
+            # Opcional: limpiar fecha de finalización
+            cleaned_data['finaliza'] = None
+            return cleaned_data
+
+        # Asignar estado y finaliza según lógica
         if orden:
             cleaned_data['estado'] = "LEGALIZADO"
-            # Registrar la fecha de finalización si el estado cambia a "LEGALIZADO"
             if not cleaned_data.get('finaliza'):
                 cleaned_data['finaliza'] = now().date()
         elif fecha_inicio:
@@ -102,12 +139,12 @@ class CuadroInstaForm(forms.ModelForm):
     def clean_pvg(self):
         pvg = self.cleaned_data['pvg']
         instancia = self.instance
-        if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():
+        if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():  # pylint: disable=no-member
             raise forms.ValidationError(
-                "⚠️ Ya existe una instalación con este PVG.")
+                "Ya existe una instalación con este PVG.")
         return pvg
 
 
-# Subir información de instalaciones con Excel - 2 de mayo 2025
+# Subir información de instalaciones con Excel
 class ExcelUploadForm(forms.Form):
     archivo_excel = forms.FileField(label="Selecciona un archivo Excel")

@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 import openpyxl
 import csv
 from django.http import HttpResponse
+import pandas as pd
 
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
@@ -59,27 +60,27 @@ def is_editor_or_admin(user):
 
 
 @login_required
-@user_passes_test(is_editor_or_admin)
+@user_passes_test(lambda u: u.is_staff)  # Solo superusuarios
 def editar_instalacion(request, id):
-    # Verificación de permisos: solo administradores o editores
-    if not is_editor_or_admin(request.user):
-        messages.error(
-            request, "Acceso denegado: solo los administradores o editores pueden editar instalaciones.")
+    instalacion = get_object_or_404(CuadroInsta, pk=id)
+
+    # Bloquea si está anulada
+    if instalacion.estado and instalacion.estado.strip().upper() == "ANULADO" and not request.user.is_superuser:
+        messages.warning(  # pylint: disable=no-member
+            request, "No puedes editar una instalación que ha sido anulada.")
         return redirect('lista_instalaciones')
 
-    # Obtención de la instalación existente
-    instalacion = get_object_or_404(CuadroInsta, id=id)
-
-    # Procesamiento del formulario
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST, instance=instalacion)
 
         if form.is_valid():
             nuevo_pvg = form.cleaned_data['pvg']
-            # Verificación de existencia de otro registro con el mismo PVG
-            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():messages.error(request, f"Ya existe una instalación con el PVG {nuevo_pvg}.")  # pylint: disable=no-member
+
+            # Verificar si ya existe otra instalación con ese PVG
+            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():  # pylint: disable=no-member
+                messages.error(
+                    request, f"Ya existe una instalación con el PVG {nuevo_pvg}.")
             else:
-                # Guardar el formulario si el PVG es único
                 try:
                     form.save()
                     messages.success(
@@ -88,15 +89,16 @@ def editar_instalacion(request, id):
                 except Exception as e:
                     messages.error(request, f"Error al guardar: {str(e)}")
         else:
-            # Mostrar errores específicos del formulario
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f"Error en {field}: {error}")
     else:
-        # Cargar el formulario con los datos existentes
         form = CuadroInstaForm(instance=instalacion)
 
-    return render(request, 'editar_instalacion.html', {'form': form, 'instalacion': instalacion})
+    return render(request, 'editar_instalacion.html', {
+        'form': form,
+        'instalacion': instalacion
+    })
 
 
 @login_required
@@ -243,3 +245,24 @@ def importar_excel(request):
         form = ExcelUploadForm()
 
     return render(request, 'importar_excel.html', {'form': form})
+
+
+def exportar_excel(request):
+    instalaciones = CuadroInsta.objects.all().values(  # pylint: disable=no-member
+        'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
+        'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
+        'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
+        'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
+    )
+
+    df = pd.DataFrame(list(instalaciones))
+
+   # Convertir columnas datetime a solo fecha (sin hora ni zona horaria)
+    for col in ['fecha', 'fecha_inicio', 'fecha_terminacion', 'finaliza']:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce').dt.date
+
+    response = HttpResponse(content_type='application/vnd.ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="instalaciones.xlsx"'
+    df.to_excel(response, index=False)
+    return response

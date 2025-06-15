@@ -30,4 +30,5 @@ urlpatterns = [
         template_name='users/password_reset_complete.html'), name='password_reset_complete'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
     path('importar-excel/', views.importar_excel, name='importar_excel'),
+    path('exportar_excel/', views.exportar_excel, name='exportar_excel'),
 ]

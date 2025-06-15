@@ -1,4 +1,3 @@
-
 {% load static %}
 
 
@@ -29,7 +28,8 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
             <div class="container-fluid">
                 <a class="navbar-brand d-flex align-items-center" href="https://www.seguridad-delsur.com/">
-                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMUB4U_sV8yEJ1cfjkA67qIptdjoGv6PCB1g&s" alt="Logo" width="50" height="50" class="me-2">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTMUB4U_sV8yEJ1cfjkA67qIptdjoGv6PCB1g&s"
+                        alt="Logo" width="50" height="50" class="me-2">
                     <strong>Seguridad del Sur ltda</strong>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -93,6 +93,13 @@
     </header>
     <div class="container-fluid py-4 px-3">
         {% block content %}
+
+        <div class="text-end mb-3">
+            <a href="{% url 'exportar_excel' %}" class="btn btn-outline-success">
+                <i class="fas fa-file-excel"></i> Exportar a Excel
+            </a>
+        </div>
+
         <div class="container-fluid px-4">
             {% if messages %}
             {% for message in messages %}
@@ -124,7 +131,9 @@
                         </div>
                     </div>
                 </div>
-                <table id="tabla-instalaciones" class="table table-striped table-hover table-bordered align-middle">
+                <table id="tabla-instalaciones"
+                    class="table table-striped table-hover table-bordered align-middle text-uppercase">
+
                     <thead class="table-dark sticky-top">
                         <tr class="text-center">
                             {% if request.user.is_staff %}
@@ -155,7 +164,13 @@
                     <tbody>
                         {% for instalacion in instalaciones %}
                         <!-- Aplicación de la clase 'legalizado' si el estado es LEGALIZADO -->
-                        <tr class="{% if instalacion.estado == 'LEGALIZADO' %}table-dark{% endif %}">
+                        <tr class="
+                            {% if instalacion.estado == 'LEGALIZADO' %}
+                                table-dark
+                            {% elif instalacion.estado == 'ANULADO' %}
+                                    table-danger text-white
+                            {% endif %}
+                        ">
 
 
                             {% if request.user.is_staff %}
