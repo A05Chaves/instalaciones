@@ -1,12 +1,12 @@
 import re
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User, Group
-from django.contrib.auth.models import User
+from django.contrib import messages
 from django.contrib.auth import authenticate
 from django.urls import reverse
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from django.shortcuts import redirect, render
+from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
 
 # MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
@@ -95,3 +95,39 @@ def registrate(request):
 def logout(request):
     auth_logout(request)
     return redirect(reverse('home'))
+
+
+# VISTA DE LISTA DE MANTENIMIENTOS EN HTML
+
+def listar_mantenimientos(request):
+    if request.method == "POST":
+        # Crear nuevo mantenimiento desde POST
+        # pylint: disable=no-member
+
+        Mantenimiento.objects.create(
+            cliente=request.POST.get('cliente'),
+            ciudad=request.POST.get('ciudad'),
+            direccion=request.POST.get('direccion'),
+            novedad=request.POST.get('novedad'),
+            observacion=request.POST.get('observacion'),
+            codigo=request.POST.get('codigo') or None,
+            tecnico=Tecnico.objects.get(id=request.POST.get('tecnico')),
+            pendiente=request.POST.get('pendiente'),
+            horas=request.POST.get('horas') or 0,
+            hora_entrada=request.POST.get('hora_entrada'),
+            hora_salida=request.POST.get('hora_salida'),
+            orden=request.POST.get('orden'),
+            realizado=request.POST.get('realizado'),
+        )
+
+        # pyright: ignore[reportUndefinedVariable]
+        messages.success(request, "Mantenimiento registrado exitosamente.")
+        return redirect('listar_mantenimientos')
+
+    # pylint: disable=no-member
+    mantenimientos = Mantenimiento.objects.order_by('-fecha_creado')
+    tecnicos = Tecnico.objects.all()  # pylint: disable=no-member
+    return render(request, 'mantenimientos/listado_mantenimientos.html', {
+        'mantenimientos': mantenimientos,
+        'tecnicos': tecnicos
+    })
