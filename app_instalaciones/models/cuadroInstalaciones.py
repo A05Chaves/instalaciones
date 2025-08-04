@@ -2,28 +2,22 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class Tecnico(models.Model):
+    # ← bien: no se permite null
+    nombre = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return str(self.nombre or "Sin nombre")
+
+
+class Ejecutivo(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return str(self.nombre or "Ejecutivo sin nombre")
+
+
 class CuadroInsta(models.Model):
-    TECNICOS = [
-        (1, "Ricardo"),
-        (2, "Giovanny"),
-        (3, "Juan"),
-        (4, "Francisco"),
-        (5, "German"),
-        (6, "Willinthon"),
-        (7, "Jhon"),
-        (8, "Guido"),
-        (9, "Esneyder"),
-        (10, "Diego"),
-        (11, "-----")
-    ]
-
-    EJECUTIVOS = [
-        (1, "Francisco Silva"),
-        (2, "Andrea Trujillo"),
-        (3, "Yamile David"),
-        (4, "-----")
-    ]
-
     BODEGA = [
         ("SI", "Sí"),
         ("NO", "No")
@@ -44,22 +38,31 @@ class CuadroInsta(models.Model):
     fecha_terminacion = models.DateField(null=True, blank=True)
     finaliza = models.DateField(null=True, blank=True)
     orden = models.CharField(max_length=50, null=True, blank=True)
-    tecnico1 = models.IntegerField(null=True,
-                                   choices=TECNICOS, default=1)  # ✅ IntegerField
-    tecnico2 = models.IntegerField(null=True,
-                                   choices=TECNICOS, default=1)  # ✅ IntegerField
+
+    # Relaciones con técnicos (ahora como ForeignKey)
+    tecnico1 = models.ForeignKey(
+        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL, related_name='cuadroinsta_tecnico1'
+    )
+    tecnico2 = models.ForeignKey(
+        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL, related_name='cuadroinsta_tecnico2'
+    )
+
     estado = models.CharField(max_length=50, null=True, blank=True)
     observacion = models.TextField(null=True, blank=True)
-    ejecutivo = models.IntegerField(null=True,
-                                    choices=EJECUTIVOS, default=1)  # ✅ IntegerField
-    # finalizacion = models.DateTimeField(blank=True, null=True)
+
+    # Relación con Ejecutivo
+    ejecutivo = models.ForeignKey(
+        'Ejecutivo', null=True, blank=True, on_delete=models.SET_NULL
+    )
+
     updated_at = models.DateTimeField(auto_now=True)
     usuario = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"Instalación #{self.codigo} - {self.cliente}"
 
-    # guarda los registros de importacion de archivos excel
+
+# guarda los registros de importacion de archivos excel
 
 
 class RegistroImportacion(models.Model):
@@ -69,3 +72,29 @@ class RegistroImportacion(models.Model):
 
     def __str__(self):
         return f"{self.nombre_archivo} - {self.fecha_importacion.strftime('%Y-%m-%d %H:%M')}"  # pylint: disable=no-member
+
+
+# TABLA DE MANTENIMIENTOS AREA TECNICA
+
+class Mantenimiento(models.Model):
+    cliente = models.CharField(max_length=100)
+    ciudad = models.CharField(max_length=50)
+    direccion = models.CharField(max_length=100)
+    novedad = models.TextField(null=True, blank=True)
+    observacion = models.TextField(null=True, blank=True)
+    codigo = models.IntegerField()
+    tecnico = models.CharField(max_length=50)
+    pendiente = models.TextField(null=True, blank=True)
+    horas = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True)
+    hora_entrada = models.TimeField(null=True, blank=True)
+    hora_salida = models.TimeField(null=True, blank=True)
+    orden = models.CharField(max_length=50, null=True, blank=True)
+
+    # ← se ingresa manualmente
+    realizado = models.DateField(null=True, blank=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)  # ← automático
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"  # pylint: disable=no-member

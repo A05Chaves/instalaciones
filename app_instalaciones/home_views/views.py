@@ -266,3 +266,11 @@ def exportar_excel(request):
     response['Content-Disposition'] = 'attachment; filename="instalaciones.xlsx"'
     df.to_excel(response, index=False)
     return response
+
+# HOJA DE MANTENIMIENTOS 2 AGOSTO
+
+
+def lista_mantenimientos(request):
+    if not request.user.is_authenticated:
+        return redirect('mantenimientos')
+    return render(request, "mantenimientos.html")

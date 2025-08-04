@@ -1,6 +1,6 @@
 from django import forms
 from django.utils.timezone import now
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
+from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Ejecutivo, Tecnico
 from datetime import timedelta
 
 
@@ -8,7 +8,6 @@ class CuadroInstaForm(forms.ModelForm):
     fecha = forms.DateTimeField(
         widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
     )
-
     fecha_inicio = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),
         required=False
@@ -17,7 +16,6 @@ class CuadroInstaForm(forms.ModelForm):
         widget=forms.DateInput(attrs={'type': 'date'}),
         required=False
     )
-
     finaliza = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date'}),
         required=False
@@ -34,20 +32,36 @@ class CuadroInstaForm(forms.ModelForm):
     dias_cotizados = forms.IntegerField(required=False)
     cantidad_tecnicos = forms.IntegerField(required=False)
     en_bodega = forms.ChoiceField(choices=CuadroInsta.BODEGA, required=False)
-
-    tecnico1 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)
-    tecnico2 = forms.ChoiceField(choices=CuadroInsta.TECNICOS)
-    ejecutivo = forms.ChoiceField(choices=CuadroInsta.EJECUTIVOS)
-
     estado = forms.CharField(max_length=50, required=False)
     observacion = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 3}), required=False
     )
 
+    class Meta:
+        model = CuadroInsta
+        fields = [
+            'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
+            'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
+            'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
+            'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
+        ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Campos que siempre deben ir deshabilitados en edición
+        # Cargar técnicos y ejecutivos disponibles
+        self.fields['tecnico1'].queryset = Tecnico.objects.all(  # pylint: disable=no-member
+        )
+        self.fields['tecnico2'].queryset = Tecnico.objects.all(  # pylint: disable=no-member
+        )
+        self.fields['ejecutivo'].queryset = Ejecutivo.objects.all(  # pylint: disable=no-member
+        )
+
+        self.fields['tecnico1'].label_from_instance = lambda obj: obj.nombre
+        self.fields['tecnico2'].label_from_instance = lambda obj: obj.nombre
+        self.fields['ejecutivo'].label_from_instance = lambda obj: obj.nombre
+
+        # Campos deshabilitados en edición
         if self.instance and self.instance.pk:
             readonly_fields = ['pvg', 'fecha', 'tecnico1', 'tecnico2']
             for field in readonly_fields:
@@ -56,7 +70,7 @@ class CuadroInstaForm(forms.ModelForm):
                     'class': 'form-control bg-light text-muted'
                 })
 
-        # Siempre deshabilitados, incluso nuevos
+        # Siempre deshabilitados
         disabled_fields = ['fecha_terminacion', 'finaliza', 'estado']
         for field in disabled_fields:
             self.fields[field].disabled = True
@@ -69,22 +83,6 @@ class CuadroInstaForm(forms.ModelForm):
             'class': 'form-control text-muted'
         })
 
-    # El campo 'orden' solo editable si está vacío
-    # if self.instance and self.instance.pk and self.instance.orden:
-    #   self.fields['orden'].disabled = True
-    #    self.fields['orden'].widget.attrs.update({
-    #       'class': 'form-control bg-light text-muted'
-    #   })
-
-    class Meta:
-        model = CuadroInsta
-        fields = [
-            'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
-            'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
-            'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
-            'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
-        ]
-
     def clean(self):
         cleaned_data = super().clean()
         tecnico1 = cleaned_data.get('tecnico1')
@@ -93,22 +91,19 @@ class CuadroInstaForm(forms.ModelForm):
         dias_cotizados = cleaned_data.get('dias_cotizados')
         orden = cleaned_data.get('orden')
 
-        # Restaurar valores de campos deshabilitados
         if not cleaned_data.get('fecha') and self.instance and self.instance.fecha:
             cleaned_data['fecha'] = self.instance.fecha
-        if not cleaned_data.get('tecnico1') and self.instance and self.instance.tecnico1:
+        if not tecnico1 and self.instance and self.instance.tecnico1:
             cleaned_data['tecnico1'] = self.instance.tecnico1
-        if not cleaned_data.get('tecnico2') and self.instance and self.instance.tecnico2:
+        if not tecnico2 and self.instance and self.instance.tecnico2:
             cleaned_data['tecnico2'] = self.instance.tecnico2
-        if not cleaned_data.get('orden') and self.instance and self.instance.orden:
+        if not orden and self.instance and self.instance.orden:
             cleaned_data['orden'] = self.instance.orden
 
-        # Validación: técnicos deben ser diferentes
-        if tecnico1 and tecnico2 and str(tecnico1) == str(tecnico2):
+        if tecnico1 and tecnico2 and tecnico1 == tecnico2:
             raise forms.ValidationError(
                 "Los técnicos asignados deben ser diferentes.")
 
-        # Calcular fecha_terminacion
         if fecha_inicio and dias_cotizados is not None:
             try:
                 cleaned_data['fecha_terminacion'] = fecha_inicio + \
@@ -117,14 +112,11 @@ class CuadroInstaForm(forms.ModelForm):
                 raise forms.ValidationError(
                     f"Error al calcular la fecha de terminación: {str(e)}")
 
-        # Si orden contiene 'anulado' → estado ANULADO
         if orden and str(orden).strip().lower() == "anulado":
             cleaned_data['estado'] = "ANULADO"
-            # Opcional: limpiar fecha de finalización
             cleaned_data['finaliza'] = None
             return cleaned_data
 
-        # Asignar estado y finaliza según lógica
         if orden:
             cleaned_data['estado'] = "LEGALIZADO"
             if not cleaned_data.get('finaliza'):
