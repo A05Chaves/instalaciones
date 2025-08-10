@@ -15,8 +15,8 @@ import pandas as pd
 
 def home(request):
     if not request.user.is_authenticated:
-        return redirect('login')  # 🔒 redirige al login si no está autenticado
-    # ✅ muestra home si ya está autenticado
+        return redirect('login')  # redirige al login si no está autenticado
+    # muestra home si ya está autenticado
     return render(request, "home.html")
 
 
@@ -30,9 +30,20 @@ def registro_inst(request):
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST)
         if form.is_valid():
-            cuadro_insta = form.save(commit=False)
-            cuadro_insta.usuario = request.user
-            cuadro_insta.save()
+            obj = form.save(commit=False)
+            obj.usuario = request.user
+
+            # Asignar FKs explícitamente por si el template tenía campos disabled
+            t1 = request.POST.get('tecnico1') or None
+            t2 = request.POST.get('tecnico2') or None
+            ej = request.POST.get('ejecutivo') or None
+
+            # Con *_id asignas por PK sin tener que hacer .get()
+            obj.tecnico1_id = t1
+            obj.tecnico2_id = t2
+            obj.ejecutivo_id = ej
+
+            obj.save()
             messages.success(request, 'Instalación registrada con éxito.')
             return redirect('registro_inst')
         else:
@@ -45,10 +56,11 @@ def registro_inst(request):
 
 
 def lista_instalaciones(request):
-    # Obtener todas las instalaciones ordenadas por fecha
-    # pylint: disable=no-member
-    instalaciones = CuadroInsta.objects.all().order_by(
-        '-id')  # pylint: disable=no-member
+    instalaciones = (
+        CuadroInsta.objects  # pylint: disable=no-member
+        .select_related('tecnico1', 'tecnico2', 'ejecutivo', 'usuario')
+        .order_by('-id')
+    )
     return render(request, 'lista_instalaciones.html', {'instalaciones': instalaciones})
 
 # AGREGADO 25 DE ABRIL
@@ -60,34 +72,41 @@ def is_editor_or_admin(user):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff)  # Solo superusuarios
+@user_passes_test(lambda u: u.is_staff)  # Solo staff/superusuarios
 def editar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, pk=id)
 
-    # Bloquea si está anulada
+    # Bloquea si está anulada (salvo superusuario)
     if instalacion.estado and instalacion.estado.strip().upper() == "ANULADO" and not request.user.is_superuser:
-        messages.warning(  # pylint: disable=no-member
+        messages.warning(
             request, "No puedes editar una instalación que ha sido anulada.")
         return redirect('lista_instalaciones')
 
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST, instance=instalacion)
-
         if form.is_valid():
-            nuevo_pvg = form.cleaned_data['pvg']
+            try:
+                obj = form.save(commit=False)
 
-            # Verificar si ya existe otra instalación con ese PVG
-            if CuadroInsta.objects.filter(pvg=nuevo_pvg).exclude(id=instalacion.id).exists():  # pylint: disable=no-member
-                messages.error(
-                    request, f"Ya existe una instalación con el PVG {nuevo_pvg}.")
-            else:
-                try:
-                    form.save()
-                    messages.success(
-                        request, "Instalación actualizada correctamente.")
-                    return redirect('lista_instalaciones')
-                except Exception as e:
-                    messages.error(request, f"Error al guardar: {str(e)}")
+                #  Asegurar FKs aunque los selects estén disabled en el form
+                t1 = request.POST.get('tecnico1')
+                t2 = request.POST.get('tecnico2')
+                ej = request.POST.get('ejecutivo')
+
+                # Si no viene en POST (por algún motivo), conservar el valor anterior
+                obj.tecnico1_id = t1 if t1 not in (None, "") else getattr(
+                    instalacion, "tecnico1_id", None)
+                obj.tecnico2_id = t2 if t2 not in (None, "") else getattr(
+                    instalacion, "tecnico2_id", None)
+                obj.ejecutivo_id = ej if ej not in (None, "") else getattr(
+                    instalacion, "ejecutivo_id", None)
+
+                obj.save()
+                messages.success(
+                    request, "Instalación actualizada correctamente.")
+                return redirect('lista_instalaciones')
+            except Exception as e:
+                messages.error(request, f"Error al guardar: {str(e)}")
         else:
             for field, errors in form.errors.items():
                 for error in errors:
@@ -97,7 +116,7 @@ def editar_instalacion(request, id):
 
     return render(request, 'editar_instalacion.html', {
         'form': form,
-        'instalacion': instalacion
+        'instalacion': instalacion,
     })
 
 
@@ -164,7 +183,7 @@ def importar_excel(request):
                     if fila[0] and CuadroInsta.objects.filter(pvg=fila[0]).exists():
                         mensaje = f"Registro duplicado con PVG {fila[0]}"
                         errores.append((idx, fila, mensaje))
-                        messages.warning(request, f"⚠️ Fila {idx}: {mensaje}")
+                        messages.warning(request, f" Fila {idx}: {mensaje}")
                         continue
 
                     # Procesar técnicos
@@ -218,7 +237,7 @@ def importar_excel(request):
                     mensaje = str(e)
                     errores.append((idx, fila, mensaje))
                     messages.error(
-                        request, f"❌ Error en fila {idx}: {mensaje}")
+                        request, f" Error en fila {idx}: {mensaje}")
 
             RegistroImportacion.objects.create(
                 nombre_archivo=nombre,

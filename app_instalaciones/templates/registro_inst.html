@@ -1,10 +1,7 @@
 {% extends 'base.html' %}
-
 {% load widget_tweaks %}
 
-{% block titulo %}
-Registro de Instalaciones - App_Sesur
-{% endblock %}
+{% block titulo %}Registro de Instalaciones - App_Sesur{% endblock %}
 
 {% block content %}
 <h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
@@ -16,17 +13,18 @@ Registro de Instalaciones - App_Sesur
   </a>
 </div>
 {% endif %}
+
 <div class="container col-12 col-lg-6 offset-lg-3">
   <h2>Registro de Instalaciones</h2>
+
+  {# Mensajes flash #}
   {% if messages %}
   {% for message in messages %}
-  <div class="alert alert-{{ message.tags }}">
-    {{ message }}
-  </div>
+  <div class="alert alert-{{ message.tags }}">{{ message }}</div>
   {% endfor %}
   {% endif %}
 
-  <!-- Alerta visual con ícono para errores generales del formulario -->
+  {# Errores no asociados a campos #}
   {% if form.non_field_errors %}
   <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
     <i class="fas fa-exclamation-triangle me-2"></i>
@@ -42,24 +40,38 @@ Registro de Instalaciones - App_Sesur
   <form method="POST" action="{% url 'registro_inst' %}">
     {% csrf_token %}
 
+    {# Render genérico de todos los campos con manejo de disabled + hidden #}
     {% for field in form %}
     <div class="form-group mb-3">
       {{ field.label_tag }}
 
+      {% if field.field.disabled %}
+      {# Mostrar el control deshabilitado con estilos y errores #}
       {% if field.errors %}
       {{ field|add_class:"form-control is-invalid" }}
       <div class="invalid-feedback d-block">
-        {% for error in field.errors %}
-        <span>{{ error }}</span>
-        {% endfor %}
+        {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
       </div>
       {% else %}
       {{ field|add_class:"form-control" }}
       {% endif %}
+
+      {# IMPORTANTÍSIMO: enviar el valor aunque el control esté disabled #}
+      <input type="hidden" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}">
+      {% else %}
+      {# Campo normal (habilitado) #}
+      {% if field.errors %}
+      {{ field|add_class:"form-control is-invalid" }}
+      <div class="invalid-feedback d-block">
+        {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
+      </div>
+      {% else %}
+      {{ field|add_class:"form-control" }}
+      {% endif %}
+      {% endif %}
     </div>
     {% endfor %}
 
-    <!-- Botones -->
     <div class="d-flex justify-content-between">
       <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
         <i class="fas fa-times-circle"></i> Cancelar

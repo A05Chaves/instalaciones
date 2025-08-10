@@ -190,13 +190,12 @@
                             <td>{{ instalacion.fecha_terminacion|date:"Y-m-d" }}</td>
                             <td>{{ instalacion.orden|default:"-" }}</td>
                             <td>
-                                {% if instalacion.get_tecnico1_display %}
-                                {{ instalacion.get_tecnico1_display }}<br>
-                                {% endif %}
-                                {% if instalacion.get_tecnico2_display %}
-                                {{ instalacion.get_tecnico2_display }}
+                                {% if instalacion.tecnico1 %}{{ instalacion.tecnico1.nombre }}{% else %}—{% endif %}
+                                {% if instalacion.tecnico2 %}
+                                <br>{{ instalacion.tecnico2.nombre }}
                                 {% endif %}
                             </td>
+
                             <td>
                                 {{ instalacion.estado }}
                                 {% if instalacion.estado == "LEGALIZADO" and instalacion.finaliza %}
@@ -204,7 +203,10 @@
                                 {% endif %}
                             </td>
                             <td>{{ instalacion.observacion|default:"-" }}</td>
-                            <td>{{ instalacion.get_ejecutivo_display }}</td>
+                            <td>
+                                {% if instalacion.ejecutivo %}{{ instalacion.ejecutivo.nombre }}{% else %}—{% endif %}
+                            </td>
+
                             <td>{{ instalacion.usuario }}</td>
                             <td>{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
                             <td class="text-center">
