@@ -13,23 +13,19 @@ import os
 from pathlib import Path
 import dj_database_url  # type: ignore
 
-# Variable de entorno para cambiar entre desarrollo y producción
-AMBIENTE = os.getenv("AMBIENTE", "local")  # por defecto "local"
-
+# === Entorno y rutas ===
+AMBIENTE = os.getenv("AMBIENTE", "local").lower()  # "local" o "produccion"
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Clave secreta (reemplaza en producción)
-SECRET_KEY = 'django-insecure-07#m5gr7!rj7#@ns^+i*-=hzjyxvv1z3b0)kzf%j&#24#=#0h%'
+# === Clave secreta ===
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
-# DEBUG y ALLOWED_HOSTS se determinan según el entorno
-if AMBIENTE == "produccion":
-    DEBUG = False
-    ALLOWED_HOSTS = ['*']  # Mejor poner tu dominio real de Render
-else:
-    DEBUG = True
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# === Debug y hosts ===
+DEBUG = AMBIENTE != "produccion"
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] if DEBUG else os.getenv(
+    "ALLOWED_HOSTS", "*").split(",")
 
-# Aplicaciones instaladas
+# === Apps ===
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -37,14 +33,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'app_instalaciones',
-    'widget_tweaks',
+    'widget_tweaks',  # pip install django-widget-tweaks
 ]
 
-# Middleware (con Whitenoise si estamos en producción)
+# === Middleware ===
 MIDDLEWARE = [
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise solo en prod (lo insertamos más abajo si aplica)
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -54,16 +51,19 @@ MIDDLEWARE = [
 ]
 
 if AMBIENTE == "produccion":
+    # agregar una sola vez y en el orden recomendado:
     MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
-# URL principal
+# === URLs y WSGI ===
 ROOT_URLCONF = 'instalaciones.urls'
+WSGI_APPLICATION = 'instalaciones.wsgi.application'
 
-# Templates
+# === Templates ===
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
+        # más robusto que 'templates' a secas
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -76,13 +76,24 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'instalaciones.wsgi.application'
-
-# Bases de datos
+# === Base de datos ===
 if AMBIENTE == "produccion":
-    DATABASES = {
-        'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-    }
+    # Intenta usar dj-database-url si está disponible y hay DATABASE_URL
+    try:
+        import dj_database_url  # pip install dj-database-url
+    except ModuleNotFoundError:
+        dj_database_url = None
+
+    if dj_database_url and os.getenv("DATABASE_URL"):
+        DATABASES = {'default': dj_database_url.config(conn_max_age=600)}
+    else:
+        # Fallback seguro para no romper en un PC sin dependencias/vars
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
     DATABASES = {
         'default': {
@@ -91,7 +102,7 @@ else:
         }
     }
 
-# Validadores de contraseña
+# === Password validators ===
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -99,20 +110,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internacionalización
+# === i18n ===
 LANGUAGE_CODE = 'es-co'
 TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
 
-# Archivos estáticos y multimedia
+# === Archivos estáticos y media ===
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+if AMBIENTE == "produccion":
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    # WhiteNoise en producción
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+else:
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+    MEDIA_ROOT = BASE_DIR / 'media'
 
-# Login y sesiones
+# === Login y sesiones ===
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = 'home'
