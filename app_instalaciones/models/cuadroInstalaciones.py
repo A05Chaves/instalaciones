@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Tecnico(models.Model):
@@ -8,6 +9,7 @@ class Tecnico(models.Model):
 
     def __str__(self):
         return str(self.nombre or "Sin nombre")
+    objects = models.Manager()  # ayuda a Pylint
 
 
 class Ejecutivo(models.Model):
@@ -20,47 +22,72 @@ class Ejecutivo(models.Model):
 class CuadroInsta(models.Model):
     BODEGA = [
         ("SI", "Sí"),
-        ("NO", "No")
+        ("NO", "No"),
     ]
 
-    pvg = models.IntegerField(default=0)
-    fecha = models.DateTimeField()
-    codigo = models.IntegerField(default=0)
-    cliente = models.CharField(max_length=100)
-    ciudad = models.CharField(null=True, max_length=30)
-    direccion = models.CharField(null=True, max_length=100)
+    # Si PVG a veces viene vacío durante import, permite null/blank.
+    # db_index acelera búsquedas/validaciones durante importaciones masivas.
+    pvg = models.IntegerField(null=True, blank=True, db_index=True)
+
+    # Fecha: si la fuente no trae fecha, usa un default
+    fecha = models.DateTimeField(default=timezone.now)
+
+    # ⚠️ Recomendado CharField si el "código" puede tener ceros a la izquierda o letras.
+    # Si estás 100% seguro de que siempre es entero, puedes dejar IntegerField con null/blank=True.
+    # codigo = models.IntegerField(null=True, blank=True, db_index=True)
+    codigo = models.CharField(max_length=50, null=True,
+                              blank=True, db_index=True)
+
+    cliente = models.CharField(max_length=100, null=True, blank=True)
+    ciudad = models.CharField(max_length=30, null=True,
+                              blank=True, db_index=True)
+    direccion = models.CharField(max_length=100, null=True, blank=True)
+
     instalacion = models.TextField(null=True, blank=True)
     dias_cotizados = models.IntegerField(null=True, blank=True)
     cantidad_tecnicos = models.IntegerField(null=True, blank=True)
+
     en_bodega = models.CharField(
-        null=True, choices=BODEGA, max_length=2, default="NO")
+        choices=BODEGA, max_length=2, default="NO", blank=True
+    )
+
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_terminacion = models.DateField(null=True, blank=True)
     finaliza = models.DateField(null=True, blank=True)
     orden = models.CharField(max_length=50, null=True, blank=True)
 
-    # Relaciones con técnicos (ahora como ForeignKey)
+    # Relaciones con técnicos (pueden no existir al momento del import)
     tecnico1 = models.ForeignKey(
-        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL, related_name='cuadroinsta_tecnico1'
+        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='cuadroinsta_tecnico1'
     )
     tecnico2 = models.ForeignKey(
-        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL, related_name='cuadroinsta_tecnico2'
+        'Tecnico', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='cuadroinsta_tecnico2'
     )
 
     estado = models.CharField(max_length=50, null=True, blank=True)
     observacion = models.TextField(null=True, blank=True)
 
-    # Relación con Ejecutivo
+    # Relación con Ejecutivo (igual: opcional durante import)
     ejecutivo = models.ForeignKey(
         'Ejecutivo', null=True, blank=True, on_delete=models.SET_NULL
     )
 
     updated_at = models.DateTimeField(auto_now=True)
-    usuario = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    usuario = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return f"Instalación #{self.codigo} - {self.cliente}"
+        cod = self.codigo if self.codigo not in (None, "") else "-"
+        cli = self.cliente if self.cliente not in (None, "") else "Sin cliente"
+        return f"Instalación #{cod} - {cli}"
 
+    class Meta:
+        # Permite repetir PVG si la ciudad es distinta; bloquea solo (pvg, ciudad) iguales
+        unique_together = (('pvg', 'ciudad'),)
+        # Útil para listados recientes
+        ordering = ['-fecha', '-updated_at']
 
 # guarda los registros de importacion de archivos excel
 
