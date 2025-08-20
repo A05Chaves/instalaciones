@@ -7,7 +7,8 @@ from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, E
 class CuadroInstaForm(forms.ModelForm):
     # Entradas de fecha/fecha-hora
     fecha = forms.DateTimeField(
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'})
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        required=False  # 👈 clave para permitir completar automáticamente en carga manual
     )
     fecha_inicio = forms.DateField(widget=forms.DateInput(
         attrs={'type': 'date'}), required=False)
@@ -49,24 +50,26 @@ class CuadroInstaForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
+        # Flag para distinguir importación vs uso manual
+        self.modo_import = kwargs.pop('modo_import', False)
         super().__init__(*args, **kwargs)
 
         # Cargar opciones para FKs
-        self.fields['tecnico1'].queryset = Tecnico.objects.all().order_by(  # pylint: disable=no-member
-            'nombre')
-        self.fields['tecnico2'].queryset = Tecnico.objects.all().order_by(  # pylint: disable=no-member
-            'nombre')
+        self.fields['tecnico1'].queryset = Tecnico.objects.all().order_by(
+            'nombre')  # pylint: disable=no-member
+        self.fields['tecnico2'].queryset = Tecnico.objects.all().order_by(
+            'nombre')  # pylint: disable=no-member
         self.fields['ejecutivo'].queryset = Ejecutivo.objects.all().order_by(  # pylint: disable=no-member
-            'nombre')
+            'nombre')  # pylint: disable=no-member
 
         self.fields['tecnico1'].label_from_instance = lambda obj: obj.nombre
         self.fields['tecnico2'].label_from_instance = lambda obj: obj.nombre
         self.fields['ejecutivo'].label_from_instance = lambda obj: obj.nombre
 
-        # Deshabilitar en edición (⚠️ disabled no envía el valor en POST)
-        # Lo compensamos restaurándolo desde instance en clean()
+        # Deshabilitar en edición (disabled no envía el valor en POST)
         if self.instance and self.instance.pk:
-            readonly_fields = ['pvg', 'fecha', 'tecnico1', 'tecnico2']
+            readonly_fields = ['pvg', 'codigo',
+                               'fecha', 'tecnico1', 'tecnico2']
             for field in readonly_fields:
                 self.fields[field].disabled = True
                 self.fields[field].widget.attrs.update(
@@ -91,7 +94,29 @@ class CuadroInstaForm(forms.ModelForm):
         dias_cotizados = cleaned_data.get('dias_cotizados')
         orden = cleaned_data.get('orden')
 
-        # 🛟 Restaurar valores de campos deshabilitados en edición
+        # --- Política de fecha según origen ---
+        # Importación: la fecha (Ingreso) DEBE venir en Excel.
+        # Manual: si no la envían, se asigna automáticamente now().
+        if not cleaned_data.get('fecha'):
+            if self.modo_import:
+                self.add_error(
+                    'fecha', "La columna 'Ingreso' (fecha y hora) es obligatoria en la importación.")
+            else:
+                cleaned_data['fecha'] = now()
+
+        # --- Validación duplicado por (PVG, Ciudad) ---
+        pvg = cleaned_data.get('pvg')
+        ciudad = cleaned_data.get('ciudad')
+        if pvg is not None and ciudad:
+            qs = CuadroInsta.objects.filter(  # pylint: disable=no-member
+                pvg=pvg, ciudad__iexact=ciudad.strip())  # pylint: disable=no-member
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                self.add_error(
+                    'pvg', 'Ya existe una instalación con este PVG en esta ciudad.')
+
+        # Restaurar valores de campos deshabilitados en edición
         if self.instance and self.instance.pk:
             if not cleaned_data.get('fecha') and self.instance.fecha:
                 cleaned_data['fecha'] = self.instance.fecha
@@ -134,11 +159,10 @@ class CuadroInstaForm(forms.ModelForm):
         return cleaned_data
 
     def clean_pvg(self):
+        # Aquí deja sólo reglas de formato/rango si quieres
         pvg = self.cleaned_data['pvg']
-        instancia = self.instance
-        if CuadroInsta.objects.filter(pvg=pvg).exclude(id=instancia.id).exists():  # pylint: disable=no-member
-            raise forms.ValidationError(
-                "Ya existe una instalación con este PVG.")
+        # if pvg <= 0:
+        #     raise forms.ValidationError("El PVG debe ser un número positivo.")
         return pvg
 
 
