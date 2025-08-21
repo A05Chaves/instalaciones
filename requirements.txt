@@ -7,3 +7,4 @@ django-widget-tweaks
 # Si alguna vez necesitas backports.zoneinfo, que sea SOLO para Python < 3.9:
 # backports.zoneinfo ; python_version < "3.9"
 openpyxl
+pandas
