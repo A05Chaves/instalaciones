@@ -190,12 +190,15 @@
                             <td>{{ instalacion.fecha_terminacion|date:"Y-m-d" }}</td>
                             <td>{{ instalacion.orden|default:"-" }}</td>
                             <td>
-                                {% if instalacion.tecnico1 %}{{ instalacion.tecnico1.nombre }}{% else %}—{% endif %}
+                                {% if instalacion.tecnico1 %}
+                                {{ instalacion.tecnico1.nombre }}
+                                {% else %}
+                                —
+                                {% endif %}
                                 {% if instalacion.tecnico2 %}
-                                <br>{{ instalacion.tecnico2.nombre }}
+                                – {{ instalacion.tecnico2.nombre }}
                                 {% endif %}
                             </td>
-
                             <td>
                                 {{ instalacion.estado }}
                                 {% if instalacion.estado == "LEGALIZADO" and instalacion.finaliza %}
