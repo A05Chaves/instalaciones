@@ -6,6 +6,6 @@ psycopg[binary]>=3.1
 django-widget-tweaks
 # Si alguna vez necesitas backports.zoneinfo, que sea SOLO para Python < 3.9:
 # backports.zoneinfo ; python_version < "3.9"
-openpyxl=3.1
+openpyxl==3.1.0
 pandas=2.2
 
