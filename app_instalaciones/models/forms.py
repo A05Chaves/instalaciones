@@ -68,8 +68,8 @@ class CuadroInstaForm(forms.ModelForm):
 
         # Deshabilitar en edición (disabled no envía el valor en POST)
         if self.instance and self.instance.pk:
-            readonly_fields = ['pvg', 'codigo',
-                               'fecha', 'tecnico1', 'tecnico2']
+            readonly_fields = ['pvg', 'codigo', 'cliente',
+                               'fecha']  # 'tecnico1', 'tecnico2']
             for field in readonly_fields:
                 self.fields[field].disabled = True
                 self.fields[field].widget.attrs.update(
