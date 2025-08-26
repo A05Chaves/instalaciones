@@ -333,7 +333,7 @@ def importar_excel(request):
                             tec2_v = partes[1] if len(partes) > 1 else None
 
                     ciudad_norm = norm_text(ciudad)
-                    # 👈 en import es obligatoria (lo hará el form)
+                    # import es obligatorio (lo hará el form)
                     fecha_dt = to_datetime(ingreso)
                     fecha_ini = to_date(inicio)
                     en_bodega = norm_si_no(bodega)
