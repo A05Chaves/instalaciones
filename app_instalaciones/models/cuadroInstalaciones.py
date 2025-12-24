@@ -1,6 +1,6 @@
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
+from django.db import models # type: ignore
+from django.contrib.auth.models import User # type: ignore
+from django.utils import timezone # type: ignore
 
 
 class Tecnico(models.Model):

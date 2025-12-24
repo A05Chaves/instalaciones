@@ -1,21 +1,21 @@
 import re
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User, Group
-from django.contrib import messages
-from django.contrib.auth import authenticate
-from django.urls import reverse
-from django.contrib.auth import login as auth_login
-from django.contrib.auth import logout as auth_logout
+from django.shortcuts import render, redirect  # type: ignore
+from django.contrib.auth.models import User, Group  # type: ignore
+from django.contrib import messages  # type: ignore
+from django.contrib.auth import authenticate  # type: ignore
+from django.urls import reverse  # type: ignore
+from django.contrib.auth import login as auth_login  # type: ignore
+from django.contrib.auth import logout as auth_logout  # type: ignore
 from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
 
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse  # type: ignore
+from django.contrib.auth.decorators import login_required  # type: ignore
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
 
-from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404, redirect  # type: ignore
+from django.views.decorators.http import require_POST  # type: ignore
 
-from django.utils import timezone
+from django.utils import timezone  # type: ignore
 
 # MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
@@ -108,40 +108,48 @@ def logout(request):
 # NUEVO ARREGLO LISTA DE MANTENIMIENTOS
 
 
+
 def listar_mantenimientos(request):
     if request.method == "POST":
-        # 1. Leer lo que viene del formulario
         codigo = (request.POST.get('codigo') or "").strip()
         cliente = (request.POST.get('cliente') or "").strip()
         ciudad = (request.POST.get('ciudad') or "").strip()
         direccion = (request.POST.get('direccion') or "").strip()
-        tipo_falla = (request.POST.get('tipo_falla') or "").strip()
+        tipo_falla = request.POST.get('tipo_falla') or None
         tecnico_id = request.POST.get('tecnico') or None
         hora_entrada = request.POST.get('hora_entrada') or None
         hora_salida = request.POST.get('hora_salida') or None
-        horas = request.POST.get('horas') or 0
+        horas = request.POST.get('horas') or None
         orden = (request.POST.get('orden') or "").strip()
         realizado = request.POST.get('realizado') or None
 
-        # 2. Si hay código, intentar buscar la instalación SOLO para este registro
         inst = None
         if codigo:
             inst = CuadroInsta.objects.filter(codigo__iexact=codigo).first()
 
-        # 3. Si encontramos instalación, solo sobrescribimos los campos VACÍOS
+        # ✅ Si existe, completar vacíos desde CuadroInsta
         if inst:
-            if not cliente:
-                cliente = inst.cliente or ""
-            if not ciudad:
-                ciudad = inst.ciudad or ""
-            if not direccion:
-                direccion = inst.direccion or ""
+            if not cliente: cliente = inst.cliente or ""
+            if not ciudad: ciudad = inst.ciudad or ""
+            if not direccion: direccion = inst.direccion or ""
 
-        # 4. Si hay orden y no viene fecha de realizado → usar hoy
+        # ✅ Si NO existe, y el usuario ingresó datos, crear CuadroInsta "mínimo"
+        if not inst and codigo and (cliente or ciudad or direccion):
+            CuadroInsta.objects.create(
+                codigo=codigo,
+                cliente=cliente or None,
+                ciudad=ciudad or None,
+                direccion=direccion or None,
+                fecha=timezone.now(),      # ya tiene default, pero lo dejamos explícito
+                en_bodega="NO",            # tiene default, pero ok
+                usuario=request.user if request.user.is_authenticated else None
+            )
+
+        # ✅ Realizado automático si hay orden y no hay realizado
         if orden and not realizado:
             realizado = timezone.now().date()
 
-        # 5. Crear el mantenimiento con los datos resultantes
+        # ✅ Crear mantenimiento SIEMPRE
         Mantenimiento.objects.create(
             codigo=codigo,
             cliente=cliente,
@@ -151,23 +159,19 @@ def listar_mantenimientos(request):
             tecnico_id=tecnico_id,
             hora_entrada=hora_entrada or None,
             hora_salida=hora_salida or None,
-            horas=horas or 0,
-            orden=orden,
-            realizado=realizado,
+            horas=horas or None,
+            orden=orden or None,
+            realizado=realizado or None,
+            creado_por=request.user if request.user.is_authenticated else None
         )
 
         messages.success(request, "Mantenimiento registrado correctamente.")
         return redirect('listar_mantenimientos')
 
-    # GET: listar
     mantenimientos = Mantenimiento.objects.all().order_by('-fecha_registro')
     tecnicos = Tecnico.objects.all().order_by('nombre')
+    return render(request, "mantenimientos.html", {"mantenimientos": mantenimientos, "tecnicos": tecnicos})
 
-    context = {
-        "mantenimientos": mantenimientos,
-        "tecnicos": tecnicos,
-    }
-    return render(request, "mantenimientos.html", context)
 
 # JSON PARA BUSCAR CLIENTES Y AGREGAR AL CUADRO MANTENIMIENTOS
 
@@ -177,21 +181,12 @@ def buscar_instalacion_por_codigo(request):
     codigo = (request.GET.get('codigo') or "").strip()
 
     if not codigo:
-        return JsonResponse(
-            {"ok": False, "error": "Sin código"},
-            status=400
-        )
+        return JsonResponse({"ok": False, "error": "Sin código"})
 
-    # Buscamos de forma segura (case-insensitive) y tomamos la primera coincidencia
-    qs = CuadroInsta.objects.filter(codigo__iexact=codigo)
+    inst = CuadroInsta.objects.filter(codigo__iexact=codigo).first()
 
-    if not qs.exists():
-        return JsonResponse(
-            {"ok": False, "error": "Instalación no encontrada"},
-            status=404
-        )
-
-    inst = qs.first()
+    if not inst:
+        return JsonResponse({"ok": False, "error": "No existe"})
 
     return JsonResponse({
         "ok": True,
@@ -199,6 +194,7 @@ def buscar_instalacion_por_codigo(request):
         "ciudad": inst.ciudad or "",
         "direccion": inst.direccion or "",
     })
+
 
 # vistas para edicion y subir archivos de mantenimientos
 

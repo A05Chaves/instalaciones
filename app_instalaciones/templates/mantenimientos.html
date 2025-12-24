@@ -8,16 +8,9 @@
     <title>{% block titulo %}App_Sesur{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- DataTables CSS con Bootstrap 5 -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-    <!-- Tu hoja de estilos personalizada -->
     <link href="{% static 'sesur/css/main.css' %}" rel="stylesheet">
 </head>
 
@@ -68,10 +61,8 @@
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
-                                <li>
-                                    <a class="dropdown-item text-danger" href="{% url 'logout' %}">
-                                        <i class="fas fa-sign-out-alt"></i> Cerrar sesión
-                                    </a>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}">
+                                        <i class="fas fa-sign-out-alt"></i> Cerrar sesión</a>
                                 </li>
                             </ul>
                         </li>
@@ -96,24 +87,18 @@
     <div class="container-fluid py-4 px-3 flex-grow-1">
         {% block content %}
 
-        <!-- Card contenedor -->
         <div class="card shadow-sm">
             <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-tools me-2"></i> Registro de mantenimientos
-                </h5>
+                <h5 class="mb-0"><i class="fas fa-tools me-2"></i> Registro de mantenimientos</h5>
                 <small class="text-light-50">App_Sesur</small>
             </div>
-            <div class="card-body">
 
-                <!-- Filtro de búsqueda (GET) -->
+            <div class="card-body">
                 <form method="GET" class="mb-3">
                     <div class="row g-2">
                         <div class="col-md-4">
                             <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-search"></i>
-                                </span>
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
                                 <input type="text" name="busqueda" id="busqueda" class="form-control"
                                     value="{{ request.GET.busqueda }}"
                                     placeholder="Buscar por cliente, código, ciudad o técnico">
@@ -122,127 +107,132 @@
                     </div>
                 </form>
 
-                <!-- Formulario principal (POST) -->
-                <form method="POST">
+                <!-- IMPORTANTE: autocomplete off -->
+                <form method="POST" autocomplete="off">
                     {% csrf_token %}
+
                     <div style="max-height: 70vh; overflow-y: auto;">
                         <table id="tabla-mantenimientos"
                             class="table table-bordered table-striped table-hover align-middle">
                             <thead class="table-dark sticky-top" style="position: sticky; top: 0; z-index: 1020;">
                                 <tr>
-                                    <th style="width: 9%;">Fecha</th> <!-- 1 -->
-                                    <th style="width: 7%;">Código</th> <!-- 2 -->
-                                    <th style="width: 15%;">Cliente</th> <!-- 3 -->
-                                    <th style="width: 10%;">Ciudad</th> <!-- 4 -->
-                                    <th style="width: 18%;">Dirección</th> <!-- 5 -->
-                                    <th style="width: 10%;">Tipo de falla</th><!-- 6 -->
-                                    <th style="width: 12%;">Técnico</th> <!-- 7 -->
-                                    <th style="width: 7%;">Entrada</th> <!-- 8 -->
-                                    <th style="width: 7%;">Salida</th> <!-- 9 -->
-                                    <th style="width: 7%;">Horas</th> <!-- 10 -->
-                                    <th style="width: 8%;">Orden</th> <!-- 11 -->
-                                    <th style="width: 9%;">Realizado</th> <!-- 12 -->
-                                    <th style="width: 10%;" class="text-center">Acción</th> <!-- 13 -->
+                                    <th style="width: 9%;">Fecha</th>
+                                    <th style="width: 7%;">Código</th>
+                                    <th style="width: 15%;">Cliente</th>
+                                    <th style="width: 10%;">Ciudad</th>
+                                    <th style="width: 18%;">Dirección</th>
+                                    <th style="width: 10%;">Tipo de falla</th>
+                                    <th style="width: 12%;">Técnico</th>
+                                    <th style="width: 7%;">Entrada</th>
+                                    <th style="width: 7%;">Salida</th>
+                                    <th style="width: 7%;">Horas</th>
+                                    <th style="width: 8%;">Orden</th>
+                                    <th style="width: 9%;">Realizado</th>
+                                    <th style="width: 10%;" class="text-center">Acción</th>
                                 </tr>
                             </thead>
 
                             <tbody id="tabla-body">
-                                <!-- Fila para crear nuevo mantenimiento (13 columnas) -->
-                                <tr class="table-success">
-                                    <!-- 1: Fecha, automática -->
+
+                                <!-- ✅ FILA NUEVO REGISTRO: ID FIJO -->
+                                <tr class="table-success" id="fila-nuevo">
                                     <td class="text-muted small">Auto</td>
 
-                                    <!-- 2: Código -->
-                                    <td>
-                                        <input type="text" name="codigo" class="form-control form-control-sm"
-                                            placeholder="Cod.">
-                                    </td>
+                                    <td><input type="text" name="codigo" class="form-control form-control-sm"
+                                            placeholder="Cod."></td>
 
-                                    <!-- 3: Cliente -->
-                                    <td>
-                                        <input type="text" name="cliente" class="form-control form-control-sm"
-                                            placeholder="Cliente">
-                                    </td>
+                                    <td><input type="text" name="cliente" class="form-control form-control-sm"
+                                            placeholder="Cliente"></td>
 
-                                    <!-- 4: Ciudad -->
-                                    <td>
-                                        <input type="text" name="ciudad" class="form-control form-control-sm"
-                                            placeholder="Ciudad">
-                                    </td>
+                                    <td><input type="text" name="ciudad" class="form-control form-control-sm"
+                                            placeholder="Ciudad"></td>
 
-                                    <!-- 5: Dirección -->
-                                    <td>
-                                        <input type="text" name="direccion" class="form-control form-control-sm"
-                                            placeholder="Dirección">
-                                    </td>
+                                    <td><input type="text" name="direccion" class="form-control form-control-sm"
+                                            placeholder="Dirección"></td>
 
-                                    <!-- 6: Tipo de falla -->
                                     <td>
                                         <select name="tipo_falla" class="form-select form-select-sm">
-                                            <option value="" selected disabled>Seleccione...</option>
-                                            <option value="F.Comunicación">F.Comunicación</option>
-                                            <option value="F.Corriente">F.Corriente</option>
-                                            <option value="Activación">Activación</option>
-                                            <option value="Programación">Programación</option>
-                                            <option value="Act.datos">Act.datos</option>
+                                            <option value="" selected>Seleccione...</option>
+                                            <option value="F.COMUNICACION">F.Comunicación</option>
+                                            <option value="F.CORRIENTE">F.Corriente</option>
+                                            <option value="ACTIVACION">Activación</option>
+                                            <option value="PROGRAMACION">Programación</option>
+                                            <option value="ACT.DATOS">Act.datos</option>
+                                            <option value="OTRO SERVICIO">Otro servicio</option>
                                             <option value="CCTV">CCTV</option>
-                                            <option value="Instalación">Instalación</option>
-                                            <option value="Manto preventivo">Manto preventivo</option>
-                                            <option value="Otro">Otro</option>
+                                            <option value="INSTALACION">Instalación</option>
+                                            <option value="MANTO PREVENTIVO">Manto preventivo</option>
+                                            <option value="OTRO">Otro</option>
                                         </select>
                                     </td>
 
-                                    <!-- 7: Técnico -->
                                     <td>
                                         <select name="tecnico" class="form-select form-select-sm">
+                                            <option value="">Sin técnico</option>
                                             {% for tecnico in tecnicos %}
                                             <option value="{{ tecnico.id }}">{{ tecnico.nombre }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
 
-                                    <!-- 8: Entrada -->
-                                    <td>
-                                        <input type="time" name="hora_entrada" id="id_hora_entrada"
-                                            class="form-control form-control-sm">
-                                    </td>
+                                    <td><input type="time" name="hora_entrada" id="id_hora_entrada"
+                                            class="form-control form-control-sm"></td>
+                                    <td><input type="time" name="hora_salida" id="id_hora_salida"
+                                            class="form-control form-control-sm"></td>
 
-                                    <!-- 9: Salida -->
-                                    <td>
-                                        <input type="time" name="hora_salida" id="id_hora_salida"
-                                            class="form-control form-control-sm">
-                                    </td>
-
-                                    <!-- 10: Horas -->
                                     <td>
                                         <input type="number" name="horas" id="id_horas"
                                             class="form-control form-control-sm bg-light text-muted" step="0.1"
                                             readonly>
-                                        <div id="horas-error" class="form-text text-danger" style="display: none;">
+                                        <div id="horas-error" class="form-text text-danger" style="display:none;">
                                             La hora de salida debe ser mayor que la de entrada.
                                         </div>
                                     </td>
 
-                                    <!-- 11: Orden -->
-                                    <td>
-                                        <input type="text" name="orden" class="form-control form-control-sm"
-                                            placeholder="Orden">
-                                    </td>
+                                    <td><input type="text" name="orden" class="form-control form-control-sm"
+                                            placeholder="Orden"></td>
 
-                                    <!-- 12: Realizado -->
-                                    <td>
-                                        <input type="date" name="realizado" class="form-control form-control-sm">
-                                    </td>
+                                    <td><input type="date" name="realizado" class="form-control form-control-sm"></td>
 
-                                    <!-- 13: Acción -->
                                     <td class="text-center">
-                                        <button type="submit" class="btn btn-sm btn-success" id="btn-guardar">
-                                            <i class="fas fa-save"></i> Guardar
-                                        </button>
+
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="submit" class="btn btn-outline-primary btn-inline-save"
+                                                id="btn-guardar">
+                                                <i class="fas fa-save"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary btn-inline-edit"
+                                                data-id="{{ m.id }}" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+
+                                            <button type="button"
+                                                class="btn btn-outline-secondary btn-inline-cancel d-none"
+                                                title="Cancelar">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+
+                                            <button type="button" class="btn btn-outline-danger btn-inline-delete"
+                                                data-id="{{ m.id }}" data-cliente="{{ m.cliente }}" title="Eliminar">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+
+                                            <button type="button" class="btn btn-outline-dark btn-inline-upload"
+                                                data-id="{{ m.id }}" title="Subir foto/PDF">
+                                                <i class="fas fa-file-upload"></i>
+                                            </button>
+
+                                            {% if m.archivo %}
+                                            <a href="{{ m.archivo.url }}" target="_blank"
+                                                class="btn btn-outline-success" title="Ver archivo">
+                                                <i class="fas fa-file-alt"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                 </tr>
 
-                                <!-- Filas de mantenimientos existentes (también 13 columnas) -->
+                                <!-- EXISTENTES -->
                                 {% for m in mantenimientos %}
                                 <tr data-id="{{ m.id }}">
                                     <!-- 1: Fecha registro -->
@@ -276,22 +266,18 @@
                                     <td>
                                         <span class="view-mode">
                                             {% if m.tipo_falla %}
-                                            {{ m.tipo_falla }}
+                                            {{ m.get_tipo_falla_display }}
                                             {% else %}
                                             <span class="text-muted">Sin registrar</span>
                                             {% endif %}
                                         </span>
+
                                         <select class="edit-mode form-select form-select-sm d-none" name="tipo_falla">
                                             <option value="">Seleccione...</option>
-                                            <option value="F.Comunicación" {% if m.tipo_falla == 'F.Comunicación' %}selected{% endif %}>F.Comunicación</option>
-                                            <option value="F.Corriente" {% if m.tipo_falla == 'F.Corriente' %}selected{% endif %}>F.Corriente</option>
-                                            <option value="Activación" {% if m.tipo_falla == 'Activación' %}selected{% endif %}>Activación</option>
-                                            <option value="Programación" {% if m.tipo_falla == 'Programación' %}selected{% endif %}>Programación</option>
-                                            <option value="Act.datos" {% if m.tipo_falla == 'Act.datos' %}selected{% endif %}>Act.datos</option>
-                                            <option value="CCTV" {% if m.tipo_falla == 'CCTV' %}selected{% endif %}>CCTV</option>
-                                            <option value="Instalación" {% if m.tipo_falla == 'Instalación' %}selected{% endif %}>Instalación</option>
-                                            <option value="Manto preventivo" {% if m.tipo_falla == 'Manto preventivo' %}selected{% endif %}>Manto preventivo</option>
-                                            <option value="Otro" {% if m.tipo_falla == 'Otro' %}selected{% endif %}>Otro</option>
+                                            {% for value, label in m.TIPO_FALLA_CHOICES %}
+                                            <option value="{{ value }}" {% if m.tipo_falla == value %}selected{% endif %}>
+                                                {{ label }}</option>
+                                            {% endfor %}
                                         </select>
                                     </td>
 
@@ -304,6 +290,7 @@
                                             <span class="text-muted">Sin técnico</span>
                                             {% endif %}
                                         </span>
+
                                         <select class="edit-mode form-select form-select-sm d-none" name="tecnico">
                                             <option value="">Sin técnico</option>
                                             {% for tecnico in tecnicos %}
@@ -314,22 +301,18 @@
                                         </select>
                                     </td>
 
-                                    <!-- 8: Entrada -->
+                                    <!-- 8: Entrada (solo editable una vez) -->
                                     <td>
-                                        <span class="view-mode">
-                                            {{ m.hora_entrada|time:"H:i" }}
-                                        </span>
+                                        <span class="view-mode">{{ m.hora_entrada|time:"H:i" }}</span>
                                         {% if not m.hora_entrada %}
                                         <input class="edit-mode form-control form-control-sm d-none" type="time"
                                             name="hora_entrada">
                                         {% endif %}
                                     </td>
 
-                                    <!-- 9: Salida -->
+                                    <!-- 9: Salida (solo editable una vez) -->
                                     <td>
-                                        <span class="view-mode">
-                                            {{ m.hora_salida|time:"H:i" }}
-                                        </span>
+                                        <span class="view-mode">{{ m.hora_salida|time:"H:i" }}</span>
                                         {% if not m.hora_salida %}
                                         <input class="edit-mode form-control form-control-sm d-none" type="time"
                                             name="hora_salida">
@@ -353,24 +336,35 @@
                                             type="date" value="{{ m.realizado|date:'Y-m-d' }}">
                                     </td>
 
-                                    <!-- 13: Acción -->
+                                    <!-- 13: Acción (AQUÍ SÍ va dentro del TR) -->
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
+                                            <!-- Editar / Guardar -->
                                             <button type="button" class="btn btn-outline-primary btn-inline-edit"
-                                                data-id="{{ m.id }}">
+                                                data-id="{{ m.id }}" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </button>
 
+                                            <!-- Cancelar (siempre visible, pero solo funciona cuando está editing) -->
+                                            <button type="button"
+                                                class="btn btn-outline-secondary btn-inline-cancel d-none"
+                                                title="Cancelar">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+
+                                            <!-- Eliminar -->
                                             <button type="button" class="btn btn-outline-danger btn-inline-delete"
-                                                data-id="{{ m.id }}" data-cliente="{{ m.cliente }}">
+                                                data-id="{{ m.id }}" data-cliente="{{ m.cliente }}" title="Eliminar">
                                                 <i class="fas fa-trash-alt"></i>
                                             </button>
 
+                                            <!-- Subir archivo -->
                                             <button type="button" class="btn btn-outline-secondary btn-inline-upload"
-                                                data-id="{{ m.id }}">
+                                                data-id="{{ m.id }}" title="Subir archivo">
                                                 <i class="fas fa-file-upload"></i>
                                             </button>
 
+                                            <!-- Ver archivo -->
                                             {% if m.archivo %}
                                             <a href="{{ m.archivo.url }}" target="_blank"
                                                 class="btn btn-outline-success" title="Ver archivo">
@@ -381,79 +375,16 @@
                                     </td>
                                 </tr>
                                 {% endfor %}
-                            </tbody>
 
+
+                            </tbody>
                         </table>
                     </div>
                 </form>
-
-                <!-- Modales (fuera de la tabla y del form) -->
-
-                <!-- Modal Eliminar -->
-                <div class="modal fade" id="modalEliminarMantenimiento" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <form method="POST" id="formEliminarMantenimiento">
-                                {% csrf_token %}
-                                <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title">Eliminar mantenimiento</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>¿Seguro que deseas eliminar el mantenimiento de
-                                        <strong id="textoClienteEliminar"></strong>?
-                                    </p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary"
-                                        data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-danger">Eliminar</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal Subir archivo -->
-                <div class="modal fade" id="modalSubirArchivo" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <form method="POST" id="formSubirArchivo" enctype="multipart/form-data">
-                                {% csrf_token %}
-                                <div class="modal-header bg-secondary text-white">
-                                    <h5 class="modal-title">Subir archivo</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label for="id_archivo" class="form-label">Seleccione foto o PDF</label>
-                                        <input type="file" name="archivo" id="id_archivo" class="form-control"
-                                            accept=".pdf,image/*" required>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-outline-secondary"
-                                        data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-secondary">Subir</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
 
-        <!-- Estilos para tabla completa -->
         <style>
-            html,
-            body {
-                height: 100%;
-                margin: 0;
-            }
-
             .table {
                 width: 100%;
                 table-layout: fixed;
@@ -465,102 +396,7 @@
                 word-wrap: break-word;
                 vertical-align: middle;
             }
-
-            input,
-            select,
-            textarea {
-                width: 100%;
-            }
-
-            .card-header h5 {
-                font-size: 1rem;
-            }
         </style>
-
-        <!-- Script: cálculo automático de horas + validación + filtro -->
-        <script>
-            document.addEventListener("DOMContentLoaded", function () {
-                const entradaInput = document.getElementById("id_hora_entrada");
-                const salidaInput = document.getElementById("id_hora_salida");
-                const horasInput = document.getElementById("id_horas");
-                const errorMsg = document.getElementById("horas-error");
-                const guardarBtn = document.getElementById("btn-guardar");
-                const busquedaInput = document.getElementById("busqueda");
-
-                const ordenInput = document.querySelector("input[name='orden']");
-                const realizadoInput = document.querySelector("input[name='realizado']");
-
-
-                function calcularHoras() {
-                    const entrada = entradaInput.value;
-                    const salida = salidaInput.value;
-
-                    if (entrada && salida) {
-                        const [eh, em] = entrada.split(":").map(Number);
-                        const [sh, sm] = salida.split(":").map(Number);
-
-                        const entradaMin = eh * 60 + em;
-                        const salidaMin = sh * 60 + sm;
-                        const diferencia = salidaMin - entradaMin;
-
-                        if (diferencia <= 0) {
-                            horasInput.value = "";
-                            horasInput.classList.add("is-invalid");
-                            errorMsg.style.display = "block";
-                            if (guardarBtn) guardarBtn.disabled = true;   // ❌ no deja guardar si hay error
-                        } else {
-                            const horasDecimal = (diferencia / 60).toFixed(2);
-                            horasInput.value = horasDecimal;
-                            horasInput.classList.remove("is-invalid");
-                            errorMsg.style.display = "none";
-                            if (guardarBtn) guardarBtn.disabled = false;  // ✅ deja guardar cuando es correcto
-                        }
-                    } else {
-                        // Si alguna de las dos está vacía: NO obligamos, se puede guardar igual
-                        horasInput.value = "";
-                        errorMsg.style.display = "none";
-                        horasInput.classList.remove("is-invalid");
-                        if (guardarBtn) guardarBtn.disabled = false;      // ✅ botón habilitado si no hay horas
-                    }
-                }
-
-
-                if (entradaInput && salidaInput) {
-                    entradaInput.addEventListener("change", calcularHoras);
-                    salidaInput.addEventListener("change", calcularHoras);
-                }
-
-                // Filtro automático al escribir (GET)
-                if (busquedaInput) {
-                    busquedaInput.addEventListener("input", function () {
-                        clearTimeout(busquedaInput._timeout);
-                        busquedaInput._timeout = setTimeout(() => {
-                            this.form.submit();
-                        }, 600);
-                    });
-                }
-
-                // Fecha "realizado" automática al escribir la orden
-                if (ordenInput && realizadoInput) {
-                    ordenInput.addEventListener("change", function () {
-                        const valor = this.value.trim();
-
-                        // Si hay número de orden y aún no se ha puesto fecha, la llenamos con HOY
-                        if (valor && !realizadoInput.value) {
-                            const hoy = new Date();
-                            const y = hoy.getFullYear();
-                            const m = String(hoy.getMonth() + 1).padStart(2, "0");
-                            const d = String(hoy.getDate()).padStart(2, "0");
-                            realizadoInput.value = `${y}-${m}-${d}`;
-                        }
-                    });
-                }
-
-            });
-
-
-
-        </script>
 
         {% endblock %}
     </div>
@@ -569,157 +405,134 @@
         <div>
             {% if request.user.is_authenticated %}
             Sesión activa como: <strong>{{ request.user.username }}</strong>
-            {% if request.user.is_staff %}
-            | Rol: <span class="badge bg-success">Administrador</span>
-            {% else %}
-            | Rol: <span class="badge bg-secondary">Usuario</span>
-            {% endif %}
             {% else %}
             <a href="{% url 'login' %}" class="text-white">Iniciar sesión</a> para ver más opciones.
             {% endif %}
         </div>
-        <div class="mt-2">
-            <span id="datetime" class="text-info"></span>
-        </div>
-        <div>
-            <a href="#" class="text-white text-decoration-none">Contacto</a>
-        </div>
+        <div class="mt-2"><span id="datetime" class="text-info"></span></div>
+        <div><a href="#" class="text-white text-decoration-none">Contacto</a></div>
     </footer>
 
-    <!-- jQuery y Bootstrap Bundle -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- DataTables -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
-    <!-- Inicialización básica de DataTables -->
     <script>
-        $('#tabla-mantenimientos').DataTable({
-            paging: true,
-            lengthChange: true,
-            searching: false,  // usamos tu filtro del backend
-            ordering: true,
-            info: true,
-            autoWidth: false,
-            order: [[0, 'desc']],      // 0 = primera columna: Fecha
-            columnDefs: [
-                { orderable: false, targets: -1 }  // última columna (Acción) sin orden
-            ]
+        $(document).ready(function () {
+            $('#tabla-mantenimientos').DataTable({
+                paging: true,
+                lengthChange: true,
+                searching: false,
+                ordering: true,
+                info: true,
+                autoWidth: false,
+                order: [[0, 'desc']],
+                columnDefs: [{ orderable: false, targets: -1 }]
+            });
+        });
+    </script>
+
+    <!-- ✅ Limpieza forzada de la fila nuevo (evita que quede el valor anterior) -->
+    <script>
+        function limpiarFilaNuevo() {
+            const fila = document.getElementById("fila-nuevo");
+            if (!fila) return;
+            fila.querySelectorAll("input, select, textarea").forEach(el => {
+                if (el.tagName === "SELECT") el.selectedIndex = 0;
+                else el.value = "";
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // al entrar a la página, limpia (evita restore del navegador)
+            limpiarFilaNuevo();
         });
 
+        // esto arregla cuando el navegador usa cache (volver/recargar)
+        window.addEventListener("pageshow", function () {
+            limpiarFilaNuevo();
+        });
     </script>
 
-    <!-- Reloj en el footer -->
-    <script>
-        function updateDateTime() {
-            const now = new Date();
-            const options = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            };
-            const formatted = now.toLocaleString('es-CO', options);
-            document.getElementById('datetime').textContent = " " + formatted;
-        }
-        updateDateTime();
-        setInterval(updateDateTime, 1000);
-    </script>
-
-    <!-- Cierre automático de alertas -->
-    <script>
-        setTimeout(function () {
-            const alerts = document.querySelectorAll('.auto-dismiss-alert');
-            alerts.forEach(function (alert) {
-                const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-                bsAlert.close();
-            });
-        }, 3000);
-    </script>
-
-    <!-- Autocompletar por código -->
+    <!-- ✅ Autocompletar por código (anclado a #fila-nuevo) -->
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            const codigoInput = document.querySelector("input[name='codigo']");
-            const clienteInput = document.querySelector("input[name='cliente']");
-            const ciudadInput = document.querySelector("input[name='ciudad']");
-            const direccionInput = document.querySelector("input[name='direccion']");
+            const fila = document.getElementById("fila-nuevo");
+            if (!fila) return;
 
-            if (!codigoInput || !clienteInput || !ciudadInput || !direccionInput) {
-                console.warn("No se encontraron los inputs de código/cliente/ciudad/dirección.");
-                return;
-            }
+            const codigoInput = fila.querySelector("input[name='codigo']");
+            const clienteInput = fila.querySelector("input[name='cliente']");
+            const ciudadInput = fila.querySelector("input[name='ciudad']");
+            const direccionInput = fila.querySelector("input[name='direccion']");
 
-            codigoInput.addEventListener("change", function () {
+            if (!codigoInput || !clienteInput || !ciudadInput || !direccionInput) return;
+
+            codigoInput.addEventListener("blur", function () {
                 const codigo = this.value.trim();
-
-                // 🔹 SIEMPRE limpiamos primero para que no quede el valor anterior
-                clienteInput.value = "";
-                ciudadInput.value = "";
-                direccionInput.value = "";
-
-                if (!codigo) {
-                    console.warn("Código vacío, no se consulta instalación.");
-                    return;
-                }
+                if (!codigo) return;
 
                 fetch("{% url 'buscar_instalacion_por_codigo' %}?codigo=" + encodeURIComponent(codigo))
-                    .then(response => {
-                        // Aun si el status es 404, intentamos leer el JSON
-                        return response.json().catch(() => {
-                            return { ok: false, error: "Error al parsear respuesta" };
-                        });
-                    })
+                    .then(r => r.json())
                     .then(data => {
-                        console.log("Respuesta buscar_instalacion_por_codigo:", data);
-
                         if (data.ok) {
-                            // 🔹 Solo si ok = True llenamos
                             clienteInput.value = data.cliente || "";
                             ciudadInput.value = data.ciudad || "";
                             direccionInput.value = data.direccion || "";
                         } else {
-                            // 🔹 Si no se encontró o hubo error, dejamos los campos vacíos
-                            clienteInput.value = "";
-                            ciudadInput.value = "";
-                            direccionInput.value = "";
-                            console.warn(data.error || "Instalación no encontrada");
+                            // NO borramos nada
+                            console.warn("Código no existe. Completa manualmente.");
                         }
                     })
-                    .catch(error => {
-                        console.error("Error buscando instalación:", error);
-                        // 🔹 En caso de error de red, también limpiamos
-                        clienteInput.value = "";
-                        ciudadInput.value = "";
-                        direccionInput.value = "";
-                    });
+                    .catch(err => console.error(err));
             });
         });
     </script>
 
-
-
-    <!-- Edición inline + modales -->
+    <!-- Reloj -->
+    <script>
+        function updateDateTime() {
+            const now = new Date();
+            const options = {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            };
+            document.getElementById('datetime').textContent = " " + now.toLocaleString('es-CO', options);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+    </script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // ======================
-            // EDICIÓN INLINE
-            // ======================
+
             function activarModoEdicion(tr) {
                 tr.querySelectorAll(".view-mode").forEach(el => el.classList.add("d-none"));
                 tr.querySelectorAll(".edit-mode").forEach(el => el.classList.remove("d-none"));
                 tr.classList.add("editing");
+
+                const btnEdit = tr.querySelector(".btn-inline-edit");
+                const btnCancel = tr.querySelector(".btn-inline-cancel");
+                if (btnEdit) {
+                    btnEdit.classList.remove("btn-outline-primary");
+                    btnEdit.classList.add("btn-success");
+                    btnEdit.innerHTML = '<i class="fas fa-save"></i>';
+                }
+                if (btnCancel) btnCancel.classList.remove("d-none");
             }
 
             function desactivarModoEdicion(tr) {
                 tr.querySelectorAll(".view-mode").forEach(el => el.classList.remove("d-none"));
                 tr.querySelectorAll(".edit-mode").forEach(el => el.classList.add("d-none"));
                 tr.classList.remove("editing");
+
+                const btnEdit = tr.querySelector(".btn-inline-edit");
+                const btnCancel = tr.querySelector(".btn-inline-cancel");
+                if (btnEdit) {
+                    btnEdit.classList.remove("btn-success");
+                    btnEdit.classList.add("btn-outline-primary");
+                    btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+                }
+                if (btnCancel) btnCancel.classList.add("d-none");
             }
 
             function getCookie(name) {
@@ -753,43 +566,26 @@
                 })
                     .then(resp => resp.json())
                     .then(data => {
-                        if (data.ok) {
-                            const map = {
-                                "cliente": data.cliente,
-                                "ciudad": data.ciudad,
-                                "direccion": data.direccion,
-                                "tipo_falla": data.tipo_falla_display,
-                                "tecnico": data.tecnico,
-                                "orden": data.orden,
-                                "realizado": data.realizado,
-                            };
-
-                            if (map.cliente !== undefined) {
-                                tr.querySelector("td:nth-child(2) .view-mode").textContent = map.cliente;
-                            }
-                            if (map.ciudad !== undefined) {
-                                tr.querySelector("td:nth-child(3) .view-mode").textContent = map.ciudad;
-                            }
-                            if (map.direccion !== undefined) {
-                                tr.querySelector("td:nth-child(4) .view-mode").textContent = map.direccion;
-                            }
-                            if (map.tipo_falla !== undefined) {
-                                tr.querySelector("td:nth-child(5) .view-mode").textContent = map.tipo_falla || "Sin registrar";
-                            }
-                            if (map.tecnico !== undefined) {
-                                tr.querySelector("td:nth-child(6) .view-mode").textContent = map.tecnico || "Sin técnico";
-                            }
-                            if (map.orden !== undefined) {
-                                tr.querySelector("td:nth-child(10) .view-mode").textContent = map.orden || "";
-                            }
-                            if (map.realizado !== undefined) {
-                                tr.querySelector("td:nth-child(11) .view-mode").textContent = map.realizado || "";
-                            }
-
-                            desactivarModoEdicion(tr);
-                        } else {
-                            alert("No se pudo guardar. Intenta nuevamente.");
+                        if (!data.ok) {
+                            alert("No se pudo guardar.");
+                            return;
                         }
+
+                        // actualizar spans (ojo con nth-child: ahora hay columna Fecha al inicio)
+                        const setText = (selector, text) => {
+                            const el = tr.querySelector(selector);
+                            if (el) el.textContent = text;
+                        };
+
+                        setText("td:nth-child(3) .view-mode", data.cliente || "");
+                        setText("td:nth-child(4) .view-mode", data.ciudad || "");
+                        setText("td:nth-child(5) .view-mode", data.direccion || "");
+                        setText("td:nth-child(6) .view-mode", data.tipo_falla_display || "Sin registrar");
+                        setText("td:nth-child(7) .view-mode", data.tecnico || "Sin técnico");
+                        setText("td:nth-child(11) .view-mode", data.orden || "");
+                        setText("td:nth-child(12) .view-mode", data.realizado || "");
+
+                        desactivarModoEdicion(tr);
                     })
                     .catch(err => {
                         console.error(err);
@@ -797,85 +593,66 @@
                     });
             }
 
+            // Botón editar/guardar
             document.querySelectorAll(".btn-inline-edit").forEach(btn => {
                 btn.addEventListener("click", function () {
                     const id = this.dataset.id;
                     const tr = this.closest("tr");
+                    const btnCancel = tr.querySelector(".btn-inline-cancel");
+
                     if (!tr.classList.contains("editing")) {
                         activarModoEdicion(tr);
+
+                        // Botón editar -> guardar
                         this.classList.remove("btn-outline-primary");
                         this.classList.add("btn-success");
                         this.innerHTML = '<i class="fas fa-save"></i>';
                         this.dataset.action = "save";
 
-                        let btnCancel = tr.querySelector(".btn-inline-cancel");
-                        if (!btnCancel) {
-                            btnCancel = document.createElement("button");
-                            btnCancel.type = "button";
-                            btnCancel.className = "btn btn-sm btn-secondary btn-inline-cancel ms-1";
-                            btnCancel.innerHTML = '<i class="fas fa-times"></i>';
-                            this.parentElement.appendChild(btnCancel);
+                        // Mostrar cancelar
+                        if (btnCancel) btnCancel.classList.remove("d-none");
 
-                            btnCancel.addEventListener("click", function () {
-                                desactivarModoEdicion(tr);
-                                btn.classList.remove("btn-success");
-                                btn.classList.add("btn-outline-primary");
-                                btn.innerHTML = '<i class="fas fa-edit"></i>';
-                                btn.dataset.action = "edit";
-                                btnCancel.remove();
-                            });
-                        }
                     } else {
+                        // Guardar
                         guardarFila(tr, id);
+
+                        // Volver a estado normal (lo terminamos de ajustar en el then(ok) de guardarFila)
                         this.classList.remove("btn-success");
                         this.classList.add("btn-outline-primary");
                         this.innerHTML = '<i class="fas fa-edit"></i>';
                         this.dataset.action = "edit";
-                        const btnCancel = tr.querySelector(".btn-inline-cancel");
-                        if (btnCancel) btnCancel.remove();
+
+                        // Ocultar cancelar
+                        if (btnCancel) btnCancel.classList.add("d-none");
                     }
                 });
             });
 
-            // ======================
-            // MODAL ELIMINAR
-            // ======================
-            const modalEliminar = document.getElementById("modalEliminarMantenimiento");
-            const formEliminar = document.getElementById("formEliminarMantenimiento");
-            const textoClienteEliminar = document.getElementById("textoClienteEliminar");
-
-            document.querySelectorAll(".btn-inline-delete").forEach(btn => {
+            document.querySelectorAll(".btn-inline-cancel").forEach(btn => {
                 btn.addEventListener("click", function () {
-                    const id = this.dataset.id;
-                    const cliente = this.dataset.cliente || "";
+                    const tr = this.closest("tr");
+                    const btnEdit = tr.querySelector(".btn-inline-edit");
 
-                    formEliminar.action = `/mantenimientos/${id}/eliminar/`;
-                    textoClienteEliminar.textContent = cliente;
+                    desactivarModoEdicion(tr);
 
-                    const modal = new bootstrap.Modal(modalEliminar);
-                    modal.show();
+                    // Volver botón a editar
+                    if (btnEdit) {
+                        btnEdit.classList.remove("btn-success");
+                        btnEdit.classList.add("btn-outline-primary");
+                        btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+                        btnEdit.dataset.action = "edit";
+                    }
+
+                    // Ocultar cancelar
+                    this.classList.add("d-none");
                 });
             });
 
-            // ======================
-            // MODAL SUBIR ARCHIVO
-            // ======================
-            const modalUpload = document.getElementById("modalSubirArchivo");
-            const formUpload = document.getElementById("formSubirArchivo");
 
-            document.querySelectorAll(".btn-inline-upload").forEach(btn => {
-                btn.addEventListener("click", function () {
-                    const id = this.dataset.id;
-                    formUpload.action = `/mantenimientos/${id}/subir-archivo/`;
-                    formUpload.reset();
-                    const modal = new bootstrap.Modal(modalUpload);
-                    modal.show();
-                });
-            });
         });
     </script>
 
-    {% block extra_js %}{% endblock %}
+
 </body>
 
 </html>

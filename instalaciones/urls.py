@@ -1,9 +1,9 @@
 
-from django.contrib import admin
-from django.urls import path
+from django.contrib import admin  # type: ignore
+from django.urls import path  # type: ignore
 from app_instalaciones.home_views import views, user_views
-from django.contrib.auth import views as auth_views
-from django.contrib.auth.views import LogoutView
+from django.contrib.auth import views as auth_views  # type: ignore
+from django.contrib.auth.views import LogoutView  # type: ignore
 
 
 urlpatterns = [

@@ -1,6 +1,6 @@
-from django import forms
+from django import forms # type: ignore
 from datetime import timedelta
-from django.utils.timezone import now
+from django.utils.timezone import now # type: ignore
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, Ejecutivo
 
 
