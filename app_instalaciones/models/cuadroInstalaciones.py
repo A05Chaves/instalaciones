@@ -101,27 +101,58 @@ class RegistroImportacion(models.Model):
         return f"{self.nombre_archivo} - {self.fecha_importacion.strftime('%Y-%m-%d %H:%M')}"  # pylint: disable=no-member
 
 
-# TABLA DE MANTENIMIENTOS AREA TECNICA
+# TABLA DE MANTENIMIENTOS EDITADA
 
 class Mantenimiento(models.Model):
+    # NUEVO: tipo de falla (para el select del template)
+    TIPO_FALLA_CHOICES = [
+        ("F.COMUNICACION", "F.Comunicación"),
+        ("F.CORRIENTE", "F.Corriente"),
+        ("ACTIVACION", "Activación"),
+        ("PROGRAMACION", "Programación"),
+        ("ACT.DATOS", "Act.datos"),
+        ("OTRO SERVICIO", "Otro servicio"),
+        ("CCTV", "CCTV"),
+        ("INSTALACION", "Instalación"),
+        ("MANTO PREVENTIVO", "Manto preventivo"),
+        ("OTRO", "Otro"),
+
+    ]
+
     cliente = models.CharField(max_length=100)
     ciudad = models.CharField(max_length=50)
     direccion = models.CharField(max_length=100)
     novedad = models.TextField(null=True, blank=True)
     observacion = models.TextField(null=True, blank=True)
-    codigo = models.IntegerField()
-    tecnico = models.CharField(max_length=50)
+
+    # Mejor que sea CharField como en CuadroInsta
+    codigo = models.CharField(max_length=50, db_index=True)
+
+    # NUEVO: tipo de falla
+    tipo_falla = models.CharField(
+        max_length=20, choices=TIPO_FALLA_CHOICES, null=True, blank=True
+    )
+
+    # CAMBIO: de CharField → ForeignKey
+    tecnico = models.ForeignKey(
+        "Tecnico", on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    archivo = models.FileField(
+        upload_to='mantenimientos/',
+        null=True,
+        blank=True
+    )
+
     pendiente = models.TextField(null=True, blank=True)
     horas = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True)
     hora_entrada = models.TimeField(null=True, blank=True)
     hora_salida = models.TimeField(null=True, blank=True)
     orden = models.CharField(max_length=50, null=True, blank=True)
-
-    # ← se ingresa manualmente
     realizado = models.DateField(null=True, blank=True)
-    fecha_registro = models.DateTimeField(auto_now_add=True)  # ← automático
+    fecha_registro = models.DateTimeField(auto_now_add=True)
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
-        return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"  # pylint: disable=no-member
+        return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"
