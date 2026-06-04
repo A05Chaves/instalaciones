@@ -9,13 +9,15 @@ from django.contrib.auth import logout as auth_logout
 from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
 
 from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
 
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from django.utils import timezone
+from datetime import datetime
+
 
 # MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
@@ -167,7 +169,7 @@ def listar_mantenimientos(request):
         "mantenimientos": mantenimientos,
         "tecnicos": tecnicos,
     }
-    return render(request, "mantenimientos.html", context)
+    return render(request, "mantenimientos/listar_mantenimientos.html", context)
 
 # JSON PARA BUSCAR CLIENTES Y AGREGAR AL CUADRO MANTENIMIENTOS
 
@@ -284,3 +286,124 @@ def mantenimiento_subir_archivo(request, pk):
     m.save()
     messages.success(request, "Archivo cargado correctamente.")
     return redirect('mantenimientos')
+
+
+# VISTA DE FACTURACIÓN
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_staff)
+def facturar_instalacion(request, id):
+    instalacion = get_object_or_404(CuadroInsta, id=id)
+
+    if instalacion.estado != "LEGALIZADO" or not instalacion.orden:
+        messages.error(
+            request, "No se puede facturar una instalación sin orden legalizada.")
+        return redirect('lista_instalaciones')
+
+    instalacion.facturado = True
+    instalacion.save()
+
+    messages.success(request, "Instalación marcada como facturada.")
+    # return redirect('lista_instalaciones')
+
+    return redirect(
+        request.META.get(
+            'HTTP_REFERER',
+            'lista_instalaciones'
+        )
+    )
+
+
+# VISTA DE DASHBOARD
+
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_staff)
+def dashboard_instalaciones(request):
+    mes = request.GET.get('mes')
+    ciudad = request.GET.get('ciudad')
+
+    qs = CuadroInsta.objects.all()
+
+    if mes:
+        try:
+            fecha_mes = datetime.strptime(mes, "%Y-%m")
+            qs = qs.filter(
+                fecha__year=fecha_mes.year,
+                fecha__month=fecha_mes.month
+            )
+        except ValueError:
+            pass
+
+    if ciudad:
+        qs = qs.filter(ciudad__iexact=ciudad)
+
+    total_pvg = qs.count()
+
+    instalaciones_con_inicio = qs.filter(fecha_inicio__isnull=False)
+
+    total_con_inicio = instalaciones_con_inicio.count()
+    cumple_instalacion = 0
+    fuera_tiempo = 0
+
+    suma_dias_instalacion = 0
+
+    for item in instalaciones_con_inicio:
+        dias = (item.fecha_inicio - item.fecha.date()).days
+        suma_dias_instalacion += dias
+
+        if dias <= 8:
+            cumple_instalacion += 1
+        else:
+            fuera_tiempo += 1
+
+    eficiencia = 0
+    promedio_instalacion = 0
+
+    if total_con_inicio > 0:
+        eficiencia = round((cumple_instalacion / total_con_inicio) * 100, 2)
+        promedio_instalacion = round(
+            suma_dias_instalacion / total_con_inicio, 2)
+
+    facturados = qs.filter(
+        facturado=True,
+        fecha_facturacion__isnull=False,
+        finaliza__isnull=False
+    )
+
+    total_facturados = facturados.count()
+    suma_dias_facturacion = 0
+
+    for item in facturados:
+        suma_dias_facturacion += (item.fecha_facturacion - item.finaliza).days
+
+    promedio_facturacion = 0
+
+    if total_facturados > 0:
+        promedio_facturacion = round(
+            suma_dias_facturacion / total_facturados, 2)
+
+    ciudades = (
+        CuadroInsta.objects
+        .exclude(ciudad__isnull=True)
+        .exclude(ciudad="")
+        .values_list('ciudad', flat=True)
+        .distinct()
+        .order_by('ciudad')
+    )
+
+    contexto = {
+        'mes': mes,
+        'ciudad': ciudad,
+        'ciudades': ciudades,
+        'total_pvg': total_pvg,
+        'total_con_inicio': total_con_inicio,
+        'cumple_instalacion': cumple_instalacion,
+        'fuera_tiempo': fuera_tiempo,
+        'eficiencia': eficiencia,
+        'promedio_instalacion': promedio_instalacion,
+        'total_facturados': total_facturados,
+        'promedio_facturacion': promedio_facturacion,
+    }
+
+    return render(request, 'dashboard_instalaciones.html', contexto)

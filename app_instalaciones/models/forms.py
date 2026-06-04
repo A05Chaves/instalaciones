@@ -7,15 +7,40 @@ from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, E
 class CuadroInstaForm(forms.ModelForm):
     # Entradas de fecha/fecha-hora
     fecha = forms.DateTimeField(
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        required=False  # 👈 clave para permitir completar automáticamente en carga manual
+        widget=forms.DateTimeInput(
+            format='%Y-%m-%dT%H:%M',
+            attrs={'type': 'datetime-local'}
+        ),
+        input_formats=['%Y-%m-%dT%H:%M'],
+        required=False
     )
-    fecha_inicio = forms.DateField(widget=forms.DateInput(
-        attrs={'type': 'date'}), required=False)
+
+    fecha_inicio = forms.DateField(
+        widget=forms.DateInput(
+            format='%Y-%m-%d',
+            attrs={'type': 'date'}
+        ),
+        input_formats=['%Y-%m-%d'],
+        required=False
+    )
+
     fecha_terminacion = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date'}), required=False)
-    finaliza = forms.DateField(widget=forms.DateInput(
-        attrs={'type': 'date'}), required=False)
+        widget=forms.DateInput(
+            format='%Y-%m-%d',
+            attrs={'type': 'date'}
+        ),
+        input_formats=['%Y-%m-%d'],
+        required=False
+    )
+
+    finaliza = forms.DateField(
+        widget=forms.DateInput(
+            format='%Y-%m-%d',
+            attrs={'type': 'date'}
+        ),
+        input_formats=['%Y-%m-%d'],
+        required=False
+    )
 
     # Campos simples
     pvg = forms.IntegerField(label='PVG', initial=0)
@@ -26,7 +51,6 @@ class CuadroInstaForm(forms.ModelForm):
     instalacion = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 2}), required=False)
     dias_cotizados = forms.IntegerField(required=False)
-    cantidad_tecnicos = forms.IntegerField(required=False)
     en_bodega = forms.ChoiceField(choices=CuadroInsta.BODEGA, required=False)
     estado = forms.CharField(max_length=50, required=False)
     observacion = forms.CharField(
@@ -44,7 +68,7 @@ class CuadroInstaForm(forms.ModelForm):
         model = CuadroInsta
         fields = [
             'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
-            'instalacion', 'dias_cotizados', 'cantidad_tecnicos', 'en_bodega',
+            'instalacion', 'dias_cotizados',
             'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
             'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
         ]
@@ -69,7 +93,7 @@ class CuadroInstaForm(forms.ModelForm):
         # Deshabilitar en edición (disabled no envía el valor en POST)
         if self.instance and self.instance.pk:
             readonly_fields = ['pvg', 'codigo', 'cliente',
-                               'fecha']  # 'tecnico1', 'tecnico2']
+                               'fecha']
             for field in readonly_fields:
                 self.fields[field].disabled = True
                 self.fields[field].widget.attrs.update(
@@ -88,60 +112,74 @@ class CuadroInstaForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+
         tecnico1 = cleaned_data.get('tecnico1')
         tecnico2 = cleaned_data.get('tecnico2')
         fecha_inicio = cleaned_data.get('fecha_inicio')
         dias_cotizados = cleaned_data.get('dias_cotizados')
         orden = cleaned_data.get('orden')
 
-        # --- Política de fecha según origen ---
-        # Importación: la fecha (Ingreso) DEBE venir en Excel.
-        # Manual: si no la envían, se asigna automáticamente now().
-        if not cleaned_data.get('fecha'):
-            if self.modo_import:
-                self.add_error(
-                    'fecha', "La columna 'Ingreso' (fecha y hora) es obligatoria en la importación.")
-            else:
-                cleaned_data['fecha'] = now()
-
-        # --- Validación duplicado por (PVG, Ciudad) ---
-        pvg = cleaned_data.get('pvg')
-        ciudad = cleaned_data.get('ciudad')
-        if pvg is not None and ciudad:
-            qs = CuadroInsta.objects.filter(  # pylint: disable=no-member
-                pvg=pvg, ciudad__iexact=ciudad.strip())  # pylint: disable=no-member
-            if self.instance and self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                self.add_error(
-                    'pvg', 'Ya existe una instalación con este PVG en esta ciudad.')
-
-        # Restaurar valores de campos deshabilitados en edición
+        # Restaurar fecha original si viene vacía en edición
         if self.instance and self.instance.pk:
             if not cleaned_data.get('fecha') and self.instance.fecha:
                 cleaned_data['fecha'] = self.instance.fecha
-            if not tecnico1 and self.instance.tecnico1:
-                cleaned_data['tecnico1'] = self.instance.tecnico1
-            if not tecnico2 and self.instance.tecnico2:
-                cleaned_data['tecnico2'] = self.instance.tecnico2
+        else:
+            if not cleaned_data.get('fecha'):
+                if self.modo_import:
+                    self.add_error(
+                        'fecha',
+                        "La columna 'Ingreso' (fecha y hora) es obligatoria en la importación."
+                    )
+                else:
+                    cleaned_data['fecha'] = now()
+
+        # Validación duplicado por PVG + Ciudad
+        pvg = cleaned_data.get('pvg')
+        ciudad = cleaned_data.get('ciudad')
+
+        if pvg is not None and ciudad:
+            qs = CuadroInsta.objects.filter(
+                pvg=pvg,
+                ciudad__iexact=ciudad.strip()
+            )
+
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                self.add_error(
+                    'pvg',
+                    'Ya existe una instalación con este PVG en esta ciudad.'
+                )
+
+        # Restaurar orden solo si viene vacía y ya existía
+        if self.instance and self.instance.pk:
             if not cleaned_data.get('orden') and self.instance.orden:
                 cleaned_data['orden'] = self.instance.orden
 
-        # Validación: técnicos deben ser diferentes
+        # Técnicos diferentes
         if tecnico1 and tecnico2 and tecnico1 == tecnico2:
             raise forms.ValidationError(
-                "Los técnicos asignados deben ser diferentes.")
+                "Los técnicos asignados deben ser diferentes."
+            )
 
-        # Calcular fecha_terminacion si hay fecha_inicio + días
+        # Calcular fecha de terminación
         if fecha_inicio and dias_cotizados is not None:
-            try:
-                cleaned_data['fecha_terminacion'] = fecha_inicio + \
-                    timedelta(days=dias_cotizados)
-            except Exception as e:
-                raise forms.ValidationError(
-                    f"Error al calcular la fecha de terminación: {str(e)}")
+            cleaned_data['fecha_terminacion'] = fecha_inicio + \
+                timedelta(days=dias_cotizados)
 
-        # Estados según 'orden' / fechas
+        # Calcular cantidad automática de técnicos
+        cantidad = 0
+
+        if tecnico1:
+            cantidad += 1
+
+        if tecnico2:
+            cantidad += 1
+
+        cleaned_data['cantidad_tecnicos'] = cantidad
+
+        # Estados
         if orden and str(orden).strip().lower() == "anulado":
             cleaned_data['estado'] = "ANULADO"
             cleaned_data['finaliza'] = None
@@ -157,6 +195,24 @@ class CuadroInstaForm(forms.ModelForm):
             cleaned_data['estado'] = "PENDIENTE"
 
         return cleaned_data
+
+    def save(self, commit=True):
+        instancia = super().save(commit=False)
+
+        cantidad = 0
+
+        if instancia.tecnico1:
+            cantidad += 1
+
+        if instancia.tecnico2:
+            cantidad += 1
+
+        instancia.cantidad_tecnicos = cantidad
+
+        if commit:
+            instancia.save()
+
+        return instancia
 
     def clean_pvg(self):
         # Aquí deja sólo reglas de formato/rango si quieres

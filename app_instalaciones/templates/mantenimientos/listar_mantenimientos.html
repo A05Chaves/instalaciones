@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block titulo %}
+Mantenimientos - App_Sesur
+{% endblock %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}">
+
+<div class="card shadow-sm border-0">
+    <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-tools me-2"></i> Registro de mantenimientos
+        </h5>
+        <small>App_Sesur</small>
+    </div>
+
+    <div class="card-body">
+
+        <form method="POST">
+            {% csrf_token %}
+
+            
+                <table id="tabla-mantenimientos" class="table table-bordered table-striped table-hover align-middle">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Código</th>
+                            <th>Cliente</th>
+                            <th>Ciudad</th>
+                            <th>Dirección</th>
+                            <th>Tipo de falla</th>
+                            <th>Técnico</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Horas</th>
+                            <th>Orden</th>
+                            <th>Realizado</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr class="table-success">
+                            <td class="text-muted small">Auto</td>
+
+                            <td><input type="text" name="codigo" class="form-control form-control-sm" placeholder="Cod."></td>
+                            <td><input type="text" name="cliente" class="form-control form-control-sm" placeholder="Cliente"></td>
+                            <td><input type="text" name="ciudad" class="form-control form-control-sm" placeholder="Ciudad"></td>
+                            <td><input type="text" name="direccion" class="form-control form-control-sm" placeholder="Dirección"></td>
+
+                            <td>
+                                <select name="tipo_falla" class="form-select form-select-sm">
+                                    <option value="" selected disabled>Seleccione...</option>
+                                    <option value="F.Comunicación">F.Comunicación</option>
+                                    <option value="F.Corriente">F.Corriente</option>
+                                    <option value="Activación">Activación</option>
+                                    <option value="Programación">Programación</option>
+                                    <option value="Act.datos">Act.datos</option>
+                                    <option value="CCTV">CCTV</option>
+                                    <option value="Instalación">Instalación</option>
+                                    <option value="Manto preventivo">Manto preventivo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </td>
+
+                            <td>
+                                <select name="tecnico" class="form-select form-select-sm">
+                                    {% for tecnico in tecnicos %}
+                                    <option value="{{ tecnico.id }}">{{ tecnico.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+
+                            <td><input type="time" name="hora_entrada" id="id_hora_entrada" class="form-control form-control-sm"></td>
+                            <td><input type="time" name="hora_salida" id="id_hora_salida" class="form-control form-control-sm"></td>
+
+                            <td>
+                                <input type="number" name="horas" id="id_horas" class="form-control form-control-sm bg-light text-muted" step="0.1" readonly>
+                                <div id="horas-error" class="form-text text-danger d-none">
+                                    La hora de salida debe ser mayor que la de entrada.
+                                </div>
+                            </td>
+
+                            <td><input type="text" name="orden" class="form-control form-control-sm" placeholder="Orden"></td>
+                            <td><input type="date" name="realizado" class="form-control form-control-sm"></td>
+
+                            <td class="text-center">
+                                <button type="submit" class="btn btn-sm btn-success" id="btn-guardar">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                            </td>
+                        </tr>
+
+                        {% for m in mantenimientos %}
+                        <tr data-id="{{ m.id }}">
+                            <td>{{ m.fecha_registro|date:"Y-m-d H:i" }}</td>
+                            <td>{{ m.codigo }}</td>
+
+                            <td>
+                                <span class="view-mode">{{ m.cliente }}</span>
+                                <input class="edit-mode form-control form-control-sm d-none" name="cliente" value="{{ m.cliente }}">
+                            </td>
+
+                            <td>
+                                <span class="view-mode">{{ m.ciudad }}</span>
+                                <input class="edit-mode form-control form-control-sm d-none" name="ciudad" value="{{ m.ciudad }}">
+                            </td>
+
+                            <td>
+                                <span class="view-mode">{{ m.direccion }}</span>
+                                <input class="edit-mode form-control form-control-sm d-none" name="direccion" value="{{ m.direccion }}">
+                            </td>
+
+                            <td>
+                                <span class="view-mode">{{ m.tipo_falla|default:"Sin registrar" }}</span>
+                                <select class="edit-mode form-select form-select-sm d-none" name="tipo_falla">
+                                    <option value="">Seleccione...</option>
+                                    <option value="F.Comunicación" {% if m.tipo_falla == 'F.Comunicación' %}selected{% endif %}>F.Comunicación</option>
+                                    <option value="F.Corriente" {% if m.tipo_falla == 'F.Corriente' %}selected{% endif %}>F.Corriente</option>
+                                    <option value="Activación" {% if m.tipo_falla == 'Activación' %}selected{% endif %}>Activación</option>
+                                    <option value="Programación" {% if m.tipo_falla == 'Programación' %}selected{% endif %}>Programación</option>
+                                    <option value="Act.datos" {% if m.tipo_falla == 'Act.datos' %}selected{% endif %}>Act.datos</option>
+                                    <option value="CCTV" {% if m.tipo_falla == 'CCTV' %}selected{% endif %}>CCTV</option>
+                                    <option value="Instalación" {% if m.tipo_falla == 'Instalación' %}selected{% endif %}>Instalación</option>
+                                    <option value="Manto preventivo" {% if m.tipo_falla == 'Manto preventivo' %}selected{% endif %}>Manto preventivo</option>
+                                    <option value="Otro" {% if m.tipo_falla == 'Otro' %}selected{% endif %}>Otro</option>
+                                </select>
+                            </td>
+
+                            <td>
+                                <span class="view-mode">
+                                    {% if m.tecnico %}{{ m.tecnico.nombre }}{% else %}Sin técnico{% endif %}
+                                </span>
+                                <select class="edit-mode form-select form-select-sm d-none" name="tecnico">
+                                    <option value="">Sin técnico</option>
+                                    {% for tecnico in tecnicos %}
+                                    <option value="{{ tecnico.id }}" {% if m.tecnico and m.tecnico.id == tecnico.id %}selected{% endif %}>
+                                        {{ tecnico.nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+
+                            <td>{{ m.hora_entrada|time:"H:i" }}</td>
+                            <td>{{ m.hora_salida|time:"H:i" }}</td>
+                            <td>{{ m.horas }}</td>
+
+                            <td>
+                                <span class="view-mode">{{ m.orden }}</span>
+                                <input class="edit-mode form-control form-control-sm d-none" name="orden" value="{{ m.orden }}">
+                            </td>
+
+                            <td>
+                                <span class="view-mode">{{ m.realizado }}</span>
+                                <input class="edit-mode form-control form-control-sm d-none" name="realizado" type="date" value="{{ m.realizado|date:'Y-m-d' }}">
+                            </td>
+
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary btn-inline-edit" data-id="{{ m.id }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+
+                                    <button type="button" class="btn btn-outline-danger btn-inline-delete" data-id="{{ m.id }}" data-cliente="{{ m.cliente }}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+
+                                    <button type="button" class="btn btn-outline-secondary btn-inline-upload" data-id="{{ m.id }}">
+                                        <i class="fas fa-file-upload"></i>
+                                    </button>
+
+                                    {% if m.archivo %}
+                                    <a href="{{ m.archivo.url }}" target="_blank" class="btn btn-outline-success">
+                                        <i class="fas fa-file-alt"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEliminarMantenimiento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="formEliminarMantenimiento">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Eliminar mantenimiento</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Seguro que deseas eliminar el mantenimiento de <strong id="textoClienteEliminar"></strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalSubirArchivo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="formSubirArchivo" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">Subir archivo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="id_archivo" class="form-label">Seleccione foto o PDF</label>
+                    <input type="file" name="archivo" id="id_archivo" class="form-control" accept=".pdf,image/*" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-secondary">Subir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'sesur/js/mantenimientos.js' %}"></script>
+{% endblock %}

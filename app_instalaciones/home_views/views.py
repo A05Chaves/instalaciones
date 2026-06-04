@@ -11,6 +11,7 @@ import pandas as pd
 from datetime import datetime, date, time
 from django.utils import timezone
 
+
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
 
@@ -59,11 +60,46 @@ def registro_inst(request):
 
 def lista_instalaciones(request):
     instalaciones = (
-        CuadroInsta.objects  # pylint: disable=no-member
-        .select_related('tecnico1', 'tecnico2', 'ejecutivo', 'usuario')
+        CuadroInsta.objects
+        .select_related(
+            'tecnico1',
+            'tecnico2',
+            'ejecutivo',
+            'usuario'
+        )
+        .only(
+            'id',
+            'pvg',
+            'fecha',
+            'codigo',
+            'cliente',
+            'ciudad',
+            'direccion',
+            'instalacion',
+            'dias_cotizados',
+            'en_bodega',
+            'fecha_inicio',
+            'fecha_terminacion',
+            'finaliza',
+            'orden',
+            'estado',
+            'observacion',
+            'updated_at',
+            'facturado',
+            'fecha_facturacion',
+            'tecnico1__nombre',
+            'tecnico2__nombre',
+            'ejecutivo__nombre',
+            'usuario__username',
+        )
         .order_by('-id')
     )
-    return render(request, 'lista_instalaciones.html', {'instalaciones': instalaciones})
+
+    return render(
+        request,
+        'lista_instalaciones.html',
+        {'instalaciones': instalaciones}
+    )
 
 # AGREGADO 25 DE ABRIL
 
@@ -82,7 +118,12 @@ def editar_instalacion(request, id):
     if instalacion.estado and instalacion.estado.strip().upper() == "ANULADO" and not request.user.is_superuser:
         messages.warning(
             request, "No puedes editar una instalación que ha sido anulada.")
-        return redirect('lista_instalaciones')
+        return redirect(
+            request.META.get(
+                'HTTP_REFERER',
+                'lista_instalaciones'
+            )
+        )
 
     if request.method == 'POST':
         form = CuadroInstaForm(request.POST, instance=instalacion)
@@ -104,8 +145,15 @@ def editar_instalacion(request, id):
                     instalacion, "ejecutivo_id", None)
 
                 obj.save()
+
                 messages.success(
                     request, "Instalación actualizada correctamente.")
+
+                next_url = request.POST.get('next') or request.GET.get('next')
+
+                if next_url:
+                    return redirect(next_url)
+
                 return redirect('lista_instalaciones')
             except Exception as e:
                 messages.error(request, f"Error al guardar: {str(e)}")
@@ -119,6 +167,7 @@ def editar_instalacion(request, id):
     return render(request, 'editar_instalacion.html', {
         'form': form,
         'instalacion': instalacion,
+        'next': request.GET.get('next', ''),
     })
 
 
@@ -308,19 +357,22 @@ def importar_excel(request):
                     # Lee por nombre (plantilla v2) y soporta plantilla antigua
                     pvg = get(fila, "PVG")
                     # fecha datetime
-                    ingreso = get(fila, "Ingreso")
-                    codigo = get(fila, "Código")
-                    cliente = get(fila, "Cliente")
-                    ciudad = get(fila, "Ciudad")
-                    direccion = get(fila, "Dirección")
-                    instalacion = get(fila, "Instalación")
-                    dias = get(fila, "Días")
-                    cant_tec = get(fila, "Técnicos (cantidad)")
-                    bodega = get(fila, "Bodega")
-                    inicio = get(fila, "Inicio")              # fecha
-                    orden = get(fila, "Orden")
-                    obs = get(fila, "Observación")
-                    ejecutivo_v = get(fila, "Ejecutivo")
+                    ingreso = get(fila, "Ingreso", "Fecha", "fecha")
+                    codigo = get(fila, "Código", "Codigo", "codigo", "CODIGO")
+                    cliente = get(fila, "Cliente", "cliente", "CLIENTE")
+                    ciudad = get(fila, "Ciudad", "ciudad", "CIUDAD")
+                    direccion = get(fila, "Dirección",
+                                    "Direccion", "direccion", "DIRECCION")
+                    instalacion = get(fila, "Instalación",
+                                      "Instalacion", "instalacion")
+                    dias = get(fila, "Días", "Dias", "dias_cotizados")
+
+                    bodega = get(fila, "Bodega", "en_bodega")
+                    inicio = get(fila, "Inicio", "fecha_inicio")
+                    orden = get(fila, "Orden", "orden")
+                    obs = get(fila, "Observación",
+                              "Observacion", "observacion")
+                    ejecutivo_v = get(fila, "Ejecutivo", "ejecutivo")
 
                     tec1_v = get(fila, "Técnico 1")
                     tec2_v = get(fila, "Técnico 2")
@@ -360,7 +412,7 @@ def importar_excel(request):
                         "direccion": norm_text(direccion),
                         "instalacion": norm_text(instalacion),
                         "dias_cotizados": dias,
-                        "cantidad_tecnicos": cant_tec,
+
                         "en_bodega": en_bodega,
                         "fecha_inicio": fecha_ini,
                         "orden": norm_text(orden),
@@ -437,7 +489,15 @@ def exportar_excel(request):
 # HOJA DE MANTENIMIENTOS 2 AGOSTO
 
 
+@login_required(login_url='login')
 def lista_mantenimientos(request):
-    if not request.user.is_authenticated:
-        return redirect('mantenimientos')
-    return render(request, "mantenimientos.html")
+
+    contexto = {
+        # luego aquí pondrás mantenimientos, tecnicos, etc.
+    }
+
+    return render(
+        request,
+        '/mantenimientos/listar_mantenimientos.html',
+        contexto
+    )

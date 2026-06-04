@@ -1,0 +1,95 @@
+/* ==========================
+   TABLA INSTALACIONES
+========================== */
+
+.tabla-fija {
+    height: 72vh;
+    overflow: auto;
+    position: relative;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+/* Tabla */
+#tabla-instalaciones {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+}
+
+/* Celdas */
+#tabla-instalaciones th,
+#tabla-instalaciones td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Encabezado fijo */
+#tabla-instalaciones thead th {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #212529 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .15);
+}
+
+/* Primera columna fija */
+#tabla-instalaciones th:first-child,
+#tabla-instalaciones td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 90;
+    background: #ffffff;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, .1);
+}
+
+/* Cruce encabezado + primera columna */
+#tabla-instalaciones thead th:first-child {
+    z-index: 110;
+    background: #212529 !important;
+    color: #ffffff !important;
+}
+
+/* Filas legalizadas */
+#tabla-instalaciones tbody tr.table-success td:first-child {
+    background: #d1e7dd !important;
+}
+
+/* Filas anuladas */
+#tabla-instalaciones tbody tr.table-danger td:first-child {
+    background: #f8d7da !important;
+}
+
+/* Scroll personalizado */
+.tabla-fija::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+.tabla-fija::-webkit-scrollbar-track {
+    background: #d1d5db;
+}
+
+.tabla-fija::-webkit-scrollbar-thumb {
+    background: #6b7280;
+    border-radius: 10px;
+}
+
+.tabla-fija::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tabla-fija {
+        height: 65vh;
+    }
+
+    #tabla-instalaciones {
+        font-size: 0.80rem;
+    }
+}

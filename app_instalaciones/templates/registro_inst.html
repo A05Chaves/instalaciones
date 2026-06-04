@@ -1,85 +1,131 @@
 {% extends 'base.html' %}
+
 {% load widget_tweaks %}
 
-{% block titulo %}Registro de Instalaciones - App_Sesur{% endblock %}
+{% block titulo %}
+Registro de Instalaciones - App_Sesur
+{% endblock %}
 
 {% block content %}
-<h1 class="titulo1">SEGURIDAD ELECTRONICA</h1>
 
-{% if request.user.is_superuser %}
-<div class="text-end mb-3">
-  <a href="{% url 'importar_excel' %}" class="btn btn-success">
-    <i class="fas fa-file-excel"></i> Importar desde Excel
-  </a>
-</div>
-{% endif %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-8">
 
-<div class="container col-12 col-lg-6 offset-lg-3">
-  <h2>Registro de Instalaciones</h2>
-
-  {# Mensajes flash #}
-  {% if messages %}
-  {% for message in messages %}
-  <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-  {% endfor %}
-  {% endif %}
-
-  {# Errores no asociados a campos #}
-  {% if form.non_field_errors %}
-  <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <div>
-      {% for error in form.non_field_errors %}
-      <p class="mb-0">{{ error }}</p>
-      {% endfor %}
-    </div>
-    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-  </div>
-  {% endif %}
-
-  <form method="POST" action="{% url 'registro_inst' %}">
-    {% csrf_token %}
-
-    {# Render genérico de todos los campos con manejo de disabled + hidden #}
-    {% for field in form %}
-    <div class="form-group mb-3">
-      {{ field.label_tag }}
-
-      {% if field.field.disabled %}
-      {# Mostrar el control deshabilitado con estilos y errores #}
-      {% if field.errors %}
-      {{ field|add_class:"form-control is-invalid" }}
-      <div class="invalid-feedback d-block">
-        {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <div>
+        <h2 class="mb-1 fw-bold">
+          <i class="fas fa-shield-alt me-2 text-primary"></i> Seguridad Electrónica
+        </h2>
+        <p class="text-muted mb-0">Registro de instalaciones</p>
       </div>
-      {% else %}
-      {{ field|add_class:"form-control" }}
-      {% endif %}
 
-      {# IMPORTANTÍSIMO: enviar el valor aunque el control esté disabled #}
-      <input type="hidden" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}">
-      {% else %}
-      {# Campo normal (habilitado) #}
-      {% if field.errors %}
-      {{ field|add_class:"form-control is-invalid" }}
-      <div class="invalid-feedback d-block">
-        {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
-      </div>
-      {% else %}
-      {{ field|add_class:"form-control" }}
-      {% endif %}
-      {% endif %}
-    </div>
-    {% endfor %}
-
-    <div class="d-flex justify-content-between">
-      <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
-        <i class="fas fa-times-circle"></i> Cancelar
+      {% if request.user.is_superuser %}
+      <a href="{% url 'importar_excel' %}" class="btn btn-success shadow-sm">
+        <i class="fas fa-file-excel me-1"></i> Importar desde Excel
       </a>
-      <button type="submit" class="btn btn-primary">
-        <i class="fas fa-save"></i> Registrar
-      </button>
+      {% endif %}
     </div>
-  </form>
+
+    <div class="card border-0 shadow">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">
+          <i class="fas fa-plus-circle me-2"></i> Nuevo Registro
+        </h5>
+      </div>
+
+      <div class="card-body p-4">
+
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} auto-dismiss-alert shadow-sm">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <div>
+            {% for error in form.non_field_errors %}
+              <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{% url 'registro_inst' %}">
+          {% csrf_token %}
+
+          <div class="row">
+            {% for field in form %}
+            <div class="col-12 col-md-6 mb-3">
+
+              <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                {{ field.label }}
+              </label>
+
+              {% if field.field.disabled %}
+
+                {% if field.errors %}
+                  {{ field|add_class:"form-control is-invalid bg-light" }}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      <span>{{ error }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  {{ field|add_class:"form-control bg-light" }}
+                {% endif %}
+
+                <input type="hidden"
+                       name="{{ field.html_name }}"
+                       value="{{ field.value|default_if_none:'' }}">
+
+              {% else %}
+
+                {% if field.errors %}
+                  {{ field|add_class:"form-control is-invalid" }}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      <span>{{ error }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  {{ field|add_class:"form-control" }}
+                {% endif %}
+
+              {% endif %}
+
+              {% if field.help_text %}
+              <small class="form-text text-muted">
+                {{ field.help_text }}
+              </small>
+              {% endif %}
+
+            </div>
+            {% endfor %}
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between gap-2 flex-wrap">
+            <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
+              <i class="fas fa-times-circle me-1"></i> Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-1"></i> Registrar
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+  </div>
 </div>
+
 {% endblock %}

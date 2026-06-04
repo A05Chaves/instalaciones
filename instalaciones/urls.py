@@ -47,6 +47,11 @@ urlpatterns = [
     path('mantenimientos/<int:pk>/subir-archivo/',
          user_views.mantenimiento_subir_archivo,
          name='mantenimiento_subir_archivo'),
-
-
+    path(
+        'instalacion/<int:id>/facturar/',
+        user_views.facturar_instalacion,
+        name='facturar_instalacion'
+    ),
+    path('dashboard/', user_views.dashboard_instalaciones,
+         name='dashboard_instalaciones'),
 ]

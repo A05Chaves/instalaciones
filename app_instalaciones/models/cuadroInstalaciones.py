@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils import timezone
 
 
 class Tecnico(models.Model):
@@ -54,6 +55,24 @@ class CuadroInsta(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_terminacion = models.DateField(null=True, blank=True)
     finaliza = models.DateField(null=True, blank=True)
+    facturado = models.BooleanField(default=False)
+    fecha_facturacion = models.DateField(null=True, blank=True)
+
+    # METODO PARA CALCULAR TIEMPO DE DEMORA EN EL INDICADOR DE FACTURACION
+
+    def save(self, *args, **kwargs):
+        if self.estado != "LEGALIZADO":
+            self.facturado = False
+            self.fecha_facturacion = None
+
+        elif self.facturado and not self.fecha_facturacion:
+            self.fecha_facturacion = timezone.now().date()
+
+        elif not self.facturado:
+            self.fecha_facturacion = None
+
+        super().save(*args, **kwargs)
+
     orden = models.CharField(max_length=50, null=True, blank=True)
 
     # Relaciones con técnicos (pueden no existir al momento del import)
@@ -88,6 +107,12 @@ class CuadroInsta(models.Model):
         unique_together = (('pvg', 'ciudad'),)
         # Útil para listados recientes
         ordering = ['-fecha', '-updated_at']
+
+    @property
+    def dias_para_facturar(self):
+        if self.finaliza and self.fecha_facturacion:
+            return (self.fecha_facturacion - self.finaliza).days
+        return None
 
 # guarda los registros de importacion de archivos excel
 

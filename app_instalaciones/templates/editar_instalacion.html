@@ -7,73 +7,122 @@ Editar Instalación - App_Sesur
 {% endblock %}
 
 {% block content %}
-<h1 class="titulo1">Editar Instalación</h1>
 
-<div class="container col-12 col-lg-6 offset-lg-3">
-    <h1>Editar Instalación ID {{ instalacion.id }}</h1>
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-8">
 
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}">
-        {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
+        <div class="card border-0 shadow">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-edit me-2"></i> Editar Instalación
+                    </h4>
+                    <small>ID de registro: {{ instalacion.id }}</small>
+                </div>
 
-    <!-- Mostrar errores generales del formulario -->
-    {% if form.non_field_errors %}
-    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        <div>
-            {% for error in form.non_field_errors %}
-            <p class="mb-0">{{ error }}</p>
-            {% endfor %}
-        </div>
-        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-    </div>
-    {% endif %}
-
-    <form method="POST" action="{% url 'editar_instalacion' instalacion.id %}">
-        {% csrf_token %}
-
-        {% for field in form %}
-        <div class="form-group mb-3">
-            {{ field.label_tag }}
-
-            {# Si el campo está deshabilitado en el form, lo mostramos y además enviamos su valor con hidden #}
-            {% if field.field.disabled %}
-            {% if field.errors %}
-            {{ field|add_class:"form-control is-invalid" }}
-            <div class="invalid-feedback d-block">
-                {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
+                <a href="{% url 'lista_instalaciones' %}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Volver
+                </a>
             </div>
-            {% else %}
-            {{ field|add_class:"form-control" }}
-            {% endif %}
 
-            {# Para FKs, el value es el ID; para fechas/strings, su valor plano #}
-            <input type="hidden" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}">
-            {% else %}
-            {% if field.errors %}
-            {{ field|add_class:"form-control is-invalid" }}
-            <div class="invalid-feedback d-block">
-                {% for error in field.errors %}<span>{{ error }}</span>{% endfor %}
+            <div class="card-body p-4">
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} auto-dismiss-alert shadow-sm">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <div>
+                            {% for error in form.non_field_errors %}
+                                <p class="mb-0">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"
+                            aria-label="Cerrar"></button>
+                    </div>
+                {% endif %}
+
+                <form method="POST" action="{% url 'editar_instalacion' instalacion.id %}">
+                    {% csrf_token %}
+
+                    <input type="hidden" name="next" value="{{ next }}">
+
+                    <div class="row">
+
+                        {% for field in form %}
+                            <div class="col-12 col-md-6 mb-3">
+
+                                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                    {{ field.label }}
+                                </label>
+
+                                {% if field.field.disabled %}
+
+                                    {% if field.errors %}
+                                        {{ field|add_class:"form-control is-invalid bg-light" }}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in field.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ field|add_class:"form-control bg-light" }}
+                                    {% endif %}
+
+                                    <input type="hidden"
+                                           name="{{ field.html_name }}"
+                                           value="{{ field.value|default_if_none:'' }}">
+
+                                {% else %}
+
+                                    {% if field.errors %}
+                                        {{ field|add_class:"form-control is-invalid" }}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in field.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ field|add_class:"form-control" }}
+                                    {% endif %}
+
+                                {% endif %}
+
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">
+                                        {{ field.help_text }}
+                                    </small>
+                                {% endif %}
+
+                            </div>
+                        {% endfor %}
+
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between gap-2">
+                        <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
+                            <i class="fas fa-times-circle me-1"></i> Cancelar
+                        </a>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+
+                </form>
+
             </div>
-            {% else %}
-            {{ field|add_class:"form-control" }}
-            {% endif %}
-            {% endif %}
         </div>
-        {% endfor %}
 
-        <div class="d-flex justify-content-between">
-            <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
-                <i class="fas fa-times-circle"></i> Cancelar
-            </a>
-            <button type="submit" class="btn btn-success">
-                <i class="fas fa-save"></i> Guardar Cambios
-            </button>
-        </div>
-    </form>
+    </div>
 </div>
+
 {% endblock %}

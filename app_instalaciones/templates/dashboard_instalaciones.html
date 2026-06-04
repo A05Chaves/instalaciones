@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block titulo %}
+Dashboard Instalaciones
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-chart-line text-primary me-2"></i>
+            Dashboard de Instalaciones
+        </h2>
+        <p class="text-muted mb-0">
+            Indicadores de eficiencia técnica y facturación.
+        </p>
+    </div>
+
+    <a href="{% url 'lista_instalaciones' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-1"></i>
+        Volver
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+
+        <form method="GET" class="row g-3 align-items-end">
+
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Mes</label>
+                <input type="month"
+                       name="mes"
+                       value="{{ mes|default:'' }}"
+                       class="form-control">
+            </div>
+
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Ciudad</label>
+                <select name="ciudad" class="form-select">
+                    <option value="">Todas</option>
+                    {% for c in ciudades %}
+                        <option value="{{ c }}" {% if ciudad == c %}selected{% endif %}>
+                            {{ c }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-12 col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i>
+                    Filtrar
+                </button>
+
+                <a href="{% url 'dashboard_instalaciones' %}" class="btn btn-outline-danger">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <small class="text-muted">PVG ingresados</small>
+                <h2 class="fw-bold text-primary mb-0">{{ total_pvg }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <small class="text-muted">Eficiencia instalación</small>
+                <h2 class="fw-bold text-success mb-0">{{ eficiencia }}%</h2>
+                <small class="text-muted">Meta: ≤ 8 días</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <small class="text-muted">Promedio instalación</small>
+                <h2 class="fw-bold text-warning mb-0">{{ promedio_instalacion }}</h2>
+                <small class="text-muted">día(s)</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <small class="text-muted">Promedio facturación</small>
+                <h2 class="fw-bold text-info mb-0">{{ promedio_facturacion }}</h2>
+                <small class="text-muted">día(s)</small>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-4">
+
+    <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-tools me-2"></i>
+                Instalación
+            </div>
+            <div class="card-body">
+
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr>
+                            <th>Total con fecha de inicio</th>
+                            <td>{{ total_con_inicio }}</td>
+                        </tr>
+                        <tr>
+                            <th>Cumplen ≤ 8 días</th>
+                            <td class="text-success fw-bold">{{ cumple_instalacion }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fuera de tiempo</th>
+                            <td class="text-danger fw-bold">{{ fuera_tiempo }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-file-invoice-dollar me-2"></i>
+                Facturación
+            </div>
+            <div class="card-body">
+
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr>
+                            <th>Total facturados</th>
+                            <td>{{ total_facturados }}</td>
+                        </tr>
+                        <tr>
+                            <th>Promedio días para facturar</th>
+                            <td class="fw-bold text-info">
+                                {{ promedio_facturacion }} día(s)
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

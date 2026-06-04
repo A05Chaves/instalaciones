@@ -1,29 +1,130 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load widget_tweaks %}
+
+{% block titulo %}
+Importar Instalaciones
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h3>Importar archivo Excel</h3>
 
-    {% if request.user.is_superuser %}
-    <div class="mb-4 text-end">
-        <a href="{% static 'plantillas/plantilla_de_importacion_de_instalaciones.xlsx' %}" class="btn btn-success"
-            download>
-            <i class="fas fa-file-excel"></i> Descargar Plantilla
-        </a>
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-6">
+
+        <div class="card border-0 shadow">
+
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-excel me-2"></i>
+                        Importar Instalaciones
+                    </h4>
+                    <small>Carga masiva desde archivo Excel</small>
+                </div>
+
+                <a href="{% url 'lista_instalaciones' %}"
+                   class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Volver
+                </a>
+            </div>
+
+            <div class="card-body p-4">
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} auto-dismiss-alert shadow-sm">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if request.user.is_superuser %}
+                <div class="mb-4">
+
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <h6 class="fw-bold mb-3">
+                            <i class="fas fa-circle-info me-2"></i>
+                            Recomendaciones antes de importar
+                        </h6>
+
+                        <ul class="mb-0">
+                            <li>Usa únicamente la plantilla oficial.</li>
+                            <li>Formato de fecha recomendado: <strong>YYYY-MM-DD</strong>.</li>
+                            <li>No modifiques nombres de columnas.</li>
+                            <li>Verifica técnicos y ejecutivos antes de importar.</li>
+                        </ul>
+                    </div>
+
+                    <a href="{% static 'plantillas/plantilla_de_importacion_de_instalaciones.xlsx' %}"
+                       class="btn btn-success shadow-sm"
+                       download>
+                        <i class="fas fa-download me-1"></i>
+                        Descargar Plantilla
+                    </a>
+
+                </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="mb-4">
+
+                        <label class="form-label fw-semibold">
+                            {{ field.label }}
+                        </label>
+
+                        {% if field.errors %}
+
+                            {{ field|add_class:"form-control is-invalid" }}
+
+                            <div class="invalid-feedback d-block">
+                                {% for error in field.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+
+                        {% else %}
+
+                            {{ field|add_class:"form-control" }}
+
+                        {% endif %}
+
+                        {% if field.help_text %}
+                        <small class="text-muted">
+                            {{ field.help_text }}
+                        </small>
+                        {% endif %}
+
+                    </div>
+                    {% endfor %}
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+
+                        <a href="{% url 'lista_instalaciones' %}"
+                           class="btn btn-secondary">
+                            <i class="fas fa-times-circle me-1"></i>
+                            Cancelar
+                        </a>
+
+                        <button type="submit"
+                                class="btn btn-success shadow-sm">
+                            <i class="fas fa-file-import me-1"></i>
+                            Importar Archivo
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+
     </div>
-    {% endif %}
-
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-success" data-bs-toggle="tooltip" data-bs-placement="top" title="📌 Instrucciones:
-        - Usa la plantilla proporcionada.
-        - Formato de fecha: YYYY-MM-DD.
-        - Campos obligatorios: PVG, Código, Cliente, Ciudad, Instalación, Fecha Inicio, Estado.">
-            Importar
-        </button>
-
-    </form>
 </div>
+
 {% endblock %}
