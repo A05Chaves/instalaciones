@@ -128,6 +128,22 @@ class CuadroInstaForm(forms.ModelForm):
             'class': 'form-control text-muted'
         })
 
+        # PVG totalmente cerrado
+        if self.instance and self.instance.cerrado_total:
+
+            for field in self.fields:
+                self.fields[field].disabled = True
+
+        # Legalizado o alistado: solo observación editable
+        elif self.instance and (
+            self.instance.bloqueado_por_orden or self.instance.alistado
+        ):
+
+            for field in self.fields:
+
+                if field != 'observacion':
+                    self.fields[field].disabled = True
+
     def clean(self):
         cleaned_data = super().clean()
 
@@ -247,5 +263,7 @@ class CuadroInstaForm(forms.ModelForm):
 
 
 # Subir información de instalaciones con Excel
+
+
 class ExcelUploadForm(forms.Form):
     archivo_excel = forms.FileField(label="Selecciona un archivo Excel")

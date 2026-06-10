@@ -139,6 +139,14 @@ class CuadroInsta(models.Model):
     usuario = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL)
 
+    @property
+    def bloqueado_por_orden(self):
+        return bool(self.orden) and self.estado == "LEGALIZADO"
+
+    @property
+    def cerrado_total(self):
+        return self.facturado and self.fecha_facturacion is not None
+
     def __str__(self):
         cod = self.codigo if self.codigo not in (None, "") else "-"
         cli = self.cliente if self.cliente not in (None, "") else "Sin cliente"

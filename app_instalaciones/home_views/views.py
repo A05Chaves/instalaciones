@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from app_instalaciones.home_views.user_views import puede_programar
 from app_instalaciones.models.forms import CuadroInstaForm, ExcelUploadForm
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, RegistroImportacion, Tecnico, Ejecutivo
 from django.shortcuts import get_object_or_404
@@ -23,7 +24,8 @@ def home(request):
     return render(request, "home.html")
 
 
-@login_required
+@login_required(login_url='login')
+@user_passes_test(puede_programar)
 def registro_inst(request):
     if request.user.groups.filter(name='Visor').exists():
         messages.warning(
@@ -110,7 +112,7 @@ def is_editor_or_admin(user):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff)  # Solo staff/superusuarios
+@user_passes_test(puede_programar)
 def editar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, pk=id)
 

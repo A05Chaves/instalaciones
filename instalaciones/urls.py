@@ -59,4 +59,9 @@ urlpatterns = [
         user_views.alistar_instalacion,
         name='alistar_instalacion'
     ),
+    path(
+        'configuracion/usuarios/',
+        user_views.configuracion_usuarios,
+        name='configuracion_usuarios'
+    ),
 ]

@@ -17,7 +17,41 @@ from django.views.decorators.http import require_POST
 
 from django.utils import timezone
 from datetime import datetime
+from django.contrib.auth.models import User, Group
 
+
+# VISTAS PARA LA GESTIÓN DE USUARIOS
+
+def pertenece_grupo(user, nombre_grupo):
+    return user.groups.filter(name=nombre_grupo).exists()
+
+
+def puede_programar(user):
+    return (
+        user.is_superuser
+        or pertenece_grupo(user, 'Administrador')
+        or pertenece_grupo(user, 'Programador')
+    )
+
+
+def puede_alistar(user):
+    return (
+        user.is_superuser
+        or pertenece_grupo(user, 'Administrador')
+        or pertenece_grupo(user, 'Almacen')
+    )
+
+
+def puede_facturar(user):
+    return (
+        user.is_superuser
+        or pertenece_grupo(user, 'Administrador')
+        or pertenece_grupo(user, 'Facturacion')
+    )
+
+
+def puede_ver(user):
+    return user.is_authenticated
 
 # MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
@@ -291,7 +325,7 @@ def mantenimiento_subir_archivo(request, pk):
 # VISTA DE FACTURACIÓN
 
 @login_required(login_url='login')
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(puede_facturar)
 def facturar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, id=id)
 
@@ -409,7 +443,7 @@ def dashboard_instalaciones(request):
 # VISTA PARA EL ALMACENISTA
 
 @login_required(login_url='login')
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(puede_alistar)
 def alistar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, id=id)
 
@@ -428,3 +462,45 @@ def alistar_instalacion(request, id):
         return redirect(next_url)
 
     return redirect('lista_instalaciones')
+
+# VISTA PARA BOTON DE CONFIGURACION
+
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_superuser)
+def configuracion_usuarios(request):
+    grupos_base = [
+        'Administrador',
+        'Programador',
+        'Almacen',
+        'Facturacion',
+        'Visor',
+    ]
+
+    for nombre in grupos_base:
+        Group.objects.get_or_create(name=nombre)
+
+    if request.method == 'POST':
+        usuario_id = request.POST.get('usuario_id')
+        grupo_id = request.POST.get('grupo_id')
+
+        usuario = get_object_or_404(User, id=usuario_id)
+        grupo = get_object_or_404(Group, id=grupo_id)
+
+        usuario.groups.clear()
+        usuario.groups.add(grupo)
+
+        messages.success(
+            request,
+            f"Rol actualizado para el usuario {usuario.username}."
+        )
+
+        return redirect('configuracion_usuarios')
+
+    usuarios = User.objects.all().order_by('username')
+    grupos = Group.objects.filter(name__in=grupos_base).order_by('name')
+
+    return render(request, 'configuracion_usuarios.html', {
+        'usuarios': usuarios,
+        'grupos': grupos,
+    })

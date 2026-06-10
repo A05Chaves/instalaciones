@@ -184,11 +184,13 @@ Inicio
                                     {% endif %}
 
                                 {% elif instalacion.estado == "LEGALIZADO" and instalacion.orden %}
+                                    {% if es_superusuario or es_administrador or es_almacen %}
                                     <a href="{% url 'alistar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
                                     class="btn btn-primary btn-sm"
                                     onclick="return confirm('¿Confirmar que esta instalación fue alistada por almacén?');">
                                         <i class="fas fa-box-check"></i> Alistado
                                     </a>
+                                    {% endif %}
                                 {% else %}
                                     <span class="badge bg-secondary">Pend. legalizar</span>
                                 {% endif %}
@@ -208,11 +210,13 @@ Inicio
                                     {% endif %}
 
                                 {% elif instalacion.alistado and instalacion.fecha_alistado %}
+                                    {% if es_superusuario or es_administrador or es_facturacion %}
                                     <a href="{% url 'facturar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
                                     class="btn btn-warning btn-sm"
                                     onclick="return confirm('¿Confirmar que esta instalación fue facturada?');">
                                         <i class="fas fa-file-invoice-dollar"></i> Facturado
                                     </a>
+                                    {% endif %}
                                 {% else %}
                                     <span class="badge bg-secondary">Pend. almacén</span>
                                 {% endif %}
@@ -234,7 +238,7 @@ Inicio
 
                             <td class="text-center">
 
-                                {% if request.user.is_staff %}
+                                {% if es_superusuario or es_administrador or es_programador %}
                                 <a href="{% url 'editar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
                                 class="btn btn-warning btn-sm shadow-sm"
                                 title="Editar">
