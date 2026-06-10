@@ -1,7 +1,7 @@
 from django import forms
 from datetime import timedelta
 from django.utils.timezone import now
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, Ejecutivo
+from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, Ejecutivo, Ciudad
 
 
 class CuadroInstaForm(forms.ModelForm):
@@ -46,7 +46,13 @@ class CuadroInstaForm(forms.ModelForm):
     pvg = forms.IntegerField(label='PVG', initial=0)
     codigo = forms.IntegerField(label='Código', initial=0)
     cliente = forms.CharField(label='Cliente', max_length=100)
-    ciudad = forms.CharField(label='Ciudad', max_length=30)
+
+    ciudad = forms.ModelChoiceField(
+        queryset=Ciudad.objects.none(),
+        required=True,
+        label='Ciudad'
+    )
+
     direccion = forms.CharField(label='Dirección', max_length=100)
     instalacion = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 2}), required=False)
@@ -56,7 +62,7 @@ class CuadroInstaForm(forms.ModelForm):
     observacion = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 3}), required=False)
 
-    # 🔑 Campos FK como ModelChoiceField
+    # Campos FK como ModelChoiceField
     tecnico1 = forms.ModelChoiceField(
         queryset=Tecnico.objects.none(), required=False)  # pylint: disable=no-member
     tecnico2 = forms.ModelChoiceField(
@@ -89,6 +95,18 @@ class CuadroInstaForm(forms.ModelForm):
         self.fields['tecnico1'].label_from_instance = lambda obj: obj.nombre
         self.fields['tecnico2'].label_from_instance = lambda obj: obj.nombre
         self.fields['ejecutivo'].label_from_instance = lambda obj: obj.nombre
+
+        self.fields['ciudad'].queryset = Ciudad.objects.all().order_by(
+            'nombre')
+        self.fields['ciudad'].label_from_instance = lambda obj: obj.nombre
+
+        if self.instance and self.instance.pk and self.instance.ciudad:
+            ciudad_obj = Ciudad.objects.filter(
+                nombre__iexact=self.instance.ciudad.strip()
+            ).first()
+
+            if ciudad_obj:
+                self.initial['ciudad'] = ciudad_obj.pk
 
         # Deshabilitar en edición (disabled no envía el valor en POST)
         if self.instance and self.instance.pk:
@@ -135,7 +153,9 @@ class CuadroInstaForm(forms.ModelForm):
 
         # Validación duplicado por PVG + Ciudad
         pvg = cleaned_data.get('pvg')
-        ciudad = cleaned_data.get('ciudad')
+        ciudad_obj = cleaned_data.get('ciudad')
+        ciudad = ciudad_obj.nombre if ciudad_obj else None
+        cleaned_data['ciudad'] = ciudad
 
         if pvg is not None and ciudad:
             qs = CuadroInsta.objects.filter(
@@ -198,6 +218,10 @@ class CuadroInstaForm(forms.ModelForm):
 
     def save(self, commit=True):
         instancia = super().save(commit=False)
+
+        ciudad = self.cleaned_data.get('ciudad')
+        if ciudad:
+            instancia.ciudad = ciudad
 
         cantidad = 0
 

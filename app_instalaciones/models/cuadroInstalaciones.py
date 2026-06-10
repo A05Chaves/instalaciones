@@ -55,23 +55,65 @@ class CuadroInsta(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_terminacion = models.DateField(null=True, blank=True)
     finaliza = models.DateField(null=True, blank=True)
+
+    # VARIABLES DE CALCULO DE INDICADOR
+
+    alistado = models.BooleanField(default=False)
+    fecha_alistado = models.DateField(null=True, blank=True)
+
     facturado = models.BooleanField(default=False)
     fecha_facturacion = models.DateField(null=True, blank=True)
 
     # METODO PARA CALCULAR TIEMPO DE DEMORA EN EL INDICADOR DE FACTURACION
 
     def save(self, *args, **kwargs):
+        # Si no está legalizado, no puede estar alistado ni facturado
         if self.estado != "LEGALIZADO":
+            self.alistado = False
+            self.fecha_alistado = None
             self.facturado = False
             self.fecha_facturacion = None
 
-        elif self.facturado and not self.fecha_facturacion:
-            self.fecha_facturacion = timezone.now().date()
+        else:
+            # Alistado
+            if self.alistado and not self.fecha_alistado:
+                self.fecha_alistado = timezone.now().date()
 
-        elif not self.facturado:
-            self.fecha_facturacion = None
+            if not self.alistado:
+                self.fecha_alistado = None
+                self.facturado = False
+                self.fecha_facturacion = None
+
+            # Facturado solo si ya está alistado
+            if self.facturado and self.alistado and not self.fecha_facturacion:
+                self.fecha_facturacion = timezone.now().date()
+
+            if self.facturado and not self.alistado:
+                self.facturado = False
+                self.fecha_facturacion = None
+
+            if not self.facturado:
+                self.fecha_facturacion = None
 
         super().save(*args, **kwargs)
+
+    @property
+    def dias_para_alistar(self):
+        if self.finaliza and self.fecha_alistado:
+            return (self.fecha_alistado - self.finaliza).days
+        return None
+
+    @property
+    def dias_para_facturar(self):
+        if self.fecha_alistado and self.fecha_facturacion:
+            return (self.fecha_facturacion - self.fecha_alistado).days
+        return None
+
+    @property
+    def dias_cierre_total(self):
+        if self.finaliza and self.fecha_facturacion:
+            return (self.fecha_facturacion - self.finaliza).days
+        return None
 
     orden = models.CharField(max_length=50, null=True, blank=True)
 
@@ -107,12 +149,6 @@ class CuadroInsta(models.Model):
         unique_together = (('pvg', 'ciudad'),)
         # Útil para listados recientes
         ordering = ['-fecha', '-updated_at']
-
-    @property
-    def dias_para_facturar(self):
-        if self.finaliza and self.fecha_facturacion:
-            return (self.fecha_facturacion - self.finaliza).days
-        return None
 
 # guarda los registros de importacion de archivos excel
 
@@ -181,3 +217,15 @@ class Mantenimiento(models.Model):
 
     def __str__(self):
         return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"
+
+
+# MODELO PARA CIUDADES
+
+class Ciudad(models.Model):
+    nombre = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre

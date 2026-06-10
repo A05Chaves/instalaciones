@@ -109,6 +109,7 @@ Inicio
                             <th>Orden</th>
                             <th>Técnicos</th>
                             <th>Estado</th>
+                            <th>Almacén</th>
                             <th>Facturación</th>
                             <th>Observación</th>
                             <th>Ejecutivo</th>
@@ -170,43 +171,51 @@ Inicio
                             </td>
 
                             <td class="text-center">
-
-                                {% if instalacion.facturado and instalacion.fecha_facturacion %}
-
+                                {% if instalacion.alistado and instalacion.fecha_alistado %}
                                     <span class="badge bg-success">
-                                        <i class="fas fa-check-circle"></i> Facturado
+                                        <i class="fas fa-check-circle"></i> Alistado
                                     </span>
-
                                     <br>
+                                    <small>{{ instalacion.fecha_alistado|date:"Y-m-d" }}</small>
 
-                                    <small>
-                                        {{ instalacion.fecha_facturacion|date:"Y-m-d" }}
-                                    </small>
-
-                                    {% if instalacion.dias_para_facturar is not None %}
+                                    {% if instalacion.dias_para_alistar is not None %}
                                         <br>
-                                        <small class="text-muted">
-                                            {{ instalacion.dias_para_facturar }} día(s)
-                                        </small>
+                                        <small class="text-muted">{{ instalacion.dias_para_alistar }} día(s)</small>
                                     {% endif %}
 
                                 {% elif instalacion.estado == "LEGALIZADO" and instalacion.orden %}
-
-                                    <a href="{% url 'facturar_instalacion' instalacion.id %}"
-                                    class="btn btn-warning btn-sm"
-                                    onclick="return confirm('¿Confirmar que esta instalación pasa a facturación?');">
-                                        <i class="fas fa-file-invoice-dollar"></i>
-                                        Facturar
+                                    <a href="{% url 'alistar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
+                                    class="btn btn-primary btn-sm"
+                                    onclick="return confirm('¿Confirmar que esta instalación fue alistada por almacén?');">
+                                        <i class="fas fa-box-check"></i> Alistado
                                     </a>
-
                                 {% else %}
-
-                                    <span class="badge bg-secondary">
-                                        Pend.Legalizar
-                                    </span>
-
+                                    <span class="badge bg-secondary">Pend. legalizar</span>
                                 {% endif %}
+                            </td>
 
+                            <td class="text-center">
+                                {% if instalacion.facturado and instalacion.fecha_facturacion %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle"></i> Facturado
+                                    </span>
+                                    <br>
+                                    <small>{{ instalacion.fecha_facturacion|date:"Y-m-d" }}</small>
+
+                                    {% if instalacion.dias_para_facturar is not None %}
+                                        <br>
+                                        <small class="text-muted">{{ instalacion.dias_para_facturar }} día(s)</small>
+                                    {% endif %}
+
+                                {% elif instalacion.alistado and instalacion.fecha_alistado %}
+                                    <a href="{% url 'facturar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
+                                    class="btn btn-warning btn-sm"
+                                    onclick="return confirm('¿Confirmar que esta instalación fue facturada?');">
+                                        <i class="fas fa-file-invoice-dollar"></i> Facturado
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-secondary">Pend. almacén</span>
+                                {% endif %}
                             </td>
 
                             <td>{{ instalacion.observacion|default:"-" }}</td>

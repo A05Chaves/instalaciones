@@ -295,24 +295,21 @@ def mantenimiento_subir_archivo(request, pk):
 def facturar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, id=id)
 
-    if instalacion.estado != "LEGALIZADO" or not instalacion.orden:
+    if not instalacion.alistado:
         messages.error(
-            request, "No se puede facturar una instalación sin orden legalizada.")
+            request, "No se puede facturar una instalación que no ha sido alistada por almacén.")
         return redirect('lista_instalaciones')
 
     instalacion.facturado = True
     instalacion.save()
 
     messages.success(request, "Instalación marcada como facturada.")
-    # return redirect('lista_instalaciones')
 
-    return redirect(
-        request.META.get(
-            'HTTP_REFERER',
-            'lista_instalaciones'
-        )
-    )
+    next_url = request.GET.get('next')
+    if next_url:
+        return redirect(next_url)
 
+    return redirect('lista_instalaciones')
 
 # VISTA DE DASHBOARD
 
@@ -407,3 +404,27 @@ def dashboard_instalaciones(request):
     }
 
     return render(request, 'dashboard_instalaciones.html', contexto)
+
+
+# VISTA PARA EL ALMACENISTA
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_staff)
+def alistar_instalacion(request, id):
+    instalacion = get_object_or_404(CuadroInsta, id=id)
+
+    if instalacion.estado != "LEGALIZADO" or not instalacion.orden:
+        messages.error(
+            request, "No se puede alistar una instalación sin orden legalizada.")
+        return redirect('lista_instalaciones')
+
+    instalacion.alistado = True
+    instalacion.save()
+
+    messages.success(request, "Instalación marcada como alistada por almacén.")
+
+    next_url = request.GET.get('next')
+    if next_url:
+        return redirect(next_url)
+
+    return redirect('lista_instalaciones')

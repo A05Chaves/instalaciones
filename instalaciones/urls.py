@@ -54,4 +54,9 @@ urlpatterns = [
     ),
     path('dashboard/', user_views.dashboard_instalaciones,
          name='dashboard_instalaciones'),
+    path(
+        'instalacion/<int:id>/alistar/',
+        user_views.alistar_instalacion,
+        name='alistar_instalacion'
+    ),
 ]
