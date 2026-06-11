@@ -28,40 +28,53 @@ Inicio
         <div class="card-body p-0">
 
         <div class="col-12 col-md-5">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
+            <form method="GET" class="col-12 col-md-5">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
 
-                    <label class="form-label fw-semibold">
-                        Rango de fechas de ingreso
-                    </label>
+                        <label class="form-label fw-semibold">
+                            Rango de fechas de ingreso
+                        </label>
 
-                    <div class="row g-2">
+                        <div class="row g-2">
 
-                        <div class="col">
-                            <input type="date"
-                                id="fecha-inicio"
-                                class="form-control">
-                        </div>
+                            <div class="col">
+                                <input type="date"
+                                    id="fecha-inicio"
+                                    name="fecha_inicio"
+                                    value="{{ fecha_inicio|default:'' }}"
+                                    class="form-control">
+                            </div>
 
-                        <div class="col">
-                            <input type="date"
-                                id="fecha-fin"
-                                class="form-control">
-                        </div>
+                            <div class="col">
+                                <input type="date"
+                                    id="fecha-fin"
+                                    name="fecha_fin"
+                                    value="{{ fecha_fin|default:'' }}"
+                                    class="form-control">
+                            </div>
 
-                        <div class="col-auto">
-                            <button type="button"
-                                    id="limpiar-fechas"
-                                    class="btn btn-outline-danger"
-                                    title="Limpiar filtro">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <div class="col-auto">
+                                <button type="submit"
+                                        class="btn btn-primary"
+                                        title="Filtrar fechas">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+
+                            <div class="col-auto">
+                                <a href="{% url 'lista_instalaciones' %}"
+                                class="btn btn-outline-danger"
+                                title="Limpiar filtro">
+                                    <i class="fas fa-times"></i>
+                                </a>
+                            </div>
+
                         </div>
 
                     </div>
-
                 </div>
-            </div>
+            </form>
         </div>
 
             <div class="row mb-4">
@@ -292,7 +305,7 @@ Inicio
         const tabla = $('#tabla-instalaciones').DataTable({
             stateSave: false,
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
             },
             pageLength: 25,
             lengthMenu: [25, 50, 100],
@@ -314,37 +327,7 @@ Inicio
             $('#contador-filtrado').text(filtrados);
         }
 
-        $.fn.dataTable.ext.search.push(function (settings, data) {
-
-            if (settings.nTable.id !== 'tabla-instalaciones') {
-                return true;
-            }
-
-            const fechaInicio = $('#fecha-inicio').val();
-            const fechaFin = $('#fecha-fin').val();
-
-            if (!fechaInicio && !fechaFin) {
-                return true;
-            }
-
-            const fechaTabla = data[1];
-
-            if (!fechaTabla) {
-                return false;
-            }
-
-            const fecha = fechaTabla.substring(0, 10);
-
-            if (fechaInicio && fecha < fechaInicio) {
-                return false;
-            }
-
-            if (fechaFin && fecha > fechaFin) {
-                return false;
-            }
-
-            return true;
-        });
+        
 
         $('#buscador-custom').on('keyup', function () {
             tabla.search(this.value).draw();
@@ -358,24 +341,7 @@ Inicio
             tabla.search('').draw();
         });
 
-        $('#fecha-inicio, #fecha-fin').on('change', function () {
-            tabla.draw();
-        });
-
-        $('#limpiar-fechas').on('click', function () {
-            $('#fecha-inicio').val('');
-            $('#fecha-fin').val('');
-
-            tabla.draw();
-        });
-
-        tabla.on('draw', function () {
-            actualizarContadores();
-        });
-
-        actualizarContadores();
-
-    });
+        
 
     function getCookie(name) {
     let cookieValue = null;
@@ -481,17 +447,10 @@ Inicio
                 btn.prop('disabled', false).html('<i class="fas fa-file-invoice-dollar"></i> Facturado');
             }
         });
-        const fila = celda.closest('tr');
-        const celdaFacturacion = fila.find('td').eq(15);
+        
+    });
 
-        celdaFacturacion.html(`
-            <button type="button"
-                    class="btn btn-warning btn-sm btn-facturar"
-                    data-url="${data.url_facturar}">
-                <i class="fas fa-file-invoice-dollar"></i> Facturado
-            </button>
-        `);
-            });
+});
 
 </script>
 

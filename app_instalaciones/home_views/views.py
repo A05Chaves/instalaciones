@@ -111,9 +111,10 @@ def lista_instalaciones(request):
 
 
 def lista_instalaciones(request):
-    q = request.GET.get('q', '').strip()
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
 
-    base = (
+    qs = (
         CuadroInsta.objects
         .select_related(
             'tecnico1',
@@ -121,31 +122,27 @@ def lista_instalaciones(request):
             'ejecutivo',
             'usuario'
         )
+        .order_by('-id')
     )
 
-    if q:
-        instalaciones = list(
-            base.filter(
-                Q(pvg__icontains=q) |
-                Q(codigo__icontains=q) |
-                Q(cliente__icontains=q) |
-                Q(ciudad__icontains=q) |
-                Q(direccion__icontains=q) |
-                Q(orden__icontains=q)
-            )
-            .order_by('-id')
-        )
-    else:
-        instalaciones = list(
-            base.order_by('-id')[:200]
-        )
+    if fecha_inicio:
+        qs = qs.filter(fecha__date__gte=fecha_inicio)
+
+    if fecha_fin:
+        qs = qs.filter(fecha__date__lte=fecha_fin)
+
+    if not fecha_inicio and not fecha_fin:
+        qs = qs[:200]
+
+    instalaciones = list(qs)
 
     return render(
         request,
         'lista_instalaciones.html',
         {
             'instalaciones': instalaciones,
-            'q': q,
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
         }
     )
 
