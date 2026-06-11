@@ -11,7 +11,7 @@ from django.http import HttpResponse
 import pandas as pd
 from datetime import datetime, date, time
 from django.utils import timezone
-
+from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Ciudad
 
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
@@ -387,7 +387,18 @@ def importar_excel(request):
                             tec2_v = partes[1] if len(partes) > 1 else None
 
                     ciudad_norm = norm_text(ciudad)
-                    # import es obligatorio (lo hará el form)
+                    ciudad_obj = None
+
+                    if ciudad_norm:
+                        ciudad_obj = Ciudad.objects.filter(
+                            nombre__iexact=ciudad_norm.strip()
+                        ).first()
+
+                        if not ciudad_obj:
+                            ciudad_obj = Ciudad.objects.create(
+                                nombre=ciudad_norm.strip().upper()
+                            )
+
                     fecha_dt = to_datetime(ingreso)
                     fecha_ini = to_date(inicio)
                     en_bodega = norm_si_no(bodega)
@@ -410,7 +421,7 @@ def importar_excel(request):
                         "fecha": fecha_dt,
                         "codigo": norm_text(codigo),
                         "cliente": norm_text(cliente),
-                        "ciudad": ciudad_norm,
+                        "ciudad": ciudad_obj.pk if ciudad_obj else None,
                         "direccion": norm_text(direccion),
                         "instalacion": norm_text(instalacion),
                         "dias_cotizados": dias,
