@@ -88,6 +88,8 @@ def lista_instalaciones(request):
             'estado',
             'observacion',
             'updated_at',
+            'alistado',
+            'fecha_alistado',
             'facturado',
             'fecha_facturacion',
             'tecnico1__nombre',
@@ -95,7 +97,7 @@ def lista_instalaciones(request):
             'ejecutivo__nombre',
             'usuario__username',
         )
-        .order_by('-id')
+        .order_by('-id')[:100]
     )
 
     return render(
