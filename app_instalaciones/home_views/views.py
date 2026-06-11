@@ -61,6 +61,7 @@ def registro_inst(request):
     return render(request, 'registro_inst.html', {'form': form})
 
 
+"""
 def lista_instalaciones(request):
     instalaciones = (
         CuadroInsta.objects
@@ -99,6 +100,30 @@ def lista_instalaciones(request):
         )
         .order_by('-id')[:100]
     )
+
+    return render(
+        request,
+        'lista_instalaciones.html',
+        {'instalaciones': instalaciones}
+    )
+
+ """
+
+
+def lista_instalaciones(request):
+
+    instalaciones = list(
+        CuadroInsta.objects
+        .select_related(
+            'tecnico1',
+            'tecnico2',
+            'ejecutivo',
+            'usuario'
+        )
+        .order_by('-id')[:100]
+    )
+
+    print("TOTAL INSTALACIONES ENVIADAS:", len(instalaciones))
 
     return render(
         request,
