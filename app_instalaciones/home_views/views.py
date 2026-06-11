@@ -64,6 +64,7 @@ def registro_inst(request):
 def lista_instalaciones(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
+    q = request.GET.get('q', '').strip()
 
     qs = (
         CuadroInsta.objects
@@ -82,7 +83,17 @@ def lista_instalaciones(request):
     if fecha_fin:
         qs = qs.filter(fecha__date__lte=fecha_fin)
 
-    if not fecha_inicio and not fecha_fin:
+    if q:
+        qs = qs.filter(
+            Q(pvg__icontains=q) |
+            Q(codigo__icontains=q) |
+            Q(cliente__icontains=q) |
+            Q(ciudad__icontains=q) |
+            Q(direccion__icontains=q) |
+            Q(orden__icontains=q)
+        )
+
+    if not fecha_inicio and not fecha_fin and not q:
         qs = qs[:200]
 
     instalaciones = list(qs)
@@ -95,6 +106,7 @@ def lista_instalaciones(request):
             'instalaciones': instalaciones,
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
+            'q': q,
             'total_pvg': total_pvg,
         }
     )
