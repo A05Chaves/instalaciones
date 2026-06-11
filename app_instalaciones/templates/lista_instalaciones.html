@@ -111,8 +111,10 @@ Inicio
                             <th>Facturación</th>
                             <th>Observación</th>
                             <th>Ejecutivo</th>
-                            <th>Usuario</th>
-                            <th>Actualizado</th>
+                            {% if es_superusuario or es_administrador %}
+                                <th>Usuario</th>
+                                <th>Actualizado</th>
+                            {% endif %}
                             <th>Acciones</th>
 
                         </tr>
@@ -180,11 +182,11 @@ Inicio
                                 {% elif instalacion.estado == "LEGALIZADO" and instalacion.orden %}
 
                                     {% if es_superusuario or es_administrador or es_almacen %}
-                                        <a href="{% url 'alistar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
-                                        class="btn btn-primary btn-sm"
-                                        onclick="return confirm('¿Confirmar que esta instalación fue alistada por almacén?');">
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm btn-alistar"
+                                                data-url="{% url 'alistar_instalacion' instalacion.id %}">
                                             <i class="fas fa-box"></i> Alistado
-                                        </a>
+                                        </button>
                                     {% else %}
                                         <span class="badge bg-warning text-dark">Pend. almacén</span>
                                     {% endif %}
@@ -210,11 +212,11 @@ Inicio
                                 {% elif instalacion.alistado and instalacion.fecha_alistado %}
 
                                     {% if es_superusuario or es_administrador or es_facturacion %}
-                                        <a href="{% url 'facturar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
-                                        class="btn btn-warning btn-sm"
-                                        onclick="return confirm('¿Confirmar que esta instalación fue facturada?');">
+                                        <button type="button"
+                                                class="btn btn-warning btn-sm btn-facturar"
+                                                data-url="{% url 'facturar_instalacion' instalacion.id %}">
                                             <i class="fas fa-file-invoice-dollar"></i> Facturado
-                                        </a>
+                                        </button>
                                     {% else %}
                                         <span class="badge bg-warning text-dark">Pend. facturación</span>
                                     {% endif %}
@@ -234,8 +236,10 @@ Inicio
                                 {% endif %}
                             </td>
 
-                            <td>{{ instalacion.usuario }}</td>
-                            <td>{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
+                            {% if es_superusuario or es_administrador %}
+                                <td>{{ instalacion.usuario }}</td>
+                                <td>{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
+                            {% endif %}
 
                             <td class="text-center">
                                 {% if es_superusuario or es_administrador or es_programador %}
@@ -373,6 +377,100 @@ Inicio
 
     });
 
+    function getCookie(name) {
+    let cookieValue = null;
+
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+
+    return cookieValue;
+}
+
+    $(document).on('click', '.btn-alistar', function () {
+        if (!confirm('¿Confirmar que esta instalación fue alistada por almacén?')) {
+            return;
+        }
+
+        const btn = $(this);
+        const url = btn.data('url');
+
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                const celda = btn.closest('td');
+
+                celda.html(`
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Alistado
+                    </span>
+                    <br>
+                    <small>${data.fecha}</small>
+                    <br>
+                    <small class="text-muted">${data.dias} día(s)</small>
+                `);
+            } else {
+                alert(data.mensaje || 'No se pudo alistar.');
+                btn.prop('disabled', false).html('<i class="fas fa-box"></i> Alistado');
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-facturar', function () {
+        if (!confirm('¿Confirmar que esta instalación fue facturada?')) {
+            return;
+        }
+
+        const btn = $(this);
+        const url = btn.data('url');
+
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                const celda = btn.closest('td');
+
+                celda.html(`
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Facturado
+                    </span>
+                    <br>
+                    <small>${data.fecha}</small>
+                    <br>
+                    <small class="text-muted">${data.dias} día(s)</small>
+                `);
+            } else {
+                alert(data.mensaje || 'No se pudo facturar.');
+                btn.prop('disabled', false).html('<i class="fas fa-file-invoice-dollar"></i> Facturado');
+            }
+        });
+    });
 
 </script>
 

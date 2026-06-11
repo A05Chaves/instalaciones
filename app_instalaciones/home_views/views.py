@@ -13,6 +13,7 @@ from datetime import datetime, date, time
 from django.utils import timezone
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Ciudad
 
+
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
 

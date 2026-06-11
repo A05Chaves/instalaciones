@@ -74,7 +74,7 @@ class CuadroInstaForm(forms.ModelForm):
         model = CuadroInsta
         fields = [
             'pvg', 'fecha', 'codigo', 'cliente', 'ciudad', 'direccion',
-            'instalacion', 'dias_cotizados',
+            'instalacion', 'dias_cotizados', 'en_bodega',
             'fecha_inicio', 'fecha_terminacion', 'finaliza', 'orden',
             'tecnico1', 'tecnico2', 'estado', 'observacion', 'ejecutivo'
         ]
@@ -83,6 +83,10 @@ class CuadroInstaForm(forms.ModelForm):
         # Flag para distinguir importación vs uso manual
         self.modo_import = kwargs.pop('modo_import', False)
         super().__init__(*args, **kwargs)
+
+        # VALOR POR DEFECTO EN BODEGA
+        if not self.instance or not self.instance.pk:
+            self.fields['en_bodega'].initial = "NO"
 
         # Cargar opciones para FKs
         self.fields['tecnico1'].queryset = Tecnico.objects.all().order_by(

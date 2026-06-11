@@ -14,7 +14,7 @@ from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
 
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
-
+from django.http import JsonResponse
 from django.utils import timezone
 from datetime import datetime
 from django.contrib.auth.models import User, Group
@@ -329,21 +329,27 @@ def mantenimiento_subir_archivo(request, pk):
 def facturar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, id=id)
 
+    if request.method != "POST":
+        return JsonResponse({
+            "ok": False,
+            "mensaje": "Método no permitido."
+        }, status=405)
+
     if not instalacion.alistado:
-        messages.error(
-            request, "No se puede facturar una instalación que no ha sido alistada por almacén.")
-        return redirect('lista_instalaciones')
+        return JsonResponse({
+            "ok": False,
+            "mensaje": "No se puede facturar una instalación que no ha sido alistada por almacén."
+        }, status=400)
 
     instalacion.facturado = True
     instalacion.save()
 
-    messages.success(request, "Instalación marcada como facturada.")
-
-    next_url = request.GET.get('next')
-    if next_url:
-        return redirect(next_url)
-
-    return redirect('lista_instalaciones')
+    return JsonResponse({
+        "ok": True,
+        "mensaje": "Instalación marcada como facturada.",
+        "fecha": instalacion.fecha_facturacion.strftime("%Y-%m-%d"),
+        "dias": instalacion.dias_para_facturar,
+    })
 
 # VISTA DE DASHBOARD
 
@@ -535,21 +541,27 @@ def dashboard_instalaciones(request):
 def alistar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, id=id)
 
+    if request.method != "POST":
+        return JsonResponse({
+            "ok": False,
+            "mensaje": "Método no permitido."
+        }, status=405)
+
     if instalacion.estado != "LEGALIZADO" or not instalacion.orden:
-        messages.error(
-            request, "No se puede alistar una instalación sin orden legalizada.")
-        return redirect('lista_instalaciones')
+        return JsonResponse({
+            "ok": False,
+            "mensaje": "No se puede alistar una instalación sin orden legalizada."
+        }, status=400)
 
     instalacion.alistado = True
     instalacion.save()
 
-    messages.success(request, "Instalación marcada como alistada por almacén.")
-
-    next_url = request.GET.get('next')
-    if next_url:
-        return redirect(next_url)
-
-    return redirect('lista_instalaciones')
+    return JsonResponse({
+        "ok": True,
+        "mensaje": "Instalación marcada como alistada.",
+        "fecha": instalacion.fecha_alistado.strftime("%Y-%m-%d"),
+        "dias": instalacion.dias_para_alistar,
+    })
 
 # VISTA PARA BOTON DE CONFIGURACION
 
