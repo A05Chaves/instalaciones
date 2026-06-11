@@ -415,6 +415,8 @@ Inicio
         })
         .then(response => response.json())
         .then(data => {
+            console.log(data);
+
             if (data.ok) {
                 const celda = btn.closest('td');
 
@@ -426,6 +428,15 @@ Inicio
                     <small>${data.fecha}</small>
                     <br>
                     <small class="text-muted">${data.dias} día(s)</small>
+                `);
+                const celdaFacturacion = celda.next('td');
+
+                celdaFacturacion.html(`
+                    <button type="button"
+                            class="btn btn-warning btn-sm btn-facturar"
+                            data-url="${data.url_facturar}">
+                        <i class="fas fa-file-invoice-dollar"></i> Facturado
+                    </button>
                 `);
             } else {
                 alert(data.mensaje || 'No se pudo alistar.');
@@ -470,7 +481,17 @@ Inicio
                 btn.prop('disabled', false).html('<i class="fas fa-file-invoice-dollar"></i> Facturado');
             }
         });
-    });
+        const fila = celda.closest('tr');
+        const celdaFacturacion = fila.find('td').eq(15);
+
+        celdaFacturacion.html(`
+            <button type="button"
+                    class="btn btn-warning btn-sm btn-facturar"
+                    data-url="${data.url_facturar}">
+                <i class="fas fa-file-invoice-dollar"></i> Facturado
+            </button>
+        `);
+            });
 
 </script>
 

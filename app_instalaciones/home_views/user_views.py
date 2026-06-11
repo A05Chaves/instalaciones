@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
-
+from django.urls import reverse
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
@@ -558,9 +558,13 @@ def alistar_instalacion(request, id):
 
     return JsonResponse({
         "ok": True,
-        "mensaje": "Instalación marcada como alistada.",
         "fecha": instalacion.fecha_alistado.strftime("%Y-%m-%d"),
         "dias": instalacion.dias_para_alistar,
+        "id": instalacion.id,
+        "url_facturar": reverse(
+            "facturar_instalacion",
+            args=[instalacion.id]
+        )
     })
 
 # VISTA PARA BOTON DE CONFIGURACION
