@@ -12,36 +12,33 @@ Inicio
         <i class="fas fa-file-excel"></i> Exportar a Excel
     </a>
 
-    <form method="GET" class="row mb-4">
-        <div class="col-md-6 offset-md-3">
-            <div class="input-group shadow-sm">
-                <span class="input-group-text bg-primary text-white">
-                    <i class="fas fa-search"></i>
-                </span>
+    <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
 
-                <input type="text"
-                    name="q"
-                    value="{{ q|default:'' }}"
-                    class="form-control"
-                    placeholder="Buscar histórico por PVG, código, cliente, ciudad, dirección u orden">
+        <input type="date"
+               name="fecha_inicio"
+               value="{{ fecha_inicio|default:'' }}"
+               class="form-control form-control-sm">
 
-                {% if fecha_inicio %}
-                    <input type="hidden" name="fecha_inicio" value="{{ fecha_inicio }}">
-                {% endif %}
+        <input type="date"
+               name="fecha_fin"
+               value="{{ fecha_fin|default:'' }}"
+               class="form-control form-control-sm">
 
-                {% if fecha_fin %}
-                    <input type="hidden" name="fecha_fin" value="{{ fecha_fin }}">
-                {% endif %}
+        <input type="text"
+               name="q"
+               value="{{ q|default:'' }}"
+               class="form-control form-control-sm"
+               style="width: 300px;"
+               placeholder="Buscar PVG, cliente, ciudad u orden">
 
-                <button class="btn btn-primary" type="submit">
-                    Buscar
-                </button>
+        <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fas fa-search"></i> Buscar
+        </button>
 
-                <a href="{% url 'lista_instalaciones' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-times"></i>
-                </a>
-            </div>
-        </div>
+        <a href="{% url 'lista_instalaciones' %}" class="btn btn-outline-danger btn-sm">
+            <i class="fas fa-times"></i>
+        </a>
+
     </form>
 
     <span class="badge bg-primary fs-6 px-3 py-2 shadow">
@@ -50,268 +47,248 @@ Inicio
 
 </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} auto-dismiss-alert shadow-sm">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-
-    {% if instalaciones %}
-
-    <div class="card shadow border-0">
-        <div class="card-body p-0">
-
-                <table id="tabla-instalaciones"
-                       class="table table-hover table-bordered align-middle text-uppercase">
-
-                    <thead class="table-dark text-center">
-                        <tr>
-
-                            
-
-                            <th>PVG</th>
-                            <th>Ingreso</th>
-                            <th>Código</th>
-                            <th>Cliente</th>
-                            <th>Ciudad</th>
-                            <th>Dirección</th>
-                            <th>Instalación</th>
-                            <th>Días</th>
-                            <th>Bodega</th>
-                            <th>Inicio</th>
-                            <th>Termina</th>
-                            <th>Orden</th>
-                            <th>Técnicos</th>
-                            <th>Estado</th>
-                            <th>Almacén</th>
-                            <th>Facturación</th>
-                            <th>Observación</th>
-                            <th>Ejecutivo</th>
-                            {% if es_superusuario or es_administrador %}
-                                <th>Usuario</th>
-                                <th>Actualizado</th>
-                            {% endif %}
-                            <th>Acciones</th>
-
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        {% for instalacion in instalaciones %}
-
-                        <tr class="
-                            {% if instalacion.estado == 'LEGALIZADO' %}
-                                table-success
-                            {% elif instalacion.estado == 'ANULADO' %}
-                                table-danger
-                            {% endif %}
-                        ">
-
-                            <td>{{ instalacion.pvg }}</td>
-                            <td>{{ instalacion.fecha|date:"Y-m-d H:i" }}</td>
-                            <td>{{ instalacion.codigo }}</td>
-                            <td>{{ instalacion.cliente }}</td>
-                            <td>{{ instalacion.ciudad }}</td>
-                            <td>{{ instalacion.direccion }}</td>
-                            <td>{{ instalacion.instalacion|default:"-" }}</td>
-                            <td>{{ instalacion.dias_cotizados|default:"-" }}</td>
-                            <td>{{ instalacion.en_bodega|default:"-" }}</td>
-                            <td>{{ instalacion.fecha_inicio|date:"Y-m-d" }}</td>
-                            <td>{{ instalacion.fecha_terminacion|date:"Y-m-d" }}</td>
-                            <td>{{ instalacion.orden|default:"-" }}</td>
-
-                            <td>
-                                {% if instalacion.tecnico1 %}
-                                    {{ instalacion.tecnico1.nombre }}
-                                {% else %}
-                                    —
-                                {% endif %}
-
-                                {% if instalacion.tecnico2 %}
-                                    – {{ instalacion.tecnico2.nombre }}
-                                {% endif %}
-                            </td>
-
-                            <td>
-                                {{ instalacion.estado }}
-
-                                {% if instalacion.estado == "LEGALIZADO" and instalacion.finaliza %}
-                                    <br>
-                                    <small>({{ instalacion.finaliza|date:"Y-m-d" }})</small>
-                                {% endif %}
-                            </td>
-
-                            <td class="text-center">
-                                {% if instalacion.alistado and instalacion.fecha_alistado %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check-circle"></i> Alistado
-                                    </span>
-                                    <br>
-                                    <small>{{ instalacion.fecha_alistado|date:"Y-m-d" }}</small>
-
-                                    {% if instalacion.dias_para_alistar is not None %}
-                                        <br>
-                                        <small class="text-muted">{{ instalacion.dias_para_alistar }} día(s)</small>
-                                    {% endif %}
-
-                                {% elif instalacion.estado == "LEGALIZADO" and instalacion.orden %}
-
-                                    {% if es_superusuario or es_administrador or es_almacen %}
-                                        <button type="button"
-                                                class="btn btn-primary btn-sm btn-alistar"
-                                                data-url="{% url 'alistar_instalacion' instalacion.id %}">
-                                            <i class="fas fa-box"></i> Alistado
-                                        </button>
-                                    {% else %}
-                                        <span class="badge bg-warning text-dark">Pend. almacén</span>
-                                    {% endif %}
-
-                                {% else %}
-                                    <span class="badge bg-secondary">Pend. legalizar</span>
-                                {% endif %}
-                            </td>
-
-                            <td class="text-center">
-                                {% if instalacion.facturado and instalacion.fecha_facturacion %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check-circle"></i> Facturado
-                                    </span>
-                                    <br>
-                                    <small>{{ instalacion.fecha_facturacion|date:"Y-m-d" }}</small>
-
-                                    {% if instalacion.dias_para_facturar is not None %}
-                                        <br>
-                                        <small class="text-muted">{{ instalacion.dias_para_facturar }} día(s)</small>
-                                    {% endif %}
-
-                                {% elif instalacion.alistado and instalacion.fecha_alistado %}
-
-                                    {% if es_superusuario or es_administrador or es_facturacion %}
-                                        <button type="button"
-                                                class="btn btn-warning btn-sm btn-facturar"
-                                                data-url="{% url 'facturar_instalacion' instalacion.id %}">
-                                            <i class="fas fa-file-invoice-dollar"></i> Facturado
-                                        </button>
-                                    {% else %}
-                                        <span class="badge bg-warning text-dark">Pend. facturación</span>
-                                    {% endif %}
-
-                                {% else %}
-                                    <span class="badge bg-secondary">Pend. almacén</span>
-                                {% endif %}
-                            </td>
-
-                            <td>{{ instalacion.observacion|default:"-" }}</td>
-
-                            <td>
-                                {% if instalacion.ejecutivo %}
-                                    {{ instalacion.ejecutivo.nombre }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
-
-                            {% if es_superusuario or es_administrador %}
-                                <td>{{ instalacion.usuario }}</td>
-                                <td>{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
-                            {% endif %}
-
-                            <td class="text-center">
-                                {% if es_superusuario or es_administrador or es_programador %}
-                                    {% if not instalacion.cerrado_total %}
-                                        <a href="{% url 'editar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
-                                        class="btn btn-warning btn-sm shadow-sm"
-                                        title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                    {% endif %}
-                                {% endif %}
-
-                                {% if request.user.is_superuser %}
-                                    <a href="{% url 'eliminar_instalacion' instalacion.id %}"
-                                    class="btn btn-danger btn-sm shadow-sm"
-                                    title="Eliminar"
-                                    onclick="return confirm('¿Eliminar instalación?');">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </a>
-                                {% endif %}
-                            </td>
-
-                        </tr>
-
-                        {% endfor %}
-
-                    </tbody>
-                </table>
-            
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} auto-dismiss-alert shadow-sm">
+            {{ message }}
         </div>
+    {% endfor %}
+{% endif %}
+
+{% if instalaciones %}
+
+<div class="card shadow border-0">
+    <div class="card-body p-0">
+
+        <table id="tabla-instalaciones"
+               class="table table-hover table-bordered align-middle text-uppercase">
+
+            <thead class="table-dark text-center">
+                <tr>
+                    <th>PVG</th>
+                    <th>Ingreso</th>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Ciudad</th>
+                    <th>Dirección</th>
+                    <th>Instalación</th>
+                    <th>Días</th>
+                    <th>Bodega</th>
+                    <th>Inicio</th>
+                    <th>Termina</th>
+                    <th>Orden</th>
+                    <th>Técnicos</th>
+                    <th>Estado</th>
+                    <th>Almacén</th>
+                    <th>Facturación</th>
+                    <th>Observación</th>
+                    <th>Ejecutivo</th>
+
+                    {% if es_superusuario or es_administrador %}
+                        <th>Usuario</th>
+                        <th>Actualizado</th>
+                    {% endif %}
+
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for instalacion in instalaciones %}
+                <tr class="
+                    {% if instalacion.estado == 'LEGALIZADO' %}
+                        table-success
+                    {% elif instalacion.estado == 'ANULADO' %}
+                        table-danger
+                    {% endif %}
+                ">
+
+                    <td>{{ instalacion.pvg }}</td>
+                    <td>{{ instalacion.fecha|date:"Y-m-d H:i" }}</td>
+                    <td>{{ instalacion.codigo }}</td>
+                    <td>{{ instalacion.cliente }}</td>
+                    <td>{{ instalacion.ciudad }}</td>
+                    <td>{{ instalacion.direccion }}</td>
+                    <td>{{ instalacion.instalacion|default:"-" }}</td>
+                    <td>{{ instalacion.dias_cotizados|default:"-" }}</td>
+                    <td>{{ instalacion.en_bodega|default:"-" }}</td>
+                    <td>{{ instalacion.fecha_inicio|date:"Y-m-d" }}</td>
+                    <td>{{ instalacion.fecha_terminacion|date:"Y-m-d" }}</td>
+                    <td>{{ instalacion.orden|default:"-" }}</td>
+
+                    <td>
+                        {% if instalacion.tecnico1 %}
+                            {{ instalacion.tecnico1.nombre }}
+                        {% else %}
+                            —
+                        {% endif %}
+
+                        {% if instalacion.tecnico2 %}
+                            – {{ instalacion.tecnico2.nombre }}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ instalacion.estado }}
+
+                        {% if instalacion.estado == "LEGALIZADO" and instalacion.finaliza %}
+                            <br>
+                            <small>({{ instalacion.finaliza|date:"Y-m-d" }})</small>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+                        {% if instalacion.alistado and instalacion.fecha_alistado %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> Alistado
+                            </span>
+                            <br>
+                            <small>{{ instalacion.fecha_alistado|date:"Y-m-d" }}</small>
+
+                            {% if instalacion.dias_para_alistar is not None %}
+                                <br>
+                                <small class="text-muted">{{ instalacion.dias_para_alistar }} día(s)</small>
+                            {% endif %}
+
+                        {% elif instalacion.estado == "LEGALIZADO" and instalacion.orden %}
+                            {% if es_superusuario or es_administrador or es_almacen %}
+                                <button type="button"
+                                        class="btn btn-primary btn-sm btn-alistar"
+                                        data-url="{% url 'alistar_instalacion' instalacion.id %}">
+                                    <i class="fas fa-box"></i> Alistado
+                                </button>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pend. almacén</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">Pend. legalizar</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+                        {% if instalacion.facturado and instalacion.fecha_facturacion %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> Facturado
+                            </span>
+                            <br>
+                            <small>{{ instalacion.fecha_facturacion|date:"Y-m-d" }}</small>
+
+                            {% if instalacion.dias_para_facturar is not None %}
+                                <br>
+                                <small class="text-muted">{{ instalacion.dias_para_facturar }} día(s)</small>
+                            {% endif %}
+
+                        {% elif instalacion.alistado and instalacion.fecha_alistado %}
+                            {% if es_superusuario or es_administrador or es_facturacion %}
+                                <button type="button"
+                                        class="btn btn-warning btn-sm btn-facturar"
+                                        data-url="{% url 'facturar_instalacion' instalacion.id %}">
+                                    <i class="fas fa-file-invoice-dollar"></i> Facturado
+                                </button>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pend. facturación</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">Pend. almacén</span>
+                        {% endif %}
+                    </td>
+
+                    <td>{{ instalacion.observacion|default:"-" }}</td>
+
+                    <td>
+                        {% if instalacion.ejecutivo %}
+                            {{ instalacion.ejecutivo.nombre }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    {% if es_superusuario or es_administrador %}
+                        <td>{{ instalacion.usuario }}</td>
+                        <td>{{ instalacion.updated_at|date:"Y-m-d H:i" }}</td>
+                    {% endif %}
+
+                    <td class="text-center">
+                        {% if es_superusuario or es_administrador or es_programador %}
+                            {% if not instalacion.cerrado_total %}
+                                <a href="{% url 'editar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
+                                   class="btn btn-warning btn-sm shadow-sm"
+                                   title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if request.user.is_superuser %}
+                            <a href="{% url 'eliminar_instalacion' instalacion.id %}"
+                               class="btn btn-danger btn-sm shadow-sm"
+                               title="Eliminar"
+                               onclick="return confirm('¿Eliminar instalación?');">
+                                <i class="fas fa-trash-alt"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
     </div>
-
-    {% else %}
-
-    <div class="alert alert-info shadow-sm">
-        No hay instalaciones registradas aún.
-    </div>
-
-    {% endif %}
-
 </div>
+
+{% else %}
+
+<div class="alert alert-info shadow-sm">
+    No hay instalaciones registradas aún.
+</div>
+
+{% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
 
 <script>
-    $(document).ready(function () {
+$(document).ready(function () {
 
-        const tabla = $('#tabla-instalaciones').DataTable({
-            stateSave: false,
-            language: {
-                url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-            },
-            pageLength: 25,
-            lengthMenu: [25, 50, 100],
-            deferRender: true,
-            order: [[1, 'desc']],
-            searching: false,
-            dom: 'lrtip',
-            scrollX: true,
-            scrollY: '65vh',
-            scrollCollapse: true,
-            autoWidth: false
-        });
-
-        function actualizarContadores() {
-            const total = tabla.rows().count();
-            const filtrados = tabla.rows({ search: 'applied' }).count();
-
-            $('#contador-total').text(total);
-            $('#contador-filtrado').text(filtrados);
-        }
-
-        
+    const tabla = $('#tabla-instalaciones').DataTable({
+        stateSave: false,
+        language: {
+            url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+        },
+        pageLength: 25,
+        lengthMenu: [25, 50, 100],
+        deferRender: true,
+        order: [[1, 'desc']],
+        searching: false,
+        dom: 'lrtip',
+        scrollX: true,
+        scrollY: '65vh',
+        scrollCollapse: true,
+        autoWidth: false
+    });
 
     function getCookie(name) {
-    let cookieValue = null;
+        let cookieValue = null;
 
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
 
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
 
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(
+                        cookie.substring(name.length + 1)
+                    );
+                    break;
+                }
             }
         }
-    }
 
-    return cookieValue;
-}
+        return cookieValue;
+    }
 
     $(document).on('click', '.btn-alistar', function () {
         if (!confirm('¿Confirmar que esta instalación fue alistada por almacén?')) {
@@ -332,8 +309,6 @@ Inicio
         })
         .then(response => response.json())
         .then(data => {
-            console.log(data);
-
             if (data.ok) {
                 const celda = btn.closest('td');
 
@@ -346,6 +321,7 @@ Inicio
                     <br>
                     <small class="text-muted">${data.dias} día(s)</small>
                 `);
+
                 const celdaFacturacion = celda.next('td');
 
                 celdaFacturacion.html(`
@@ -398,11 +374,9 @@ Inicio
                 btn.prop('disabled', false).html('<i class="fas fa-file-invoice-dollar"></i> Facturado');
             }
         });
-        
     });
 
 });
-
 </script>
 
 {% endblock %}
