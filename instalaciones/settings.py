@@ -113,12 +113,12 @@ USE_TZ = True
 STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 if AMBIENTE == "produccion":
-    STATIC_ROOT = BASE_DIR / "staticfiles"  # donde collectstatic deja los archivos
+    STATIC_ROOT = BASE_DIR / "staticfiles"
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 else:
-    # si tienes carpeta static/ en desarrollo
-    STATICFILES_DIRS = [BASE_DIR / "static"]
     MEDIA_ROOT = BASE_DIR / "media"
 
 # === Login y sesiones ===
