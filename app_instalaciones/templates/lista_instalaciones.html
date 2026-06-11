@@ -6,18 +6,39 @@ Inicio
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-
-    <div class="card border-0 shadow-sm bg-primary text-white" style="width: 250px;">
-        <div class="card-body text-center py-2">
-            <h6 class="mb-1">TOTAL PVG REGISTRADOS</h6>
-            <h2 class="mb-0">{{ total_pvg }}</h2>
-        </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
 
     <a href="{% url 'exportar_excel' %}" class="btn btn-success shadow-sm">
         <i class="fas fa-file-excel"></i> Exportar a Excel
     </a>
+
+    <form method="GET" class="d-flex align-items-center gap-2">
+
+        <input type="date"
+               name="fecha_inicio"
+               value="{{ fecha_inicio|default:'' }}"
+               class="form-control form-control-sm">
+
+        <input type="date"
+               name="fecha_fin"
+               value="{{ fecha_fin|default:'' }}"
+               class="form-control form-control-sm">
+
+        <button type="submit"
+                class="btn btn-primary btn-sm">
+            <i class="fas fa-search"></i>
+        </button>
+
+        <a href="{% url 'lista_instalaciones' %}"
+           class="btn btn-outline-danger btn-sm">
+            <i class="fas fa-times"></i>
+        </a>
+
+    </form>
+
+    <span class="badge bg-primary fs-6 px-3 py-2 shadow">
+        TOTAL PVG: {{ total_pvg }}
+    </span>
 
 </div>
 
@@ -34,55 +55,7 @@ Inicio
     <div class="card shadow border-0">
         <div class="card-body p-0">
 
-        <div class="col-12 col-md-5">
-            <form method="GET" class="col-12 col-md-5">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-
-                        <label class="form-label fw-semibold">
-                            Rango de fechas de ingreso
-                        </label>
-
-                        <div class="row g-2">
-
-                            <div class="col">
-                                <input type="date"
-                                    id="fecha-inicio"
-                                    name="fecha_inicio"
-                                    value="{{ fecha_inicio|default:'' }}"
-                                    class="form-control">
-                            </div>
-
-                            <div class="col">
-                                <input type="date"
-                                    id="fecha-fin"
-                                    name="fecha_fin"
-                                    value="{{ fecha_fin|default:'' }}"
-                                    class="form-control">
-                            </div>
-
-                            <div class="col-auto">
-                                <button type="submit"
-                                        class="btn btn-primary"
-                                        title="Filtrar fechas">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-
-                            <div class="col-auto">
-                                <a href="{% url 'lista_instalaciones' %}"
-                                class="btn btn-outline-danger"
-                                title="Limpiar filtro">
-                                    <i class="fas fa-times"></i>
-                                </a>
-                            </div>
-
-                        </div>
-
-                    </div>
-                </div>
-            </form>
-        </div>
+       
 
             <div class="row mb-4">
                 <div class="col-md-6 offset-md-3">
@@ -342,8 +315,6 @@ Inicio
 
         $('#limpiar-busqueda').on('click', function () {
             $('#buscador-custom').val('');
-            $('#fecha-inicio').val('');
-            $('#fecha-fin').val('');
 
             tabla.search('').draw();
         });
