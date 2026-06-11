@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import datetime, date, time
 from django.utils import timezone
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Ciudad
-
+from django.db.models import Q
 
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
@@ -111,8 +111,9 @@ def lista_instalaciones(request):
 
 
 def lista_instalaciones(request):
+    q = request.GET.get('q', '').strip()
 
-    instalaciones = list(
+    base = (
         CuadroInsta.objects
         .select_related(
             'tecnico1',
@@ -120,15 +121,32 @@ def lista_instalaciones(request):
             'ejecutivo',
             'usuario'
         )
-        .order_by('-id')[:100]
     )
 
-    print("TOTAL INSTALACIONES ENVIADAS:", len(instalaciones))
+    if q:
+        instalaciones = list(
+            base.filter(
+                Q(pvg__icontains=q) |
+                Q(codigo__icontains=q) |
+                Q(cliente__icontains=q) |
+                Q(ciudad__icontains=q) |
+                Q(direccion__icontains=q) |
+                Q(orden__icontains=q)
+            )
+            .order_by('-id')
+        )
+    else:
+        instalaciones = list(
+            base.order_by('-id')[:200]
+        )
 
     return render(
         request,
         'lista_instalaciones.html',
-        {'instalaciones': instalaciones}
+        {
+            'instalaciones': instalaciones,
+            'q': q,
+        }
     )
 
 # AGREGADO 25 DE ABRIL
