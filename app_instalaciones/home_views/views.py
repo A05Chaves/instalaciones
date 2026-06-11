@@ -86,11 +86,27 @@ def lista_instalaciones(request):
     if q:
         qs = qs.filter(
             Q(pvg__icontains=q) |
+            Q(fecha__icontains=q) |
             Q(codigo__icontains=q) |
             Q(cliente__icontains=q) |
             Q(ciudad__icontains=q) |
             Q(direccion__icontains=q) |
-            Q(orden__icontains=q)
+            Q(instalacion__icontains=q) |
+            Q(dias_cotizados__icontains=q) |
+            Q(en_bodega__icontains=q) |
+            Q(fecha_inicio__icontains=q) |
+            Q(fecha_terminacion__icontains=q) |
+            Q(finaliza__icontains=q) |
+            Q(orden__icontains=q) |
+            Q(tecnico1__nombre__icontains=q) |
+            Q(tecnico2__nombre__icontains=q) |
+            Q(estado__icontains=q) |
+            Q(observacion__icontains=q) |
+            Q(ejecutivo__nombre__icontains=q) |
+            Q(usuario__username__icontains=q) |
+            Q(updated_at__icontains=q) |
+            Q(fecha_alistado__icontains=q) |
+            Q(fecha_facturacion__icontains=q)
         )
 
     if not fecha_inicio and not fecha_fin and not q:
