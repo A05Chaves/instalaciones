@@ -371,48 +371,121 @@ def dashboard_instalaciones(request):
 
     total_pvg = qs.count()
 
-    instalaciones_con_inicio = qs.filter(fecha_inicio__isnull=False)
-
-    total_con_inicio = instalaciones_con_inicio.count()
-    cumple_instalacion = 0
-    fuera_tiempo = 0
-
-    suma_dias_instalacion = 0
-
-    for item in instalaciones_con_inicio:
-        dias = (item.fecha_inicio - item.fecha.date()).days
-        suma_dias_instalacion += dias
-
-        if dias <= 8:
-            cumple_instalacion += 1
-        else:
-            fuera_tiempo += 1
-
-    eficiencia = 0
-    promedio_instalacion = 0
-
-    if total_con_inicio > 0:
-        eficiencia = round((cumple_instalacion / total_con_inicio) * 100, 2)
-        promedio_instalacion = round(
-            suma_dias_instalacion / total_con_inicio, 2)
-
-    facturados = qs.filter(
-        facturado=True,
-        fecha_facturacion__isnull=False,
-        finaliza__isnull=False
+    # INSTALACIÓN
+    registros_instalacion = qs.filter(
+        fecha__isnull=False,
+        fecha_inicio__isnull=False
     )
 
-    total_facturados = facturados.count()
+    total_instalacion = registros_instalacion.count()
+    cumple_instalacion = 0
+    suma_dias_instalacion = 0
+
+    for item in registros_instalacion:
+        dias = item.dias_instalacion
+
+        if dias is not None:
+            suma_dias_instalacion += dias
+
+            if dias <= 8:
+                cumple_instalacion += 1
+
+    eficiencia_instalacion = 0
+    promedio_instalacion = 0
+
+    if total_instalacion > 0:
+        eficiencia_instalacion = round(
+            (cumple_instalacion / total_instalacion) * 100, 2
+        )
+        promedio_instalacion = round(
+            suma_dias_instalacion / total_instalacion, 2
+        )
+
+    fuera_instalacion = total_instalacion - cumple_instalacion
+
+    # ALMACÉN
+    registros_almacen = qs.filter(
+        finaliza__isnull=False,
+        fecha_alistado__isnull=False
+    )
+
+    total_almacen = registros_almacen.count()
+    cumple_almacen = 0
+    suma_dias_almacen = 0
+
+    for item in registros_almacen:
+        dias = item.dias_para_alistar
+
+        if dias is not None:
+            suma_dias_almacen += dias
+
+            if dias <= 2:
+                cumple_almacen += 1
+
+    eficiencia_almacen = 0
+    promedio_almacen = 0
+
+    if total_almacen > 0:
+        eficiencia_almacen = round(
+            (cumple_almacen / total_almacen) * 100, 2
+        )
+        promedio_almacen = round(
+            suma_dias_almacen / total_almacen, 2
+        )
+
+    fuera_almacen = total_almacen - cumple_almacen
+
+    # FACTURACIÓN
+    registros_facturacion = qs.filter(
+        fecha_alistado__isnull=False,
+        fecha_facturacion__isnull=False
+    )
+
+    total_facturacion = registros_facturacion.count()
+    cumple_facturacion = 0
     suma_dias_facturacion = 0
 
-    for item in facturados:
-        suma_dias_facturacion += (item.fecha_facturacion - item.finaliza).days
+    for item in registros_facturacion:
+        dias = item.dias_para_facturar
 
+        if dias is not None:
+            suma_dias_facturacion += dias
+
+            if dias <= 2:
+                cumple_facturacion += 1
+
+    eficiencia_facturacion = 0
     promedio_facturacion = 0
 
-    if total_facturados > 0:
+    if total_facturacion > 0:
+        eficiencia_facturacion = round(
+            (cumple_facturacion / total_facturacion) * 100, 2
+        )
         promedio_facturacion = round(
-            suma_dias_facturacion / total_facturados, 2)
+            suma_dias_facturacion / total_facturacion, 2
+        )
+
+    fuera_facturacion = total_facturacion - cumple_facturacion
+
+    # CIERRE TOTAL
+    registros_cierre = qs.filter(
+        finaliza__isnull=False,
+        fecha_facturacion__isnull=False
+    )
+
+    total_cierre = registros_cierre.count()
+    suma_cierre = 0
+
+    for item in registros_cierre:
+        dias = item.dias_cierre_total
+
+        if dias is not None:
+            suma_cierre += dias
+
+    promedio_cierre_total = 0
+
+    if total_cierre > 0:
+        promedio_cierre_total = round(suma_cierre / total_cierre, 2)
 
     ciudades = (
         CuadroInsta.objects
@@ -427,14 +500,29 @@ def dashboard_instalaciones(request):
         'mes': mes,
         'ciudad': ciudad,
         'ciudades': ciudades,
+
         'total_pvg': total_pvg,
-        'total_con_inicio': total_con_inicio,
+
+        'total_instalacion': total_instalacion,
         'cumple_instalacion': cumple_instalacion,
-        'fuera_tiempo': fuera_tiempo,
-        'eficiencia': eficiencia,
+        'fuera_instalacion': fuera_instalacion,
+        'eficiencia_instalacion': eficiencia_instalacion,
         'promedio_instalacion': promedio_instalacion,
-        'total_facturados': total_facturados,
+
+        'total_almacen': total_almacen,
+        'cumple_almacen': cumple_almacen,
+        'fuera_almacen': fuera_almacen,
+        'eficiencia_almacen': eficiencia_almacen,
+        'promedio_almacen': promedio_almacen,
+
+        'total_facturacion': total_facturacion,
+        'cumple_facturacion': cumple_facturacion,
+        'fuera_facturacion': fuera_facturacion,
+        'eficiencia_facturacion': eficiencia_facturacion,
         'promedio_facturacion': promedio_facturacion,
+
+        'total_cierre': total_cierre,
+        'promedio_cierre_total': promedio_cierre_total,
     }
 
     return render(request, 'dashboard_instalaciones.html', contexto)

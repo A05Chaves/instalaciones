@@ -98,6 +98,12 @@ class CuadroInsta(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def dias_instalacion(self):
+        if self.fecha and self.fecha_inicio:
+            return (self.fecha_inicio - self.fecha.date()).days
+        return None
+
+    @property
     def dias_para_alistar(self):
         if self.finaliza and self.fecha_alistado:
             return (self.fecha_alistado - self.finaliza).days
