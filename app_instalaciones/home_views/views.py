@@ -61,55 +61,6 @@ def registro_inst(request):
     return render(request, 'registro_inst.html', {'form': form})
 
 
-"""
-def lista_instalaciones(request):
-    instalaciones = (
-        CuadroInsta.objects
-        .select_related(
-            'tecnico1',
-            'tecnico2',
-            'ejecutivo',
-            'usuario'
-        )
-        .only(
-            'id',
-            'pvg',
-            'fecha',
-            'codigo',
-            'cliente',
-            'ciudad',
-            'direccion',
-            'instalacion',
-            'dias_cotizados',
-            'en_bodega',
-            'fecha_inicio',
-            'fecha_terminacion',
-            'finaliza',
-            'orden',
-            'estado',
-            'observacion',
-            'updated_at',
-            'alistado',
-            'fecha_alistado',
-            'facturado',
-            'fecha_facturacion',
-            'tecnico1__nombre',
-            'tecnico2__nombre',
-            'ejecutivo__nombre',
-            'usuario__username',
-        )
-        .order_by('-id')[:100]
-    )
-
-    return render(
-        request,
-        'lista_instalaciones.html',
-        {'instalaciones': instalaciones}
-    )
-
- """
-
-
 def lista_instalaciones(request):
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
@@ -135,6 +86,7 @@ def lista_instalaciones(request):
         qs = qs[:200]
 
     instalaciones = list(qs)
+    total_pvg = CuadroInsta.objects.count()
 
     return render(
         request,
@@ -143,6 +95,7 @@ def lista_instalaciones(request):
             'instalaciones': instalaciones,
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
+            'total_pvg': total_pvg,
         }
     )
 
