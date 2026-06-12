@@ -26,11 +26,21 @@ def pertenece_grupo(user, nombre_grupo):
     return user.groups.filter(name=nombre_grupo).exists()
 
 
-def puede_programar(user):
+def puede_editar_instalacion(user):
     return (
         user.is_superuser
         or pertenece_grupo(user, 'Administrador')
         or pertenece_grupo(user, 'Programador')
+        or pertenece_grupo(user, 'Almacen')
+        or pertenece_grupo(user, 'Facturacion')
+    )
+
+
+def puede_programar(user):
+    return (
+        user.is_superuser
+        or user.groups.filter(name='Administrador').exists()
+        or user.groups.filter(name='Programador').exists()
     )
 
 

@@ -80,8 +80,8 @@ class CuadroInstaForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
-        # Flag para distinguir importación vs uso manual
         self.modo_import = kwargs.pop('modo_import', False)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
         # VALOR POR DEFECTO EN BODEGA
@@ -132,21 +132,54 @@ class CuadroInstaForm(forms.ModelForm):
             'class': 'form-control text-muted'
         })
 
-        # PVG totalmente cerrado
-        if self.instance and self.instance.cerrado_total:
+        # PERMISOS DE EDICIÓN POR ROL
+        if self.instance and self.instance.pk and self.user:
 
-            for field in self.fields:
-                self.fields[field].disabled = True
+            es_admin = (
+                self.user.is_superuser
+                or self.user.groups.filter(name='Administrador').exists()
+            )
 
-        # Legalizado o alistado: solo observación editable
-        elif self.instance and (
-            self.instance.bloqueado_por_orden or self.instance.alistado
-        ):
+            es_programador = self.user.groups.filter(
+                name='Programador').exists()
+            es_almacen = self.user.groups.filter(name='Almacen').exists()
+            es_facturacion = self.user.groups.filter(
+                name='Facturacion').exists()
 
-            for field in self.fields:
-
-                if field != 'observacion':
+            if self.instance.cerrado_total and not es_admin:
+                for field in self.fields:
                     self.fields[field].disabled = True
+
+            elif es_admin:
+                pass
+
+            elif es_almacen:
+                for field in self.fields:
+                    if field not in ['en_bodega', 'observacion']:
+                        self.fields[field].disabled = True
+
+            elif es_facturacion:
+                for field in self.fields:
+                    if field != 'observacion':
+                        self.fields[field].disabled = True
+
+            elif es_programador:
+                if self.instance.bloqueado_por_orden or self.instance.alistado:
+                    for field in self.fields:
+                        if field != 'observacion':
+                            self.fields[field].disabled = True
+
+        else:
+            if self.instance and self.instance.cerrado_total:
+                for field in self.fields:
+                    self.fields[field].disabled = True
+
+            elif self.instance and (
+                self.instance.bloqueado_por_orden or self.instance.alistado
+            ):
+                for field in self.fields:
+                    if field != 'observacion':
+                        self.fields[field].disabled = True
 
     def clean(self):
         cleaned_data = super().clean()
