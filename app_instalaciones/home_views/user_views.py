@@ -378,23 +378,38 @@ def dashboard_instalaciones(request):
     total_pvg = qs.count()
 
     # INSTALACIÓN
-    registros_instalacion = qs.filter(
-        fecha__isnull=False,
-        fecha_inicio__isnull=False
+    # Base: PVG programados o legalizados dentro del filtro seleccionado.
+    # Cumple: tiene fecha_inicio y la diferencia ingreso -> inicio es <= 8 días.
+    # No cumple: no tiene fecha_inicio o supera 8 días.
+
+    registros_instalacion = qs.exclude(
+        estado__isnull=True
+    ).exclude(
+        estado=""
+    ).exclude(
+        estado="PENDIENTE"
     )
 
     total_instalacion = registros_instalacion.count()
+
     cumple_instalacion = 0
+    fuera_instalacion = 0
     suma_dias_instalacion = 0
+    total_con_dias = 0
 
     for item in registros_instalacion:
         dias = item.dias_instalacion
 
         if dias is not None:
             suma_dias_instalacion += dias
+            total_con_dias += 1
 
             if dias <= 8:
                 cumple_instalacion += 1
+            else:
+                fuera_instalacion += 1
+        else:
+            fuera_instalacion += 1
 
     eficiencia_instalacion = 0
     promedio_instalacion = 0
@@ -403,11 +418,11 @@ def dashboard_instalaciones(request):
         eficiencia_instalacion = round(
             (cumple_instalacion / total_instalacion) * 100, 2
         )
-        promedio_instalacion = round(
-            suma_dias_instalacion / total_instalacion, 2
-        )
 
-    fuera_instalacion = total_instalacion - cumple_instalacion
+    if total_con_dias > 0:
+        promedio_instalacion = round(
+            suma_dias_instalacion / total_con_dias, 2
+        )
 
     # ALMACÉN
     registros_almacen = qs.filter(

@@ -33,8 +33,6 @@ class CuadroInsta(models.Model):
     # Fecha: si la fuente no trae fecha, usa un default
     fecha = models.DateTimeField(default=timezone.now)
 
-    # ⚠️ Recomendado CharField si el "código" puede tener ceros a la izquierda o letras.
-    # Si estás 100% seguro de que siempre es entero, puedes dejar IntegerField con null/blank=True.
     # codigo = models.IntegerField(null=True, blank=True, db_index=True)
     codigo = models.CharField(max_length=50, null=True,
                               blank=True, db_index=True)
