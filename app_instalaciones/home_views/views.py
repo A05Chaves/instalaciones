@@ -86,30 +86,43 @@ def lista_instalaciones(request):
         qs = qs.filter(fecha__date__lte=fecha_fin)
 
     if q:
-        qs = qs.filter(
-            Q(pvg__icontains=q) |
-            Q(fecha__icontains=q) |
-            Q(codigo__icontains=q) |
-            Q(cliente__icontains=q) |
-            Q(ciudad__icontains=q) |
-            Q(direccion__icontains=q) |
-            Q(instalacion__icontains=q) |
-            Q(dias_cotizados__icontains=q) |
-            Q(en_bodega__icontains=q) |
-            Q(fecha_inicio__icontains=q) |
-            Q(fecha_terminacion__icontains=q) |
-            Q(finaliza__icontains=q) |
-            Q(orden__icontains=q) |
-            Q(tecnico1__nombre__icontains=q) |
-            Q(tecnico2__nombre__icontains=q) |
-            Q(estado__icontains=q) |
-            Q(observacion__icontains=q) |
-            Q(ejecutivo__nombre__icontains=q) |
-            Q(usuario__username__icontains=q) |
-            Q(updated_at__icontains=q) |
-            Q(fecha_alistado__icontains=q) |
-            Q(fecha_facturacion__icontains=q)
-        )
+        terminos = [
+            termino.strip()
+            for termino in q.split(',')
+            if termino.strip()
+        ]
+
+        filtro_total = Q()
+
+        for termino in terminos:
+            filtro_termino = (
+                Q(pvg__icontains=termino) |
+                Q(fecha__icontains=termino) |
+                Q(codigo__icontains=termino) |
+                Q(cliente__icontains=termino) |
+                Q(ciudad__icontains=termino) |
+                Q(direccion__icontains=termino) |
+                Q(instalacion__icontains=termino) |
+                Q(dias_cotizados__icontains=termino) |
+                Q(en_bodega__icontains=termino) |
+                Q(fecha_inicio__icontains=termino) |
+                Q(fecha_terminacion__icontains=termino) |
+                Q(finaliza__icontains=termino) |
+                Q(orden__icontains=termino) |
+                Q(tecnico1__nombre__icontains=termino) |
+                Q(tecnico2__nombre__icontains=termino) |
+                Q(estado__icontains=termino) |
+                Q(observacion__icontains=termino) |
+                Q(ejecutivo__nombre__icontains=termino) |
+                Q(usuario__username__icontains=termino) |
+                Q(updated_at__icontains=termino) |
+                Q(fecha_alistado__icontains=termino) |
+                Q(fecha_facturacion__icontains=termino)
+            )
+
+            filtro_total &= filtro_termino
+
+        qs = qs.filter(filtro_total)
 
     if not fecha_inicio and not fecha_fin and not q:
         qs = qs[:200]

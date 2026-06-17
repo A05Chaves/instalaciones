@@ -39,6 +39,15 @@ Inicio
             <i class="fas fa-times"></i>
         </a>
 
+        {% if q or fecha_inicio or fecha_fin %}
+        <div class="d-flex justify-content-end mt-2">
+            <span class="badge bg-primary fs-7 px-3 py-2 shadow">
+                Mostrando {{ instalaciones|length }} de {{ total_pvg }} PVG
+            </span>
+        </div>
+        {% endif %}
+
+
     </form>
 
     <span class="badge bg-primary fs-6 px-3 py-2 shadow">
