@@ -18,9 +18,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from datetime import datetime
 from django.contrib.auth.models import User, Group
-
+from django.db.models import Q
 
 # VISTAS PARA LA GESTIÓN DE USUARIOS
+
 
 def pertenece_grupo(user, nombre_grupo):
     return user.groups.filter(name=nombre_grupo).exists()
@@ -368,7 +369,8 @@ def facturar_instalacion(request, id):
 @user_passes_test(lambda u: u.is_staff)
 def dashboard_instalaciones(request):
     mes = request.GET.get('mes')
-    ciudad = request.GET.get('ciudad')
+    ciudades_seleccionadas = request.GET.getlist('ciudad')
+    fecha_corte = timezone.localdate()
 
     qs = CuadroInsta.objects.all()
 
@@ -382,32 +384,39 @@ def dashboard_instalaciones(request):
         except ValueError:
             pass
 
-    if ciudad:
-        qs = qs.filter(ciudad__iexact=ciudad)
+    if ciudades_seleccionadas:
+        qs = qs.filter(ciudad__in=ciudades_seleccionadas)
 
     total_pvg = qs.count()
 
-    # INSTALACIÓN
-    # Base: PVG programados o legalizados dentro del filtro seleccionado.
-    # Cumple: tiene fecha_inicio y la diferencia ingreso -> inicio es <= 8 días.
-    # No cumple: no tiene fecha_inicio o supera 8 días.
+    # INSTALACIÓN / EFICIENCIA PVG
+
+    anulados_instalacion = qs.filter(
+        estado__iexact="ANULADO"
+    ).count()
 
     registros_instalacion = qs.exclude(
-        estado__isnull=True
-    ).exclude(
-        estado=""
-    ).exclude(
-        estado="PENDIENTE"
+        estado__iexact="ANULADO"
     )
 
     total_instalacion = registros_instalacion.count()
 
     cumple_instalacion = 0
     fuera_instalacion = 0
+    pendiente_instalacion = 0
     suma_dias_instalacion = 0
     total_con_dias = 0
 
     for item in registros_instalacion:
+
+        if not item.fecha_inicio:
+            pendiente_instalacion += 1
+            continue
+
+        if item.fecha_inicio > fecha_corte:
+            pendiente_instalacion += 1
+            continue
+
         dias = item.dias_instalacion
 
         if dias is not None:
@@ -419,7 +428,7 @@ def dashboard_instalaciones(request):
             else:
                 fuera_instalacion += 1
         else:
-            fuera_instalacion += 1
+            pendiente_instalacion += 1
 
     eficiencia_instalacion = 0
     promedio_instalacion = 0
@@ -529,7 +538,7 @@ def dashboard_instalaciones(request):
 
     contexto = {
         'mes': mes,
-        'ciudad': ciudad,
+        'ciudades_seleccionadas': ciudades_seleccionadas,
         'ciudades': ciudades,
 
         'total_pvg': total_pvg,
@@ -537,6 +546,8 @@ def dashboard_instalaciones(request):
         'total_instalacion': total_instalacion,
         'cumple_instalacion': cumple_instalacion,
         'fuera_instalacion': fuera_instalacion,
+        'pendiente_instalacion': pendiente_instalacion,
+        'anulados_instalacion': anulados_instalacion,
         'eficiencia_instalacion': eficiencia_instalacion,
         'promedio_instalacion': promedio_instalacion,
 

@@ -33,16 +33,30 @@ Dashboard Instalaciones
             </div>
 
             <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">Ciudad</label>
-                <select name="ciudad" class="form-select">
-                    <option value="">Todas</option>
+                <label class="form-label fw-semibold">
+                    Ciudad(es)
+                </label>
+
+                <select
+                    id="ciudades"
+                    name="ciudad"
+                    class="form-select"
+                    multiple>
+
                     {% for c in ciudades %}
-                        <option value="{{ c }}" {% if ciudad == c %}selected{% endif %}>
+                        <option value="{{ c }}"
+                            {% if c in ciudades_seleccionadas %}
+                                selected
+                            {% endif %}>
                             {{ c }}
                         </option>
                     {% endfor %}
+
                 </select>
+
             </div>
+
+
 
             <div class="col-12 col-md-4 d-flex gap-2">
                 <button type="submit" class="btn btn-primary w-100">
@@ -161,14 +175,27 @@ Dashboard Instalaciones
                             <th>Total evaluados</th>
                             <td>{{ total_instalacion }}</td>
                         </tr>
+
                         <tr>
                             <th>Cumplen ≤ 8 días</th>
                             <td class="text-success fw-bold">{{ cumple_instalacion }}</td>
                         </tr>
+
                         <tr>
                             <th>Fuera de meta</th>
                             <td class="text-danger fw-bold">{{ fuera_instalacion }}</td>
                         </tr>
+
+                        <tr>
+                            <th>Pendientes</th>
+                            <td class="text-warning fw-bold">{{ pendiente_instalacion }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Anulados</th>
+                            <td class="text-secondary fw-bold">{{ anulados_instalacion }}</td>
+                        </tr>
+
                         <tr>
                             <th>Promedio días</th>
                             <td>{{ promedio_instalacion }}</td>
@@ -243,4 +270,16 @@ Dashboard Instalaciones
 
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        $('#ciudades').select2({
+            placeholder: 'Seleccione una o varias ciudades',
+            width: '100%',
+            closeOnSelect: false
+        });
+    });
+</script>
 {% endblock %}
