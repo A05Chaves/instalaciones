@@ -87,7 +87,7 @@ Dashboard Instalaciones
     <div class="col-12 col-md-6 col-xl-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
-                <small class="text-muted">Cumplimiento instalación</small>
+                <small class="text-muted">Eficiencia en instalación</small>
                 <h2 class="fw-bold text-success mb-0">{{ eficiencia_instalacion }}%</h2>
                 <small class="text-muted">Meta ≤ 8 días</small>
             </div>
@@ -124,6 +124,18 @@ Dashboard Instalaciones
                 <small class="text-muted">Promedio instalación</small>
                 <h3 class="fw-bold mb-0">{{ promedio_instalacion }}</h3>
                 <small class="text-muted">día(s)</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <small class="text-muted">Ingresados y ejecutados dentro del mes</small>
+                <h2 class="fw-bold text-primary mb-0">{{ eficiencia_ejecucion_rango }}%</h2>
+                <small class="text-muted">
+                    {{ pvg_ejecutados_rango }} de {{ pvg_ingresados_rango }}
+                </small>
             </div>
         </div>
     </div>
@@ -209,6 +221,47 @@ Dashboard Instalaciones
     <div class="col-12 col-lg-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white">
+                <i class="fas fa-calendar-check me-2"></i>
+                Ejecución del periodo
+            </div>
+
+            <div class="card-body">
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr>
+                            <th>PVG ingresados</th>
+                            <td>{{ pvg_ingresados_rango }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Ejecutados en el periodo</th>
+                            <td class="text-success fw-bold">
+                                {{ pvg_ejecutados_rango }}
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>Pendientes de ejecutar</th>
+                            <td class="text-warning fw-bold">
+                                {{ pendientes_ejecucion_rango }}
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>Cumplimiento</th>
+                            <td class="fw-bold">
+                                {{ eficiencia_ejecucion_rango }}%
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white">
                 <i class="fas fa-box me-2"></i>
                 Almacén
             </div>
@@ -267,6 +320,10 @@ Dashboard Instalaciones
             </div>
         </div>
     </div>
+
+
+
+    
 
 </div>
 

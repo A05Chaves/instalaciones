@@ -443,6 +443,34 @@ def dashboard_instalaciones(request):
             suma_dias_instalacion / total_con_dias, 2
         )
 
+        # PVG INGRESADOS Y EJECUTADOS EN EL MISMO RANGO
+
+    pvg_ingresados_rango = 0
+    pvg_ejecutados_rango = 0
+    eficiencia_ejecucion_rango = 0
+
+    if mes:
+        pvg_ingresados_rango = qs.exclude(
+            estado__iexact="ANULADO"
+        ).count()
+
+        pvg_ejecutados_rango = qs.exclude(
+            estado__iexact="ANULADO"
+        ).filter(
+            fecha_inicio__isnull=False,
+            fecha_inicio__year=fecha_mes.year,
+            fecha_inicio__month=fecha_mes.month
+        ).count()
+
+    if pvg_ingresados_rango > 0:
+        eficiencia_ejecucion_rango = round(
+            (pvg_ejecutados_rango / pvg_ingresados_rango) * 100, 2
+        )
+
+    pendientes_ejecucion_rango = (
+        pvg_ingresados_rango - pvg_ejecutados_rango
+    )
+
     # ALMACÉN
     registros_almacen = qs.filter(
         finaliza__isnull=False,
@@ -565,6 +593,14 @@ def dashboard_instalaciones(request):
 
         'total_cierre': total_cierre,
         'promedio_cierre_total': promedio_cierre_total,
+        'pvg_ingresados_rango': pvg_ingresados_rango,
+        'pvg_ejecutados_rango': pvg_ejecutados_rango,
+        'pendientes_ejecucion_rango': pendientes_ejecucion_rango,
+        'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
+        'pvg_ingresados_rango': pvg_ingresados_rango,
+        'pvg_ejecutados_rango': pvg_ejecutados_rango,
+        'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
+
     }
 
     return render(request, 'dashboard_instalaciones.html', contexto)
