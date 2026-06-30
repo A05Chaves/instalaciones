@@ -117,7 +117,7 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 if AMBIENTE == "produccion":
     STATIC_ROOT = BASE_DIR / "staticfiles"
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 else:
     MEDIA_ROOT = BASE_DIR / "media"
 
