@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from flask import request
 from app_instalaciones.home_views.user_views import (
     puede_editar_instalacion, puede_programar
 )
@@ -62,20 +63,24 @@ def registro_inst(request):
 
     return render(request, 'registro_inst.html', {'form': form})
 
+# VISTA PARA LISTAR INSTALACIONES
+
 
 def lista_instalaciones(request):
+    ejecutivos_seleccionados = request.GET.getlist('ejecutivo')
+    tecnicos_seleccionados = request.GET.getlist('tecnico')
+    bodega = request.GET.get('bodega')
+    alistado = request.GET.get('alistado')
+    facturado = request.GET.get('facturado')
+    ciudades_seleccionadas = request.GET.getlist('ciudad')
+    estados_seleccionados = request.GET.getlist('estado')
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
     q = request.GET.get('q', '').strip()
 
     qs = (
         CuadroInsta.objects
-        .select_related(
-            'tecnico1',
-            'tecnico2',
-            'ejecutivo',
-            'usuario'
-        )
+        .select_related('tecnico1', 'tecnico2', 'ejecutivo', 'usuario')
         .order_by('-id')
     )
 
@@ -86,16 +91,11 @@ def lista_instalaciones(request):
         qs = qs.filter(fecha__date__lte=fecha_fin)
 
     if q:
-        terminos = [
-            termino.strip()
-            for termino in q.split(',')
-            if termino.strip()
-        ]
-
+        terminos = [t.strip() for t in q.split(',') if t.strip()]
         filtro_total = Q()
 
         for termino in terminos:
-            filtro_termino = (
+            filtro_total &= (
                 Q(pvg__icontains=termino) |
                 Q(fecha__icontains=termino) |
                 Q(codigo__icontains=termino) |
@@ -120,15 +120,69 @@ def lista_instalaciones(request):
                 Q(fecha_facturacion__icontains=termino)
             )
 
-            filtro_total &= filtro_termino
-
         qs = qs.filter(filtro_total)
 
-    if not fecha_inicio and not fecha_fin and not q:
+    if ciudades_seleccionadas:
+        qs = qs.filter(ciudad__in=ciudades_seleccionadas)
+
+    if estados_seleccionados:
+        qs = qs.filter(estado__in=estados_seleccionados)
+
+    if ejecutivos_seleccionados:
+        qs = qs.filter(ejecutivo_id__in=ejecutivos_seleccionados)
+
+    if tecnicos_seleccionados:
+        qs = qs.filter(
+            Q(tecnico1_id__in=tecnicos_seleccionados) |
+            Q(tecnico2_id__in=tecnicos_seleccionados)
+        )
+
+    if bodega:
+        qs = qs.filter(en_bodega=bodega)
+
+    if alistado:
+        qs = qs.filter(alistado=(alistado == "SI"))
+
+    if facturado:
+        qs = qs.filter(facturado=(facturado == "SI"))
+
+    if (
+        not fecha_inicio
+        and not fecha_fin
+        and not q
+        and not ciudades_seleccionadas
+        and not estados_seleccionados
+        and not ejecutivos_seleccionados
+        and not tecnicos_seleccionados
+        and not bodega
+        and not alistado
+        and not facturado
+    ):
         qs = qs[:200]
 
     instalaciones = list(qs)
     total_pvg = CuadroInsta.objects.count()
+
+    ciudades = (
+        CuadroInsta.objects
+        .exclude(ciudad__isnull=True)
+        .exclude(ciudad="")
+        .values_list('ciudad', flat=True)
+        .distinct()
+        .order_by('ciudad')
+    )
+
+    estados = (
+        CuadroInsta.objects
+        .exclude(estado__isnull=True)
+        .exclude(estado="")
+        .values_list('estado', flat=True)
+        .distinct()
+        .order_by('estado')
+    )
+
+    ejecutivos = Ejecutivo.objects.all().order_by('nombre')
+    tecnicos = Tecnico.objects.all().order_by('nombre')
 
     return render(
         request,
@@ -139,6 +193,17 @@ def lista_instalaciones(request):
             'fecha_fin': fecha_fin,
             'q': q,
             'total_pvg': total_pvg,
+            'ciudades': ciudades,
+            'estados': estados,
+            'ciudades_seleccionadas': ciudades_seleccionadas,
+            'estados_seleccionados': estados_seleccionados,
+            'ejecutivos': ejecutivos,
+            'tecnicos': tecnicos,
+            'ejecutivos_seleccionados': [int(x) for x in ejecutivos_seleccionados],
+            'tecnicos_seleccionados': [int(x) for x in tecnicos_seleccionados],
+            'bodega': bodega,
+            'alistado': alistado,
+            'facturado': facturado,
         }
     )
 

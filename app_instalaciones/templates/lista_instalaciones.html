@@ -6,54 +6,166 @@ Inicio
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
 
-    <a href="{% url 'exportar_excel' %}" class="btn btn-success shadow-sm">
-        <i class="fas fa-file-excel"></i> Exportar a Excel
-    </a>
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
 
-    <form method="GET" class="d-flex align-items-center gap-2 flex-wrap">
+            <a href="{% url 'exportar_excel' %}" class="btn btn-success shadow-sm">
+                <i class="fas fa-file-excel"></i> Exportar a Excel
+            </a>
 
-        <input type="date"
-               name="fecha_inicio"
-               value="{{ fecha_inicio|default:'' }}"
-               class="form-control form-control-sm">
-
-        <input type="date"
-               name="fecha_fin"
-               value="{{ fecha_fin|default:'' }}"
-               class="form-control form-control-sm">
-
-        <input type="text"
-               name="q"
-               value="{{ q|default:'' }}"
-               class="form-control form-control-sm"
-               style="width: 300px;"
-               placeholder="Buscar PVG, cliente, ciudad u orden">
-
-        <button type="submit" class="btn btn-primary btn-sm">
-            <i class="fas fa-search"></i> Buscar
-        </button>
-
-        <a href="{% url 'lista_instalaciones' %}" class="btn btn-outline-danger btn-sm">
-            <i class="fas fa-times"></i>
-        </a>
-
-        {% if q or fecha_inicio or fecha_fin %}
-        <div class="d-flex justify-content-end mt-2">
-            <span class="badge bg-primary fs-7 px-3 py-2 shadow">
-                Mostrando {{ instalaciones|length }} de {{ total_pvg }} PVG
+            <span class="badge bg-primary fs-6 px-3 py-2 shadow">
+                TOTAL PVG: {{ total_pvg }}
             </span>
+
         </div>
+
+        <form method="GET">
+
+            <div class="row g-2 align-items-end">
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Buscar</label>
+                    <input type="text"
+                           name="q"
+                           value="{{ q|default:'' }}"
+                           class="form-control form-control-sm"
+                           placeholder="PVG, cliente, orden, técnico...">
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Ciudad</label>
+                    <select id="ciudades"
+                            name="ciudad"
+                            class="form-select form-select-sm"
+                            multiple>
+                        {% for c in ciudades %}
+                            <option value="{{ c }}"
+                                {% if c in ciudades_seleccionadas %}selected{% endif %}>
+                                {{ c }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Estado</label>
+                    <select id="estados"
+                            name="estado"
+                            class="form-select form-select-sm"
+                            multiple>
+                        {% for e in estados %}
+                            <option value="{{ e }}"
+                                {% if e in estados_seleccionados %}selected{% endif %}>
+                                {{ e }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Ejecutivo</label>
+                    <select id="ejecutivos"
+                            name="ejecutivo"
+                            class="form-select form-select-sm"
+                            multiple>
+                        {% for ejecutivo in ejecutivos %}
+                            <option value="{{ ejecutivo.id }}"
+                                {% if ejecutivo.id in ejecutivos_seleccionados %}selected{% endif %}>
+                                {{ ejecutivo.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Técnico</label>
+                    <select id="tecnicos"
+                            name="tecnico"
+                            class="form-select form-select-sm"
+                            multiple>
+                        {% for tecnico in tecnicos %}
+                            <option value="{{ tecnico.id }}"
+                                {% if tecnico.id in tecnicos_seleccionados %}selected{% endif %}>
+                                {{ tecnico.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Bodega</label>
+                    <select name="bodega" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        <option value="SI" {% if bodega == "SI" %}selected{% endif %}>Sí</option>
+                        <option value="NO" {% if bodega == "NO" %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Alistado</label>
+                    <select name="alistado" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="SI" {% if alistado == "SI" %}selected{% endif %}>Sí</option>
+                        <option value="NO" {% if alistado == "NO" %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Facturado</label>
+                    <select name="facturado" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="SI" {% if facturado == "SI" %}selected{% endif %}>Sí</option>
+                        <option value="NO" {% if facturado == "NO" %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+
+
+
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Desde</label>
+                    <input type="date"
+                           name="fecha_inicio"
+                           value="{{ fecha_inicio|default:'' }}"
+                           class="form-control form-control-sm">
+                </div>
+
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Hasta</label>
+                    <input type="date"
+                           name="fecha_fin"
+                           value="{{ fecha_fin|default:'' }}"
+                           class="form-control form-control-sm">
+                </div>
+
+                <div class="col-12 col-md-1 d-flex gap-1">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-search"></i>
+                    </button>
+
+                    <a href="{% url 'lista_instalaciones' %}"
+                       class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+
+            </div>
+
+        </form>
+
+        {% if q or fecha_inicio or fecha_fin or ciudades_seleccionadas or estados_seleccionados or ejecutivos_seleccionados or tecnicos_seleccionados or bodega or alistado or facturado %}
+            <div class="mt-3">
+                <span class="badge bg-primary fs-6 px-3 py-2 shadow">
+                    Mostrando {{ instalaciones|length }} de {{ total_pvg }} PVG
+                </span>
+            </div>
         {% endif %}
 
-
-    </form>
-
-    <span class="badge bg-primary fs-6 px-3 py-2 shadow">
-        TOTAL PVG: {{ total_pvg }}
-    </span>
-
+    </div>
 </div>
 
 {% if messages %}
@@ -145,6 +257,9 @@ Inicio
                             <small>({{ instalacion.finaliza|date:"Y-m-d" }})</small>
                         {% endif %}
                     </td>
+
+
+                    
 
                     <td class="text-center">
                         {% if instalacion.alistado and instalacion.fecha_alistado %}
@@ -260,6 +375,30 @@ Inicio
 
 <script>
 $(document).ready(function () {
+
+    $('#ciudades').select2({
+        placeholder: 'Ciudades',
+        width: '100%',
+        closeOnSelect: false
+    });
+
+    $('#estados').select2({
+        placeholder: 'Estados',
+        width: '100%',
+        closeOnSelect: false
+    });
+
+    $('#ejecutivos').select2({
+        placeholder: 'Ejecutivos',
+        width: '100%',
+        closeOnSelect: false
+    });
+
+    $('#tecnicos').select2({
+        placeholder: 'Técnicos',
+        width: '100%',
+        closeOnSelect: false
+    });
 
     const tabla = $('#tabla-instalaciones').DataTable({
         stateSave: false,
