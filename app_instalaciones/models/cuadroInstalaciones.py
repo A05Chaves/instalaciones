@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.utils import timezone
 
 
 class Tecnico(models.Model):
@@ -24,6 +23,12 @@ class CuadroInsta(models.Model):
     BODEGA = [
         ("SI", "Sí"),
         ("NO", "No"),
+    ]
+
+    ESTADO_FACTURACION_CHOICES = [
+        ("PENDIENTE", "Pendiente"),
+        ("FACTURADO", "Facturado"),
+        ("RETENIDO", "Retenido"),
     ]
 
     # Si PVG a veces viene vacío durante import, permite null/blank.
@@ -60,6 +65,12 @@ class CuadroInsta(models.Model):
     fecha_alistado = models.DateField(null=True, blank=True)
 
     facturado = models.BooleanField(default=False)
+    estado_facturacion = models.CharField(
+        max_length=10,
+        choices=ESTADO_FACTURACION_CHOICES,
+        default="PENDIENTE",
+        db_index=True,
+    )
     fecha_facturacion = models.DateField(null=True, blank=True)
 
     # METODO PARA CALCULAR TIEMPO DE DEMORA EN EL INDICADOR DE FACTURACION
@@ -70,6 +81,7 @@ class CuadroInsta(models.Model):
             self.alistado = False
             self.fecha_alistado = None
             self.facturado = False
+            self.estado_facturacion = "PENDIENTE"
             self.fecha_facturacion = None
 
         else:
@@ -80,17 +92,20 @@ class CuadroInsta(models.Model):
             if not self.alistado:
                 self.fecha_alistado = None
                 self.facturado = False
+                self.estado_facturacion = "PENDIENTE"
                 self.fecha_facturacion = None
 
             # Facturado solo si ya está alistado
-            if self.facturado and self.alistado and not self.fecha_facturacion:
+            decision_facturacion = self.estado_facturacion in {
+                "FACTURADO", "RETENIDO"
+            }
+
+            if decision_facturacion and self.alistado and not self.fecha_facturacion:
                 self.fecha_facturacion = timezone.now().date()
 
-            if self.facturado and not self.alistado:
-                self.facturado = False
-                self.fecha_facturacion = None
+            self.facturado = self.estado_facturacion == "FACTURADO"
 
-            if not self.facturado:
+            if not decision_facturacion:
                 self.fecha_facturacion = None
 
         super().save(*args, **kwargs)
@@ -149,7 +164,10 @@ class CuadroInsta(models.Model):
 
     @property
     def cerrado_total(self):
-        return self.facturado and self.fecha_facturacion is not None
+        return (
+            self.estado_facturacion in {"FACTURADO", "RETENIDO"}
+            and self.fecha_facturacion is not None
+        )
 
     def __str__(self):
         cod = self.codigo if self.codigo not in (None, "") else "-"
@@ -178,22 +196,30 @@ class RegistroImportacion(models.Model):
 
 class Mantenimiento(models.Model):
     # NUEVO: tipo de falla (para el select del template)
+    TIPO_SERVICIO_CHOICES = [
+        ("MANTENIMIENTO CORRECTIVO", "Mantenimiento correctivo"),
+        ("MANTENIMIENTO PREVENTIVO", "Mantenimiento preventivo"),
+        ("INSTALACION", "Instalación"),
+        ("CCTV", "CCTV"),
+        ("OTRO SERVICIO", "Otro servicio"),
+    ]
+
     TIPO_FALLA_CHOICES = [
-        ("F.COMUNICACION", "F.Comunicación"),
-        ("F.CORRIENTE", "F.Corriente"),
+        ("F.COMUNICACION", "F. Comunicación"),
+        ("F.CORRIENTE", "F. Corriente"),
+        ("FALLOS EQUIPOS", "Fallos equipos"),
         ("ACTIVACION", "Activación"),
         ("PROGRAMACION", "Programación"),
-        ("ACT.DATOS", "Act.datos"),
-        ("OTRO SERVICIO", "Otro servicio"),
+        ("ACT.DATOS", "Actualización de datos"),
         ("CCTV", "CCTV"),
         ("INSTALACION", "Instalación"),
-        ("MANTO PREVENTIVO", "Manto preventivo"),
+        ("MANTO PREVENTIVO", "Mantenimiento preventivo"),
+        ("OTRO SERVICIO", "Otro servicio"),
         ("OTRO", "Otro"),
-
     ]
 
     cliente = models.CharField(max_length=100)
-    ciudad = models.CharField(max_length=50)
+    ciudad = models.CharField(max_length=50, null=True, blank=True)
     direccion = models.CharField(max_length=100)
     novedad = models.TextField(null=True, blank=True)
     observacion = models.TextField(null=True, blank=True)
@@ -202,6 +228,14 @@ class Mantenimiento(models.Model):
     codigo = models.CharField(max_length=50, db_index=True)
 
     # NUEVO: tipo de falla
+
+    tipo_servicio = models.CharField(
+        max_length=30,
+        choices=TIPO_SERVICIO_CHOICES,
+        default="MANTENIMIENTO CORRECTIVO",
+        db_index=True
+    )
+
     tipo_falla = models.CharField(
         max_length=20, choices=TIPO_FALLA_CHOICES, null=True, blank=True
     )
@@ -226,6 +260,56 @@ class Mantenimiento(models.Model):
     realizado = models.DateField(null=True, blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    numero_ticket = models.CharField(
+        max_length=50,
+        unique=True,
+        db_index=True,
+        null=True,
+        blank=True,
+        verbose_name="Ticket"
+    )
+
+    estado_ticket = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        db_index=True
+    )
+
+    fecha_inicio = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    fecha_fin = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    codigo_acta = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+
+    problema_solucionado = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True
+    )
+
+    cotizacion = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True
+    )
+
+    omt = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"

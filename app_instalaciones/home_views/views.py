@@ -1,21 +1,32 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, user_passes_test
+import csv
+from datetime import date, datetime, time
+
+import openpyxl
+import pandas as pd
 from django.contrib import messages
-from flask import request
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db.models import Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
 from app_instalaciones.home_views.user_views import (
     puede_editar_instalacion, puede_programar
 )
-from app_instalaciones.models.forms import CuadroInstaForm, ExcelUploadForm
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, RegistroImportacion, Tecnico, Ejecutivo
-from django.shortcuts import get_object_or_404
-import openpyxl
-import csv
-from django.http import HttpResponse
-import pandas as pd
-from datetime import datetime, date, time
-from django.utils import timezone
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Ciudad
-from django.db.models import Q
+from app_instalaciones.models.cuadroInstalaciones import (
+    Ciudad,
+    CuadroInsta,
+    Ejecutivo,
+    Mantenimiento,
+    RegistroImportacion,
+    Tecnico,
+)
+from app_instalaciones.models.forms import (
+    CuadroInstaForm,
+    ExcelUploadForm,
+    MantenimientoForm,
+)
+
 
 # PAGINA INICIAL DEL PROYECTO
 # VERSION 4 PARA EDICION SESUR 28 DE ABRIL 2025
@@ -144,7 +155,7 @@ def lista_instalaciones(request):
         qs = qs.filter(alistado=(alistado == "SI"))
 
     if facturado:
-        qs = qs.filter(facturado=(facturado == "SI"))
+        qs = qs.filter(estado_facturacion=facturado)
 
     if (
         not fecha_inicio
@@ -610,12 +621,74 @@ def exportar_excel(request):
 @login_required(login_url='login')
 def lista_mantenimientos(request):
 
+    if request.method == "POST":
+        form = MantenimientoForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            mantenimiento = form.save(commit=False)
+            mantenimiento.creado_por = request.user
+            mantenimiento.save()
+
+            messages.success(
+                request, "Mantenimiento registrado correctamente.")
+            return redirect("listar_mantenimientos")
+
+        messages.error(
+            request,
+            "No se pudo guardar el mantenimiento. Revisa los campos."
+        )
+
+    else:
+        form = MantenimientoForm()
+
+    mantenimientos = (
+        Mantenimiento.objects
+        .select_related("tecnico")
+        .order_by("-fecha_registro")
+    )
+
+    tecnicos = (
+        Tecnico.objects
+        .all()
+        .order_by("nombre")
+    )
+
     contexto = {
-        # luego aquí pondrás mantenimientos, tecnicos, etc.
+        "form": form,
+        "mantenimientos": mantenimientos,
+        "tecnicos": tecnicos,
     }
 
     return render(
         request,
-        '/mantenimientos/listar_mantenimientos.html',
-        contexto
+        "mantenimientos/listar_mantenimientos.html",
+        contexto,
+    )
+
+
+# vista para registro de instalaciones
+
+@login_required(login_url='login')
+def registrar_mantenimiento(request):
+
+    if request.method == 'POST':
+        form = MantenimientoForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            mantenimiento = form.save(commit=False)
+            mantenimiento.creado_por = request.user
+            mantenimiento.save()
+
+            messages.success(
+                request, 'Mantenimiento registrado correctamente.')
+            return redirect('lista_mantenimientos')
+    else:
+        form = MantenimientoForm()
+
+    return render(
+        request,
+        'mantenimientos/registrar_mantenimiento.html',
+        {
+            'form': form
+        }
     )

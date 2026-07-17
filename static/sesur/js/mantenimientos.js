@@ -1,37 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
     const tabla = $("#tabla-mantenimientos");
 
-    // DataTables desactivado en mantenimientos porque interfiere con encabezado fijo y scroll.   
-
-    /* if (tabla.length) {
-         tabla.DataTable({
-             paging: true,
-             lengthChange: true,
-             searching: true,
-             ordering: true,
-             info: true,
-             autoWidth: false,
- 
-             scrollX: true,
-             scrollY: "60vh",
-             scrollCollapse: true,
- 
-             fixedHeader: false,
- 
-             order: [[0, "desc"]],
-             dom: 'lrtip',
- 
-             columnDefs: [
-                 { orderable: false, targets: -1 }
-             ],
- 
-             language: {
-                 url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-             }
-         });
-     }*/
-
-    // La tabla queda controlada por CSS puro.
 
     const entradaInput = document.getElementById("id_hora_entrada");
     const salidaInput = document.getElementById("id_hora_salida");

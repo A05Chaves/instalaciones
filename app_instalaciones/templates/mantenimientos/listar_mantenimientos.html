@@ -9,227 +9,383 @@ Mantenimientos - App_Sesur
 
 <link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}">
 
-<div class="card shadow-sm border-0">
-    <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
-        <h5 class="mb-0">
-            <i class="fas fa-tools me-2"></i> Registro de mantenimientos
-        </h5>
-        <small>App_Sesur</small>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="fas fa-tools text-primary me-2"></i>
+            Mantenimientos
+        </h3>
+        <p class="text-muted mb-0">
+            Registro, control y seguimiento de servicios de mantenimiento.
+        </p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a href="{% url 'importar_mantenimientos_pdf' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-file-import"></i> Importar PDF
+        </a>
+
+        <a href="{% url 'exportar_mantenimientos' %}" class="btn btn-success btn-sm">
+            <i class="fas fa-file-excel"></i> Exportar
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} shadow-sm">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-primary text-white">
+        <strong>
+            <i class="fas fa-plus-circle me-2"></i>
+            Nuevo mantenimiento
+        </strong>
     </div>
 
     <div class="card-body">
 
-        <form method="POST">
+        {% if form.errors %}
+            <div class="alert alert-danger">
+                {{ form.errors }}
+            </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
             {% csrf_token %}
 
-            
-                <table id="tabla-mantenimientos" class="table table-bordered table-striped table-hover align-middle">
-                    <thead class="table-dark sticky-top">
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Código</th>
-                            <th>Cliente</th>
-                            <th>Ciudad</th>
-                            <th>Dirección</th>
-                            <th>Tipo de falla</th>
-                            <th>Técnico</th>
-                            <th>Entrada</th>
-                            <th>Salida</th>
-                            <th>Horas</th>
-                            <th>Orden</th>
-                            <th>Realizado</th>
-                            <th class="text-center">Acción</th>
-                        </tr>
-                    </thead>
+            <div class="row g-3">
 
-                    <tbody>
-                        <tr class="table-success">
-                            <td class="text-muted small">Auto</td>
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Código</label>
+                    {{ form.codigo }}
+                </div>
 
-                            <td><input type="text" name="codigo" class="form-control form-control-sm" placeholder="Cod."></td>
-                            <td><input type="text" name="cliente" class="form-control form-control-sm" placeholder="Cliente"></td>
-                            <td><input type="text" name="ciudad" class="form-control form-control-sm" placeholder="Ciudad"></td>
-                            <td><input type="text" name="direccion" class="form-control form-control-sm" placeholder="Dirección"></td>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Cliente</label>
+                    {{ form.cliente }}
+                </div>
 
-                            <td>
-                                <select name="tipo_falla" class="form-select form-select-sm">
-                                    <option value="" selected disabled>Seleccione...</option>
-                                    <option value="F.Comunicación">F.Comunicación</option>
-                                    <option value="F.Corriente">F.Corriente</option>
-                                    <option value="Activación">Activación</option>
-                                    <option value="Programación">Programación</option>
-                                    <option value="Act.datos">Act.datos</option>
-                                    <option value="CCTV">CCTV</option>
-                                    <option value="Instalación">Instalación</option>
-                                    <option value="Manto preventivo">Manto preventivo</option>
-                                    <option value="Otro">Otro</option>
-                                </select>
-                            </td>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Ciudad</label>
+                    {{ form.ciudad }}
+                </div>
 
-                            <td>
-                                <select name="tecnico" class="form-select form-select-sm">
-                                    {% for tecnico in tecnicos %}
-                                    <option value="{{ tecnico.id }}">{{ tecnico.nombre }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Dirección</label>
+                    {{ form.direccion }}
+                </div>
 
-                            <td><input type="time" name="hora_entrada" id="id_hora_entrada" class="form-control form-control-sm"></td>
-                            <td><input type="time" name="hora_salida" id="id_hora_salida" class="form-control form-control-sm"></td>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Tipo de servicio</label>
+                    {{ form.tipo_servicio }}
+                </div>
 
-                            <td>
-                                <input type="number" name="horas" id="id_horas" class="form-control form-control-sm bg-light text-muted" step="0.1" readonly>
-                                <div id="horas-error" class="form-text text-danger d-none">
-                                    La hora de salida debe ser mayor que la de entrada.
-                                </div>
-                            </td>
+                <div class="col-12 col-md-3" id="grupo-tipo-falla">
+                    <label class="form-label fw-semibold">Tipo de falla</label>
+                    {{ form.tipo_falla }}
+                </div>
 
-                            <td><input type="text" name="orden" class="form-control form-control-sm" placeholder="Orden"></td>
-                            <td><input type="date" name="realizado" class="form-control form-control-sm"></td>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold">Técnico</label>
+                    {{ form.tecnico }}
+                </div>
 
-                            <td class="text-center">
-                                <button type="submit" class="btn btn-sm btn-success" id="btn-guardar">
-                                    <i class="fas fa-save"></i> Guardar
-                                </button>
-                            </td>
-                        </tr>
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Entrada</label>
+                    {{ form.hora_entrada }}
+                </div>
 
-                        {% for m in mantenimientos %}
-                        <tr data-id="{{ m.id }}">
-                            <td>{{ m.fecha_registro|date:"Y-m-d H:i" }}</td>
-                            <td>{{ m.codigo }}</td>
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Salida</label>
+                    {{ form.hora_salida }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.cliente }}</span>
-                                <input class="edit-mode form-control form-control-sm d-none" name="cliente" value="{{ m.cliente }}">
-                            </td>
+                <div class="col-6 col-md-1">
+                    <label class="form-label fw-semibold">Horas</label>
+                    {{ form.horas }}
+                    <div id="horas-error" class="form-text text-danger d-none">
+                        La hora de salida debe ser mayor que la de entrada.
+                    </div>
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.ciudad }}</span>
-                                <input class="edit-mode form-control form-control-sm d-none" name="ciudad" value="{{ m.ciudad }}">
-                            </td>
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Orden</label>
+                    {{ form.orden }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.direccion }}</span>
-                                <input class="edit-mode form-control form-control-sm d-none" name="direccion" value="{{ m.direccion }}">
-                            </td>
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Realizado</label>
+                    {{ form.realizado }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.tipo_falla|default:"Sin registrar" }}</span>
-                                <select class="edit-mode form-select form-select-sm d-none" name="tipo_falla">
-                                    <option value="">Seleccione...</option>
-                                    <option value="F.Comunicación" {% if m.tipo_falla == 'F.Comunicación' %}selected{% endif %}>F.Comunicación</option>
-                                    <option value="F.Corriente" {% if m.tipo_falla == 'F.Corriente' %}selected{% endif %}>F.Corriente</option>
-                                    <option value="Activación" {% if m.tipo_falla == 'Activación' %}selected{% endif %}>Activación</option>
-                                    <option value="Programación" {% if m.tipo_falla == 'Programación' %}selected{% endif %}>Programación</option>
-                                    <option value="Act.datos" {% if m.tipo_falla == 'Act.datos' %}selected{% endif %}>Act.datos</option>
-                                    <option value="CCTV" {% if m.tipo_falla == 'CCTV' %}selected{% endif %}>CCTV</option>
-                                    <option value="Instalación" {% if m.tipo_falla == 'Instalación' %}selected{% endif %}>Instalación</option>
-                                    <option value="Manto preventivo" {% if m.tipo_falla == 'Manto preventivo' %}selected{% endif %}>Manto preventivo</option>
-                                    <option value="Otro" {% if m.tipo_falla == 'Otro' %}selected{% endif %}>Otro</option>
-                                </select>
-                            </td>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Novedad</label>
+                    {{ form.novedad }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">
-                                    {% if m.tecnico %}{{ m.tecnico.nombre }}{% else %}Sin técnico{% endif %}
-                                </span>
-                                <select class="edit-mode form-select form-select-sm d-none" name="tecnico">
-                                    <option value="">Sin técnico</option>
-                                    {% for tecnico in tecnicos %}
-                                    <option value="{{ tecnico.id }}" {% if m.tecnico and m.tecnico.id == tecnico.id %}selected{% endif %}>
-                                        {{ tecnico.nombre }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Observación</label>
+                    {{ form.observacion }}
+                </div>
 
-                            <td>{{ m.hora_entrada|time:"H:i" }}</td>
-                            <td>{{ m.hora_salida|time:"H:i" }}</td>
-                            <td>{{ m.horas }}</td>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Pendiente</label>
+                    {{ form.pendiente }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.orden }}</span>
-                                <input class="edit-mode form-control form-control-sm d-none" name="orden" value="{{ m.orden }}">
-                            </td>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Soporte</label>
+                    {{ form.archivo }}
+                </div>
 
-                            <td>
-                                <span class="view-mode">{{ m.realizado }}</span>
-                                <input class="edit-mode form-control form-control-sm d-none" name="realizado" type="date" value="{{ m.realizado|date:'Y-m-d' }}">
-                            </td>
+                <div class="col-12 d-flex justify-content-end">
+                    <button type="submit" class="btn btn-success" id="btn-guardar">
+                        <i class="fas fa-save me-1"></i>
+                        Guardar mantenimiento
+                    </button>
+                </div>
 
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-primary btn-inline-edit" data-id="{{ m.id }}">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-
-                                    <button type="button" class="btn btn-outline-danger btn-inline-delete" data-id="{{ m.id }}" data-cliente="{{ m.cliente }}">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-
-                                    <button type="button" class="btn btn-outline-secondary btn-inline-upload" data-id="{{ m.id }}">
-                                        <i class="fas fa-file-upload"></i>
-                                    </button>
-
-                                    {% if m.archivo %}
-                                    <a href="{{ m.archivo.url }}" target="_blank" class="btn btn-outline-success">
-                                        <i class="fas fa-file-alt"></i>
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-
-                </table>
-            
+            </div>
         </form>
     </div>
 </div>
 
-<div class="modal fade" id="modalEliminarMantenimiento" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="POST" id="formEliminarMantenimiento">
-                {% csrf_token %}
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Eliminar mantenimiento</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Seguro que deseas eliminar el mantenimiento de <strong id="textoClienteEliminar"></strong>?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">Eliminar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <strong>
+            <i class="fas fa-list me-2"></i>
+            Mantenimientos registrados
+        </strong>
 
-<div class="modal fade" id="modalSubirArchivo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="POST" id="formSubirArchivo" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="modal-header bg-secondary text-white">
-                    <h5 class="modal-title">Subir archivo</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <label for="id_archivo" class="form-label">Seleccione foto o PDF</label>
-                    <input type="file" name="archivo" id="id_archivo" class="form-control" accept=".pdf,image/*" required>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-secondary">Subir</button>
-                </div>
-            </form>
-        </div>
+        <span class="badge bg-primary">
+            Total: {{ mantenimientos|length }}
+        </span>
     </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+            <table id="tabla-mantenimientos"
+                   class="table table-bordered table-striped table-hover align-middle mb-0">
+
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Código</th>
+                        <th>Cliente</th>
+                        <th>Ciudad</th>
+                        <th>Dirección</th>
+                        <th>Servicio</th>
+                        <th>Tipo de falla</th>
+                        <th>Observación</th>
+                        <th>Técnico</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Horas</th>
+                        <th>Orden</th>
+                        <th>Realizado</th>
+                        <th>Soporte</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for m in mantenimientos %}
+
+                    <tr data-id="{{ m.id }}">
+
+                        <td>{{ m.fecha_registro|date:"Y-m-d H:i" }}</td>
+
+                        <td>{{ m.codigo }}</td>
+
+                        <td>
+                            <span class="view-mode">{{ m.cliente }}</span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   name="cliente"
+                                   value="{{ m.cliente }}">
+                        </td>
+
+                        <td>
+                            <span class="view-mode">{{ m.ciudad }}</span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   name="ciudad"
+                                   value="{{ m.ciudad }}">
+                        </td>
+
+                        <td>
+                            <span class="view-mode">{{ m.direccion }}</span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   name="direccion"
+                                   value="{{ m.direccion }}">
+                        </td>
+
+                        <td>
+                            <span class="view-mode">
+                                {{ m.get_tipo_servicio_display }}
+                            </span>
+
+                            <select class="edit-mode form-select form-select-sm d-none"
+                                    name="tipo_servicio">
+
+                                {% for valor,texto in m.TIPO_SERVICIO_CHOICES %}
+                                    <option value="{{ valor }}"
+                                        {% if m.tipo_servicio == valor %}selected{% endif %}>
+                                        {{ texto }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+
+                        <td>
+                            <span class="view-mode">
+                                {{ m.get_tipo_falla_display|default:"Sin registrar" }}
+                            </span>
+
+                            <select class="edit-mode form-select form-select-sm d-none"
+                                    name="tipo_falla">
+
+                                <option value="">Sin registrar</option>
+
+                                {% for valor,texto in m.TIPO_FALLA_CHOICES %}
+                                    <option value="{{ valor }}"
+                                        {% if m.tipo_falla == valor %}selected{% endif %}>
+                                        {{ texto }}
+                                    </option>
+                                {% endfor %}
+
+                            </select>
+                        </td>
+
+                        <td title="{{ m.observacion|default:'' }}">
+                            <span class="view-mode">
+                                {{ m.observacion|default:"Sin observación"|truncatechars:45 }}
+                            </span>
+
+                            <textarea class="edit-mode form-control form-control-sm d-none"
+                                    name="observacion"
+                                    rows="2">{{ m.observacion }}</textarea>
+                        </td>
+
+                        <td>
+
+                            <span class="view-mode">
+                                {% if m.tecnico %}
+                                    {{ m.tecnico.nombre }}
+                                {% else %}
+                                    Sin técnico
+                                {% endif %}
+                            </span>
+
+                            <select class="edit-mode form-select form-select-sm d-none"
+                                    name="tecnico">
+
+                                <option value="">Sin técnico</option>
+
+                                {% for tecnico in tecnicos %}
+                                    <option value="{{ tecnico.id }}"
+                                        {% if m.tecnico and tecnico.id == m.tecnico.id %}
+                                            selected
+                                        {% endif %}>
+                                        {{ tecnico.nombre }}
+                                    </option>
+                                {% endfor %}
+
+                            </select>
+
+                        </td>
+
+                        <td>{{ m.hora_entrada|time:"H:i" }}</td>
+                        <td>{{ m.hora_salida|time:"H:i" }}</td>
+                        <td>{{ m.horas }}</td>
+
+                        <td>
+
+                            <span class="view-mode">{{ m.orden }}</span>
+
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   name="orden"
+                                   value="{{ m.orden }}">
+
+                        </td>
+
+                        <td>
+
+                            <span class="view-mode">
+                                {{ m.realizado|date:"Y-m-d" }}
+                            </span>
+
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   type="date"
+                                   name="realizado"
+                                   value="{{ m.realizado|date:'Y-m-d' }}">
+
+                        </td>
+
+                        <td class="text-center">
+
+                            {% if m.archivo %}
+                                <a href="{{ m.archivo.url }}"
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-file-alt"></i>
+                                </a>
+                            {% else %}
+                                —
+                            {% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            <div class="btn-group btn-group-sm">
+
+                                <button type="button"
+                                        class="btn btn-outline-primary btn-inline-edit"
+                                        data-id="{{ m.id }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-inline-delete"
+                                        data-id="{{ m.id }}"
+                                        data-cliente="{{ m.cliente }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-inline-upload"
+                                        data-id="{{ m.id }}">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="16" class="text-center text-muted py-4">
+                            No existen mantenimientos registrados.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+
 </div>
 
 {% endblock %}

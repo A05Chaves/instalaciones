@@ -1,24 +1,34 @@
 import re
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User, Group
+from datetime import datetime
+
 from django.contrib import messages
 from django.contrib.auth import authenticate
-from django.urls import reverse
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
-from django.urls import reverse
-from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
-
-from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
-from django.http import JsonResponse
-from django.utils import timezone
-from datetime import datetime
 from django.contrib.auth.models import User, Group
+from django.forms.models import model_to_dict
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from openpyxl import Workbook
+
+from app_instalaciones.models.cuadroInstalaciones import (
+    CuadroInsta,
+    Mantenimiento,
+    Tecnico,
+)
+from app_instalaciones.models.forms import MantenimientoForm
+
+from app_instalaciones.utils.importar_mantenimientos_pdf import (
+    analizar_pdf_mantenimientos,
+    importar_resultados_pdf,
+    preparar_resultados_para_session,
+    restaurar_resultados_desde_session,
+)
 
 # VISTAS PARA LA GESTIÓN DE USUARIOS
 
@@ -155,67 +165,63 @@ def logout(request):
 # NUEVO ARREGLO LISTA DE MANTENIMIENTOS
 
 
+@login_required(login_url='login')
 def listar_mantenimientos(request):
-    if request.method == "POST":
-        # 1. Leer lo que viene del formulario
-        codigo = (request.POST.get('codigo') or "").strip()
-        cliente = (request.POST.get('cliente') or "").strip()
-        ciudad = (request.POST.get('ciudad') or "").strip()
-        direccion = (request.POST.get('direccion') or "").strip()
-        tipo_falla = (request.POST.get('tipo_falla') or "").strip()
-        tecnico_id = request.POST.get('tecnico') or None
-        hora_entrada = request.POST.get('hora_entrada') or None
-        hora_salida = request.POST.get('hora_salida') or None
-        horas = request.POST.get('horas') or 0
-        orden = (request.POST.get('orden') or "").strip()
-        realizado = request.POST.get('realizado') or None
 
-        # 2. Si hay código, intentar buscar la instalación SOLO para este registro
-        inst = None
+    if request.method == "POST":
+        # form = MantenimientoForm(request.POST, request.FILES)
+        post_data = request.POST.copy()
+
+        codigo = (post_data.get("codigo") or "").strip()
+
         if codigo:
             inst = CuadroInsta.objects.filter(codigo__iexact=codigo).first()
 
-        # 3. Si encontramos instalación, solo sobrescribimos los campos VACÍOS
-        if inst:
-            if not cliente:
-                cliente = inst.cliente or ""
-            if not ciudad:
-                ciudad = inst.ciudad or ""
-            if not direccion:
-                direccion = inst.direccion or ""
+            if inst:
+                if not post_data.get("cliente"):
+                    post_data["cliente"] = inst.cliente or ""
 
-        # 4. Si hay orden y no viene fecha de realizado → usar hoy
-        if orden and not realizado:
-            realizado = timezone.now().date()
+                if not post_data.get("ciudad"):
+                    post_data["ciudad"] = inst.ciudad or ""
 
-        # 5. Crear el mantenimiento con los datos resultantes
-        Mantenimiento.objects.create(
-            codigo=codigo,
-            cliente=cliente,
-            ciudad=ciudad,
-            direccion=direccion,
-            tipo_falla=tipo_falla,
-            tecnico_id=tecnico_id,
-            hora_entrada=hora_entrada or None,
-            hora_salida=hora_salida or None,
-            horas=horas or 0,
-            orden=orden,
-            realizado=realizado,
-        )
+                if not post_data.get("direccion"):
+                    post_data["direccion"] = inst.direccion or ""
 
-        messages.success(request, "Mantenimiento registrado correctamente.")
-        return redirect('listar_mantenimientos')
+        form = MantenimientoForm(post_data, request.FILES)
 
-    # GET: listar
-    mantenimientos = Mantenimiento.objects.all().order_by('-fecha_registro')
-    tecnicos = Tecnico.objects.all().order_by('nombre')
+        if form.is_valid():
+            mantenimiento = form.save(commit=False)
+            mantenimiento.creado_por = request.user
+            mantenimiento.save()
+
+            messages.success(
+                request, "Mantenimiento registrado correctamente.")
+            return redirect("listar_mantenimientos")
+
+        messages.error(request, form.errors)
+
+    else:
+        form = MantenimientoForm()
+
+    mantenimientos = (
+        Mantenimiento.objects
+        .select_related("tecnico")
+        .order_by("-fecha_registro")
+    )
+
+    tecnicos = Tecnico.objects.all().order_by("nombre")
 
     context = {
+        "form": form,
         "mantenimientos": mantenimientos,
         "tecnicos": tecnicos,
     }
-    return render(request, "mantenimientos/listar_mantenimientos.html", context)
 
+    return render(
+        request,
+        "mantenimientos/listar_mantenimientos.html",
+        context
+    )
 # JSON PARA BUSCAR CLIENTES Y AGREGAR AL CUADRO MANTENIMIENTOS
 
 
@@ -253,45 +259,34 @@ def buscar_instalacion_por_codigo(request):
 @login_required
 @require_POST
 def mantenimiento_actualizar(request, pk):
-    """Actualiza un mantenimiento desde la fila (inline, vía AJAX)."""
     m = get_object_or_404(Mantenimiento, pk=pk)
 
-    m.cliente = request.POST.get('cliente', m.cliente)
-    m.ciudad = request.POST.get('ciudad', m.ciudad)
-    m.direccion = request.POST.get('direccion', m.direccion)
-    m.tipo_falla = request.POST.get('tipo_falla') or m.tipo_falla
-    hora_entrada_post = request.POST.get('hora_entrada') or None
-    hora_salida_post = request.POST.get('hora_salida') or None
+    campos_editables = {
+        "cliente", "ciudad", "direccion", "tipo_servicio",
+        "tipo_falla", "tecnico", "orden", "realizado",
+    }
+    datos = model_to_dict(
+        m,
+        fields=[
+            campo for campo in MantenimientoForm.Meta.fields
+            if campo != "archivo"
+        ],
+    )
 
-    if hora_entrada_post and not m.hora_entrada:
-        m.hora_entrada = hora_entrada_post
+    for campo in campos_editables:
+        if campo in request.POST:
+            datos[campo] = request.POST.get(campo, "")
 
-    if hora_salida_post and not m.hora_salida:
-        m.hora_salida = hora_salida_post
+    form = MantenimientoForm(datos, instance=m)
+    if not form.is_valid():
+        return JsonResponse(
+            {"ok": False, "errors": form.errors.get_json_data()},
+            status=400,
+        )
 
-    m.orden = request.POST.get('orden', m.orden)
-    m.realizado = request.POST.get('realizado') or m.realizado
-
-    tecnico_id = request.POST.get('tecnico')
-    if tecnico_id:
-        try:
-            m.tecnico = Tecnico.objects.get(id=tecnico_id)
-        except Tecnico.DoesNotExist:
-            pass  # si no existe, no cambiamos el técnico
-
-    m.save()
-
-    orden_post = request.POST.get('orden') or m.orden
-    m.orden = orden_post
-
-    realizado_post = request.POST.get('realizado') or None
-    if realizado_post:
-        m.realizado = realizado_post
-    else:
-        # Si hay orden y sigue sin fecha, pon hoy
-        if m.orden and not m.realizado:
-            m.realizado = timezone.now().date()
-
+    m = form.save(commit=False)
+    if m.orden and not m.realizado:
+        m.realizado = timezone.now().date()
     m.save()
 
     return JsonResponse({
@@ -299,7 +294,8 @@ def mantenimiento_actualizar(request, pk):
         "cliente": m.cliente,
         "ciudad": m.ciudad,
         "direccion": m.direccion,
-        "tipo_falla_display": m.get_tipo_falla_display() if hasattr(m, "get_tipo_falla_display") else m.tipo_falla,
+        "tipo_servicio_display": m.get_tipo_servicio_display(),
+        "tipo_falla_display": m.get_tipo_falla_display() if m.tipo_falla else "Sin registrar",
         "tecnico": m.tecnico.nombre if m.tecnico else "",
         "orden": m.orden,
         "realizado": m.realizado.isoformat() if m.realizado else "",
@@ -313,7 +309,7 @@ def mantenimiento_eliminar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
     m.delete()
     messages.success(request, "Mantenimiento eliminado correctamente.")
-    return redirect('mantenimientos')
+    return redirect('listar_mantenimientos')
 
 
 @login_required
@@ -325,12 +321,12 @@ def mantenimiento_subir_archivo(request, pk):
 
     if not archivo:
         messages.error(request, "No se recibió ningún archivo.")
-        return redirect('mantenimientos')
+        return redirect('listar_mantenimientos')
 
     m.archivo = archivo
     m.save()
     messages.success(request, "Archivo cargado correctamente.")
-    return redirect('mantenimientos')
+    return redirect('listar_mantenimientos')
 
 
 # VISTA DE FACTURACIÓN
@@ -352,12 +348,23 @@ def facturar_instalacion(request, id):
             "mensaje": "No se puede facturar una instalación que no ha sido alistada por almacén."
         }, status=400)
 
-    instalacion.facturado = True
+    estado_facturacion = request.POST.get("estado_facturacion", "").upper()
+    if estado_facturacion not in {"FACTURADO", "RETENIDO"}:
+        return JsonResponse({
+            "ok": False,
+            "mensaje": "Seleccione Facturado o Retenido."
+        }, status=400)
+
+    instalacion.estado_facturacion = estado_facturacion
     instalacion.save()
+
+    etiqueta = instalacion.get_estado_facturacion_display()
 
     return JsonResponse({
         "ok": True,
-        "mensaje": "Instalación marcada como facturada.",
+        "mensaje": f"Instalación marcada como {etiqueta.lower()}.",
+        "estado": instalacion.estado_facturacion,
+        "etiqueta": etiqueta,
         "fecha": instalacion.fecha_facturacion.strftime("%Y-%m-%d"),
         "dias": instalacion.dias_para_facturar,
     })
@@ -680,3 +687,134 @@ def configuracion_usuarios(request):
         'usuarios': usuarios,
         'grupos': grupos,
     })
+
+
+# VISTA DE EXPORTAR MANTENIMIENTOS
+
+@login_required(login_url='login')
+def exportar_mantenimientos(request):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Mantenimientos"
+
+    encabezados = [
+        "Fecha registro",
+        "Código",
+        "Cliente",
+        "Ciudad",
+        "Dirección",
+        "Tipo servicio",
+        "Tipo falla",
+        "Técnico",
+        "Hora entrada",
+        "Hora salida",
+        "Horas",
+        "Orden",
+        "Realizado",
+        "Novedad",
+        "Observación",
+        "Pendiente",
+    ]
+
+    ws.append(encabezados)
+
+    mantenimientos = (
+        Mantenimiento.objects
+        .select_related("tecnico")
+        .order_by("-fecha_registro")
+    )
+
+    for m in mantenimientos:
+        ws.append([
+            m.fecha_registro.strftime(
+                "%Y-%m-%d %H:%M") if m.fecha_registro else "",
+            m.codigo or "",
+            m.cliente or "",
+            m.ciudad or "",
+            m.direccion or "",
+            m.get_tipo_servicio_display() if m.tipo_servicio else "",
+            m.get_tipo_falla_display() if m.tipo_falla else "",
+            m.tecnico.nombre if m.tecnico else "",
+            m.hora_entrada.strftime("%H:%M") if m.hora_entrada else "",
+            m.hora_salida.strftime("%H:%M") if m.hora_salida else "",
+            m.horas or "",
+            m.orden or "",
+            m.realizado.strftime("%Y-%m-%d") if m.realizado else "",
+            m.novedad or "",
+            m.observacion or "",
+            m.pendiente or "",
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="mantenimientos.xlsx"'
+
+    wb.save(response)
+    return response
+
+
+# VISTA DE IMPORTACION DE MANTENIMIENTOS
+@login_required(login_url='login')
+def importar_mantenimientos_pdf(request):
+
+    if request.method == "POST":
+        archivo_pdf = request.FILES.get("archivo_pdf")
+
+        if not archivo_pdf:
+            messages.error(request, "Debe seleccionar un archivo PDF.")
+            return redirect("importar_mantenimientos_pdf")
+
+        resultados = analizar_pdf_mantenimientos(archivo_pdf)
+
+        request.session["preview_mantenimientos_pdf"] = preparar_resultados_para_session(
+            resultados)
+
+        total = len(resultados)
+        importables = sum(1 for r in resultados if r["importable"])
+        advertencias = sum(1 for r in resultados if r["advertencias"])
+
+        return render(
+            request,
+            "mantenimientos/preview_importar_pdf.html",
+            {
+                "resultados": resultados,
+                "total": total,
+                "importables": importables,
+                "advertencias": advertencias,
+            }
+        )
+
+    return render(
+        request,
+        "mantenimientos/importar_pdf.html"
+    )
+
+
+@login_required(login_url='login')
+def confirmar_importar_mantenimientos_pdf(request):
+
+    if request.method != "POST":
+        return redirect("importar_mantenimientos_pdf")
+
+    resultados = restaurar_resultados_desde_session(
+        request.session.get("preview_mantenimientos_pdf")
+    )
+
+    if not resultados:
+        messages.error(request, "No hay datos para importar.")
+        return redirect("importar_mantenimientos_pdf")
+
+    resumen = importar_resultados_pdf(resultados, request.user)
+
+    messages.success(
+        request,
+        f"Importación finalizada. "
+        f"Creados: {resumen['creados']}. "
+        f"Repetidos: {resumen['repetidos']}. "
+        f"Errores: {resumen['errores']}."
+    )
+
+    request.session.pop("preview_mantenimientos_pdf", None)
+
+    return redirect("listar_mantenimientos")

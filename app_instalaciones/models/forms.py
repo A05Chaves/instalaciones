@@ -2,6 +2,9 @@ from django import forms
 from datetime import timedelta
 from django.utils.timezone import now
 from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, Ejecutivo, Ciudad
+from django import forms
+from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
+from app_instalaciones.models import Mantenimiento, Ciudad
 
 
 class CuadroInstaForm(forms.ModelForm):
@@ -304,3 +307,115 @@ class CuadroInstaForm(forms.ModelForm):
 
 class ExcelUploadForm(forms.Form):
     archivo_excel = forms.FileField(label="Selecciona un archivo Excel")
+
+
+# Formulario para mantenimiento
+
+class MantenimientoForm(forms.ModelForm):
+
+    ciudad = forms.ChoiceField(
+        required=False,
+        label="Ciudad"
+    )
+
+    class Meta:
+        model = Mantenimiento
+        fields = [
+            'tipo_servicio',
+            'tipo_falla',
+            'cliente',
+            'ciudad',
+            'direccion',
+            'codigo',
+            'novedad',
+            'observacion',
+            'tecnico',
+            'archivo',
+            'pendiente',
+            'horas',
+            'hora_entrada',
+            'hora_salida',
+            'orden',
+            'realizado',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['ciudad'].choices = [
+            ("", "Seleccione ciudad")
+        ] + [
+            (c.nombre, c.nombre)
+            for c in Ciudad.objects.all().order_by('nombre')
+        ]
+
+        if self.instance and self.instance.pk:
+            self.initial["ciudad"] = self.instance.ciudad
+
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({
+                'class': 'form-control form-control-sm',
+
+            })
+
+        self.fields['tipo_servicio'].widget.attrs.update({
+            'class': 'form-select form-select-sm',
+
+        })
+
+        self.fields['tipo_falla'].widget.attrs.update({
+            'class': 'form-select form-select-sm',
+
+        })
+
+        self.fields['tecnico'].widget.attrs.update({
+            'class': 'form-select form-select-sm',
+
+        })
+
+        self.fields['horas'].widget.attrs.update({
+            'readonly': True,
+            'class': 'form-control form-control-sm bg-light text-muted',
+
+        })
+
+        campos_no_obligatorios = [
+            'hora_entrada',
+            'hora_salida',
+            'horas',
+            'orden',
+            'realizado',
+            'novedad',
+            'observacion',
+            'pendiente',
+            'archivo',
+            'tecnico',
+            'tipo_falla',
+        ]
+
+        for campo in campos_no_obligatorios:
+            self.fields[campo].required = False
+
+        self.fields['tipo_servicio'].initial = "MANTENIMIENTO CORRECTIVO"
+
+        for campo in ['novedad', 'observacion', 'pendiente']:
+            self.fields[campo].widget.attrs.update({
+                'rows': 2,
+                'style': 'height: 70px; resize: vertical;'
+            })
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tipo_servicio = cleaned_data.get('tipo_servicio')
+        tipo_falla = cleaned_data.get('tipo_falla')
+
+        if tipo_servicio == "MANTENIMIENTO CORRECTIVO" and not tipo_falla:
+            self.add_error(
+                'tipo_falla',
+                'Debe seleccionar un tipo de falla para mantenimiento correctivo.'
+            )
+
+        if tipo_servicio != "MANTENIMIENTO CORRECTIVO":
+            cleaned_data['tipo_falla'] = None
+
+        return cleaned_data

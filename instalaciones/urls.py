@@ -64,4 +64,27 @@ urlpatterns = [
         user_views.configuracion_usuarios,
         name='configuracion_usuarios'
     ),
+    path(
+        'mantenimientos/exportar/',
+        user_views.exportar_mantenimientos,
+        name='exportar_mantenimientos'
+    ),
+
+    # path(
+    #   'mantenimientos/importar/',
+    #   user_views.importar_mantenimientos,
+    #   name='importar_mantenimientos'
+    # ),
+
+    path(
+        'mantenimientos/importar-pdf/',
+        user_views.importar_mantenimientos_pdf,
+        name='importar_mantenimientos_pdf'
+    ),
+
+    path(
+        'mantenimientos/importar-pdf/confirmar/',
+        user_views.confirmar_importar_mantenimientos_pdf,
+        name='confirmar_importar_mantenimientos_pdf'
+    ),
 ]
