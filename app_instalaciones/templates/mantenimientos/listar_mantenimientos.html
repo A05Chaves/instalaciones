@@ -394,12 +394,14 @@ Mantenimientos - App_Sesur
                                     <i class="fas fa-edit"></i>
                                 </button>
 
+                                {% if not es_coordinador %}
                                 <button type="button"
                                         class="btn btn-outline-danger btn-inline-delete"
                                         data-id="{{ m.id }}"
                                         data-cliente="{{ m.cliente }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
+                                {% endif %}
 
                                 <button type="button"
                                         class="btn btn-outline-secondary btn-inline-upload"

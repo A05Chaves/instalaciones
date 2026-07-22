@@ -45,6 +45,7 @@ def puede_editar_instalacion(user):
     return (
         user.is_superuser
         or pertenece_grupo(user, 'Administrador')
+        or pertenece_grupo(user, 'Coordinador')
         or pertenece_grupo(user, 'Programador')
         or pertenece_grupo(user, 'Almacen')
         or pertenece_grupo(user, 'Facturacion')
@@ -55,6 +56,7 @@ def puede_programar(user):
     return (
         user.is_superuser
         or user.groups.filter(name='Administrador').exists()
+        or user.groups.filter(name='Coordinador').exists()
         or user.groups.filter(name='Programador').exists()
     )
 
@@ -84,6 +86,18 @@ def puede_ver_dashboard(user):
 
 def puede_ver(user):
     return user.is_authenticated
+
+
+def puede_gestionar_mantenimientos(user):
+    return (
+        user.is_superuser
+        or pertenece_grupo(user, "Administrador")
+        or pertenece_grupo(user, "Coordinador")
+    )
+
+
+def puede_eliminar_mantenimientos(user):
+    return user.is_superuser or pertenece_grupo(user, "Administrador")
 
 
 def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
@@ -204,6 +218,7 @@ def logout(request):
 
 
 @login_required(login_url='login')
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 def listar_mantenimientos(request):
 
     if request.method == "POST":
@@ -286,6 +301,7 @@ def listar_mantenimientos(request):
 
 
 @login_required
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 def buscar_instalacion_por_codigo(request):
     codigo = (request.GET.get('codigo') or "").strip()
 
@@ -317,6 +333,7 @@ def buscar_instalacion_por_codigo(request):
 
 
 @login_required
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 @require_POST
 def mantenimiento_actualizar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
@@ -365,6 +382,7 @@ def mantenimiento_actualizar(request, pk):
 
 
 @login_required
+@user_passes_test(puede_eliminar_mantenimientos, login_url='home')
 @require_POST
 def mantenimiento_eliminar(request, pk):
     """Elimina un mantenimiento desde el modal de confirmación."""
@@ -375,6 +393,7 @@ def mantenimiento_eliminar(request, pk):
 
 
 @login_required
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 @require_POST
 def mantenimiento_subir_archivo(request, pk):
     """Sube o reemplaza el archivo (foto/PDF) de un mantenimiento."""
@@ -895,6 +914,7 @@ def alistar_instalacion(request, id):
 def configuracion_usuarios(request):
     grupos_base = [
         'Administrador',
+        'Coordinador',
         'Programador',
         'Almacen',
         'Facturacion',
@@ -947,6 +967,7 @@ def configuracion_usuarios(request):
 # VISTA DE EXPORTAR MANTENIMIENTOS
 
 @login_required(login_url='login')
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 def exportar_mantenimientos(request):
     wb = Workbook()
     ws = wb.active
@@ -1011,6 +1032,7 @@ def exportar_mantenimientos(request):
 
 # VISTA DE IMPORTACION DE MANTENIMIENTOS
 @login_required(login_url='login')
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 def importar_mantenimientos_pdf(request):
 
     if request.method == "POST":
@@ -1054,6 +1076,7 @@ def importar_mantenimientos_pdf(request):
 
 
 @login_required(login_url='login')
+@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 def confirmar_importar_mantenimientos_pdf(request):
 
     if request.method != "POST":

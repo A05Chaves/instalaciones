@@ -342,7 +342,7 @@ Inicio
                     {% endif %}
 
                     <td class="text-center">
-                       {% if es_superusuario or es_administrador or es_programador or es_almacen or es_facturacion %}
+                       {% if es_superusuario or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion %}
                             {% if not instalacion.cerrado_total %}
                                 <a href="{% url 'editar_instalacion' instalacion.id %}?next={{ request.get_full_path|urlencode }}"
                                 class="btn btn-warning btn-sm shadow-sm"

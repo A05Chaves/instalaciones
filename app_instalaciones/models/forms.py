@@ -141,6 +141,7 @@ class CuadroInstaForm(forms.ModelForm):
             es_admin = (
                 self.user.is_superuser
                 or self.user.groups.filter(name='Administrador').exists()
+                or self.user.groups.filter(name='Coordinador').exists()
             )
 
             es_programador = self.user.groups.filter(

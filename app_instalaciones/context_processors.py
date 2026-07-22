@@ -12,6 +12,10 @@ def permisos_usuario(request):
             name='Administrador'
         ).exists(),
 
+        'es_coordinador': user.groups.filter(
+            name='Coordinador'
+        ).exists(),
+
         'es_programador': user.groups.filter(
             name='Programador'
         ).exists(),

@@ -115,6 +115,8 @@ class DashboardInstalacionesTests(TestCase):
 class ListaMantenimientosTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user("operador", password="prueba123")
+        administradores, _ = Group.objects.get_or_create(name="Administrador")
+        self.usuario.groups.add(administradores)
         self.client.force_login(self.usuario)
         Mantenimiento.objects.create(
             codigo="COD-001",
@@ -144,6 +146,60 @@ class ListaMantenimientosTests(TestCase):
         self.assertEqual(len(response.context["mantenimientos"]), 1)
         self.assertContains(response, "Cliente Pasto")
         self.assertNotContains(response, "Cliente Cali")
+
+
+class PermisosMantenimientosTests(TestCase):
+    def test_roles_operativos_no_pueden_abrir_mantenimientos(self):
+        for nombre_rol in ("Almacen", "Programador", "Facturacion"):
+            with self.subTest(rol=nombre_rol):
+                usuario = User.objects.create_user(
+                    f"usuario_{nombre_rol.lower()}", password="prueba123"
+                )
+                grupo, _ = Group.objects.get_or_create(name=nombre_rol)
+                usuario.groups.add(grupo)
+                self.client.force_login(usuario)
+
+                response = self.client.get(reverse("listar_mantenimientos"))
+
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response.url.startswith(reverse("home")))
+
+    def test_administrador_puede_abrir_mantenimientos(self):
+        usuario = User.objects.create_user("admin_mantenimientos", password="prueba123")
+        grupo, _ = Group.objects.get_or_create(name="Administrador")
+        usuario.groups.add(grupo)
+        self.client.force_login(usuario)
+
+        response = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_coordinador_opera_ambos_modulos_sin_acceso_administrativo(self):
+        usuario = User.objects.create_user("coordinador", password="prueba123")
+        grupo, _ = Group.objects.get_or_create(name="Coordinador")
+        usuario.groups.add(grupo)
+        self.client.force_login(usuario)
+
+        mantenimiento = Mantenimiento.objects.create(
+            codigo="COORD-1", cliente="Cliente", direccion="Calle 1"
+        )
+
+        self.assertEqual(
+            self.client.get(reverse("listar_mantenimientos")).status_code, 200
+        )
+        self.assertEqual(
+            self.client.get(reverse("registro_inst")).status_code, 200
+        )
+        self.assertEqual(
+            self.client.get(reverse("configuracion_usuarios")).status_code, 302
+        )
+        self.assertEqual(self.client.get("/admin/").status_code, 302)
+
+        response = self.client.post(
+            reverse("mantenimiento_eliminar", args=[mantenimiento.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Mantenimiento.objects.filter(pk=mantenimiento.pk).exists())
 
 
 class PortalTecnicoTests(TestCase):
