@@ -128,13 +128,26 @@ document.addEventListener("DOMContentLoaded", function () {
         return cookieValue;
     }
 
-    function activarModoEdicion(tr) {
+    function activarModoEdicion(tr, soloOrden = false) {
+        if (soloOrden) {
+            tr.classList.add("solo-orden");
+            tr.querySelectorAll(".campo-orden .view-mode").forEach(el => el.classList.add("d-none"));
+            tr.querySelectorAll(".campo-orden .edit-mode").forEach(el => el.classList.remove("d-none"));
+            tr.classList.add("editing");
+            return;
+        }
         tr.querySelectorAll(".view-mode").forEach(el => el.classList.add("d-none"));
         tr.querySelectorAll(".edit-mode").forEach(el => el.classList.remove("d-none"));
         tr.classList.add("editing");
     }
 
     function desactivarModoEdicion(tr) {
+        if (tr.classList.contains("solo-orden")) {
+            tr.querySelectorAll(".campo-orden .view-mode").forEach(el => el.classList.remove("d-none"));
+            tr.querySelectorAll(".campo-orden .edit-mode").forEach(el => el.classList.add("d-none"));
+            tr.classList.remove("solo-orden", "editing");
+            return;
+        }
         tr.querySelectorAll(".view-mode").forEach(el => el.classList.remove("d-none"));
         tr.querySelectorAll(".edit-mode").forEach(el => el.classList.add("d-none"));
         tr.classList.remove("editing");
@@ -175,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const tr = this.closest("tr");
 
             if (!tr.classList.contains("editing")) {
-                activarModoEdicion(tr);
+                activarModoEdicion(tr, this.dataset.soloOrden === "true");
 
                 this.classList.remove("btn-outline-primary");
                 this.classList.add("btn-success");

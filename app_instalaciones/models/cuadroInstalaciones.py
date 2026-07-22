@@ -277,6 +277,7 @@ class Mantenimiento(models.Model):
     hora_entrada = models.TimeField(null=True, blank=True)
     hora_salida = models.TimeField(null=True, blank=True)
     orden = models.CharField(max_length=50, null=True, blank=True)
+    fecha_orden = models.DateTimeField(null=True, blank=True)
     realizado = models.DateField(null=True, blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -356,6 +357,11 @@ class Mantenimiento(models.Model):
 
     def __str__(self):
         return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"
+
+    def save(self, *args, **kwargs):
+        if self.orden and not self.fecha_orden:
+            self.fecha_orden = timezone.now()
+        super().save(*args, **kwargs)
 
 
 class HistorialAsignacionMantenimiento(models.Model):

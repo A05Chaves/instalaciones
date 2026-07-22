@@ -340,6 +340,28 @@ def mantenimiento_actualizar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
     tecnico_anterior = m.tecnico
 
+    if m.orden:
+        return JsonResponse(
+            {"ok": False, "error": "El servicio está cerrado y no admite cambios."},
+            status=409,
+        )
+    if m.estado_operativo == "FINALIZADO":
+        orden = (request.POST.get("orden") or "").strip()
+        if not orden:
+            return JsonResponse(
+                {"ok": False, "error": "Debe ingresar la orden para cerrar el servicio."},
+                status=400,
+            )
+        m.orden = orden[:50]
+        m.realizado = m.realizado or timezone.localdate()
+        m.save()
+        return JsonResponse({
+            "ok": True,
+            "orden": m.orden,
+            "realizado": m.realizado.isoformat(),
+            "fecha_orden": timezone.localtime(m.fecha_orden).isoformat(),
+        })
+
     campos_editables = {
         "cliente", "ciudad", "direccion", "tipo_servicio",
         "tipo_falla", "tecnico", "fecha_programada", "orden", "realizado",
@@ -388,6 +410,9 @@ def mantenimiento_actualizar(request, pk):
 def mantenimiento_eliminar(request, pk):
     """Elimina un mantenimiento desde el modal de confirmación."""
     m = get_object_or_404(Mantenimiento, pk=pk)
+    if m.estado_operativo == "FINALIZADO" or m.orden:
+        messages.error(request, "El servicio finalizado no se puede eliminar.")
+        return redirect('listar_mantenimientos')
     m.delete()
     messages.success(request, "Mantenimiento eliminado correctamente.")
     return redirect('listar_mantenimientos')
@@ -399,6 +424,9 @@ def mantenimiento_eliminar(request, pk):
 def mantenimiento_subir_archivo(request, pk):
     """Sube o reemplaza el archivo (foto/PDF) de un mantenimiento."""
     m = get_object_or_404(Mantenimiento, pk=pk)
+    if m.estado_operativo == "FINALIZADO" or m.orden:
+        messages.error(request, "El servicio finalizado solo permite registrar la orden.")
+        return redirect('listar_mantenimientos')
     archivo = request.FILES.get('archivo')
 
     if not archivo:
@@ -476,6 +504,7 @@ def _serializar_servicio_tecnico(mantenimiento):
         "pendiente": mantenimiento.pendiente or "",
         "inicio": mantenimiento.fecha_inicio.isoformat() if mantenimiento.fecha_inicio else "",
         "fin": mantenimiento.fecha_fin.isoformat() if mantenimiento.fecha_fin else "",
+        "bloqueado": mantenimiento.estado_operativo == "FINALIZADO" or bool(mantenimiento.orden),
     }
 
 
@@ -525,6 +554,16 @@ def api_servicios_tecnico(request):
     mantenimiento = get_object_or_404(
         Mantenimiento, pk=data.get("id"), tecnico=tecnico
     )
+    if mantenimiento.orden:
+        return JsonResponse(
+            {"ok": False, "error": "El servicio ya fue cerrado con una orden."},
+            status=409,
+        )
+    if mantenimiento.estado_operativo == "FINALIZADO":
+        return JsonResponse(
+            {"ok": False, "error": "El servicio finalizado solo admite la orden del operador."},
+            status=409,
+        )
     estado = data.get("estado")
     if estado not in dict(Mantenimiento.ESTADO_OPERATIVO_CHOICES):
         return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
@@ -544,11 +583,12 @@ def api_servicios_tecnico(request):
     if estado == "EN_PROCESO" and not mantenimiento.fecha_inicio:
         mantenimiento.fecha_inicio = ahora
         mantenimiento.hora_entrada = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
-    if estado == "FINALIZADO" and not mantenimiento.fecha_fin:
-        mantenimiento.fecha_fin = ahora
-        mantenimiento.hora_salida = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
-        mantenimiento.realizado = timezone.localdate()
-        if mantenimiento.fecha_inicio:
+    if estado == "FINALIZADO":
+        mantenimiento.realizado = mantenimiento.realizado or timezone.localdate()
+        if not mantenimiento.fecha_fin:
+            mantenimiento.fecha_fin = ahora
+            mantenimiento.hora_salida = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+        if mantenimiento.fecha_inicio and mantenimiento.fecha_fin:
             mantenimiento.horas = round(
                 (mantenimiento.fecha_fin - mantenimiento.fecha_inicio).total_seconds() / 3600, 2
             )

@@ -211,7 +211,7 @@ Mantenimientos - App_Sesur
             {% endif %}
         </form>
 
-        <div class="table-responsive">
+        <div class="table-responsive tabla-mantenimientos-scroll">
             <table id="tabla-mantenimientos"
                    class="table table-bordered table-striped table-hover align-middle mb-0">
 
@@ -369,9 +369,16 @@ Mantenimientos - App_Sesur
                         <td>{{ m.hora_salida|time:"H:i"|default:"---" }}</td>
                         <td>{{ m.duracion_servicio|default:"---" }}</td>
 
-                        <td>
+                        <td class="campo-orden">
 
-                            <span class="view-mode">{{ m.orden }}</span>
+                            <span class="view-mode">
+                                {{ m.orden|default:"---" }}
+                                {% if m.fecha_orden %}
+                                    <small class="d-block text-muted mt-1">
+                                        {{ m.fecha_orden|date:"Y-m-d H:i" }}
+                                    </small>
+                                {% endif %}
+                            </span>
 
                             <input class="edit-mode form-control form-control-sm d-none"
                                    name="orden"
@@ -410,13 +417,17 @@ Mantenimientos - App_Sesur
 
                             <div class="btn-group btn-group-sm">
 
+                                {% if not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-primary btn-inline-edit"
-                                        data-id="{{ m.id }}">
+                                        data-id="{{ m.id }}"
+                                        data-solo-orden="{% if m.estado_operativo == 'FINALIZADO' %}true{% else %}false{% endif %}"
+                                        title="{% if m.estado_operativo == 'FINALIZADO' %}Registrar orden{% else %}Editar{% endif %}">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                {% endif %}
 
-                                {% if not es_coordinador %}
+                                {% if not es_coordinador and m.estado_operativo != "FINALIZADO" and not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-danger btn-inline-delete"
                                         data-id="{{ m.id }}"
@@ -425,11 +436,19 @@ Mantenimientos - App_Sesur
                                 </button>
                                 {% endif %}
 
+                                {% if m.estado_operativo != "FINALIZADO" and not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-secondary btn-inline-upload"
                                         data-id="{{ m.id }}">
                                     <i class="fas fa-paperclip"></i>
                                 </button>
+                                {% endif %}
+
+                                {% if m.orden %}
+                                    <span class="badge bg-secondary" title="Servicio cerrado">
+                                        <i class="fas fa-lock"></i>
+                                    </span>
+                                {% endif %}
 
                             </div>
 

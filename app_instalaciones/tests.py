@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app_instalaciones.models import (
-    CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
+    Ciudad, CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
     NotificacionTecnico, Tecnico,
 )
 from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
@@ -282,6 +282,38 @@ class PortalTecnicoTests(TestCase):
         )
         self.servicio.refresh_from_db()
         self.assertEqual(self.servicio.observacion.count("[NOTA TÉCNICO"), 1)
+        self.assertEqual(self.servicio.realizado, timezone.localdate())
+
+    def test_finalizado_solo_admite_orden_y_luego_queda_bloqueado(self):
+        Ciudad.objects.create(nombre="Pasto")
+        self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "FINALIZADO", "novedad": "Terminado"}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        administrador = User.objects.create_user("operador_orden", password="prueba123")
+        grupo = Group.objects.create(name="Administrador")
+        administrador.groups.add(grupo)
+        self.client.force_login(administrador)
+
+        response = self.client.post(
+            reverse("mantenimiento_actualizar", args=[self.servicio.pk]),
+            {"orden": "OT-987", "cliente": "Nombre no permitido"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.orden, "OT-987")
+        self.assertEqual(self.servicio.cliente, "Cliente móvil")
+        self.assertIsNotNone(self.servicio.fecha_orden)
+
+        segundo_cambio = self.client.post(
+            reverse("mantenimiento_actualizar", args=[self.servicio.pk]),
+            {"orden": "OT-OTRA"},
+        )
+        self.assertEqual(segundo_cambio.status_code, 409)
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.orden, "OT-987")
 
     def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
         self.client.post(
@@ -360,7 +392,7 @@ class ImportacionMantenimientosPdfTests(TestCase):
             "se configura el tiempo de entrada",
         )
 
-    def test_actualiza_ticket_sin_borrar_orden_manual(self):
+    def test_no_actualiza_ticket_cerrado_con_orden_manual(self):
         usuario = User.objects.create_user("importador", password="prueba123")
         mantenimiento = Mantenimiento.objects.create(
             numero_ticket="64590",
@@ -379,9 +411,10 @@ class ImportacionMantenimientosPdfTests(TestCase):
         )
 
         mantenimiento.refresh_from_db()
-        self.assertEqual(resumen["actualizados"], 1)
-        self.assertEqual(mantenimiento.codigo, "1823")
-        self.assertEqual(mantenimiento.estado_ticket, "ASIGNADO")
+        self.assertEqual(resumen["actualizados"], 0)
+        self.assertEqual(resumen["repetidos"], 1)
+        self.assertEqual(mantenimiento.codigo, "ANTERIOR")
+        self.assertFalse(mantenimiento.estado_ticket)
         self.assertEqual(mantenimiento.orden, "ORDEN-MANUAL")
 
     def test_muestra_duracion_importada_en_formato_horas_y_minutos(self):

@@ -435,6 +435,9 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
         if existente and not actualizar_existentes:
             repetidos += 1
             continue
+        if existente and existente.orden:
+            repetidos += 1
+            continue
 
         tecnico_id = data.get("tecnico_id")
         if not tecnico_id and data.get("tecnico_nombre"):

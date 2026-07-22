@@ -14,6 +14,52 @@
     box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .25);
 }
 
+/* Mantiene visibles el encabezado y la barra horizontal de mantenimientos. */
+.tabla-mantenimientos-scroll {
+    max-height: 68vh;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+
+.tabla-mantenimientos-scroll #tabla-mantenimientos {
+    width: max-content;
+    min-width: 100%;
+}
+
+.tabla-mantenimientos-scroll #tabla-mantenimientos thead th {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: #212529;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.tabla-mantenimientos-scroll::-webkit-scrollbar {
+    width: 13px;
+    height: 13px;
+}
+
+.tabla-mantenimientos-scroll::-webkit-scrollbar-track {
+    background: #d8dee7;
+}
+
+.tabla-mantenimientos-scroll::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border: 2px solid #d8dee7;
+    border-radius: 10px;
+}
+
+.tabla-mantenimientos-scroll::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+@media (max-width: 768px) {
+    .tabla-mantenimientos-scroll {
+        max-height: 62vh;
+    }
+}
+
 .tabla-fija {
     height: 72vh;
     overflow: auto;

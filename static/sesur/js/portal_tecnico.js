@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const plantilla = document.getElementById("plantilla-servicio");
     let servicios = [];
     let filtro = "HOY";
+    let terminoBusqueda = "";
 
     const abrirDB = () => new Promise((resolve, reject) => {
         const req = indexedDB.open("sesur-tecnico", 1);
@@ -71,6 +72,13 @@ document.addEventListener("DOMContentLoaded", () => {
         let visibles = servicios;
         if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
         if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
+        if (terminoBusqueda) {
+            visibles = visibles.filter(servicio => [
+                servicio.codigo, servicio.ticket, servicio.cliente,
+                servicio.ciudad, servicio.direccion, servicio.tipo_servicio,
+                servicio.tipo_falla, servicio.estado,
+            ].some(valor => String(valor || "").toLocaleLowerCase("es").includes(terminoBusqueda)));
+        }
         document.getElementById("titulo-lista").textContent = filtro === "HOY" ? "Servicios de hoy" : filtro === "PENDIENTE" ? "Servicios pendientes" : "Todos los servicios";
         document.getElementById("total-servicios").textContent = visibles.length;
         lista.innerHTML = "";
@@ -104,6 +112,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const finalizar = nodo.querySelector(".finalizar");
             iniciar.disabled = servicio.estado !== "PENDIENTE";
             finalizar.disabled = servicio.estado === "FINALIZADO";
+            const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
+            guardarNovedad.disabled = bloqueado;
+            novedad.disabled = bloqueado;
             guardarNovedad.addEventListener("click", () => cambiarEstado(servicio, servicio.estado, novedad.value));
             iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
@@ -185,6 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".filtro").forEach(b => b.classList.remove("activo"));
         btn.classList.add("activo"); filtro = btn.dataset.filtro; render();
     }));
+    document.getElementById("buscar-servicio").addEventListener("input", event => {
+        terminoBusqueda = event.target.value.trim().toLocaleLowerCase("es");
+        render();
+    });
     document.getElementById("btn-sincronizar").addEventListener("click", sincronizar);
     document.getElementById("btn-leer-avisos").addEventListener("click", async () => {
         if (!navigator.onLine) return mensaje("Necesitas conexión para confirmar las notificaciones.");
