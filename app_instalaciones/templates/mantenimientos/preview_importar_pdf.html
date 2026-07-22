@@ -46,11 +46,15 @@ Vista previa importación PDF
                 <tr>
                     <th>Página</th>
                     <th>Ticket</th>
+                    <th>Estado</th>
                     <th>Código</th>
                     <th>Cliente</th>
                     <th>Servicio</th>
                     <th>Falla</th>
                     <th>Técnico</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Descripción / trabajo</th>
                     <th>Resultado</th>
                 </tr>
             </thead>
@@ -59,11 +63,15 @@ Vista previa importación PDF
                 <tr>
                     <td>{{ r.pagina }}</td>
                     <td>{{ r.data.numero_ticket }}</td>
+                    <td>{{ r.data.estado_ticket }}</td>
                     <td>{{ r.data.codigo }}</td>
                     <td>{{ r.data.cliente }}</td>
                     <td>{{ r.data.tipo_servicio }}</td>
                     <td>{{ r.data.tipo_falla }}</td>
                     <td>{{ r.data.tecnico_nombre }}</td>
+                    <td>{{ r.data.fecha_inicio|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td>{{ r.data.fecha_fin|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td style="min-width: 260px;">{{ r.data.observacion|default:r.data.pendiente|truncatechars:120 }}</td>
                     <td>
                         {% if r.importable %}
                             <span class="badge bg-success">Listo</span>

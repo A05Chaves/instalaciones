@@ -34,6 +34,11 @@ urlpatterns = [
 
     path('mantenimientos/', user_views.listar_mantenimientos,
          name='listar_mantenimientos'),
+    path('tecnico/servicios/', user_views.portal_tecnico, name='portal_tecnico'),
+    path('api/tecnico/servicios/', user_views.api_servicios_tecnico, name='api_servicios_tecnico'),
+    path('api/tecnico/notificaciones/leidas/', user_views.leer_notificaciones_tecnico, name='leer_notificaciones_tecnico'),
+    path('manifest.webmanifest', user_views.manifiesto_tecnico, name='manifiesto_tecnico'),
+    path('service-worker.js', user_views.service_worker_tecnico, name='service_worker_tecnico'),
     path('api/instalacion-por-codigo/', user_views.buscar_instalacion_por_codigo,
          name='buscar_instalacion_por_codigo'),
 

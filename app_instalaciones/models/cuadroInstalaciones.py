@@ -6,6 +6,14 @@ from django.utils import timezone
 class Tecnico(models.Model):
     # ← bien: no se permite null
     nombre = models.CharField(max_length=100, unique=True)
+    usuario = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="perfil_tecnico",
+        help_text="Usuario que ingresará al portal móvil.",
+    )
 
     def __str__(self):
         return str(self.nombre or "Sin nombre")
@@ -195,6 +203,11 @@ class RegistroImportacion(models.Model):
 # TABLA DE MANTENIMIENTOS EDITADA
 
 class Mantenimiento(models.Model):
+    ESTADO_OPERATIVO_CHOICES = [
+        ("PENDIENTE", "Pendiente"),
+        ("EN_PROCESO", "En proceso"),
+        ("FINALIZADO", "Finalizado"),
+    ]
     # NUEVO: tipo de falla (para el select del template)
     TIPO_SERVICIO_CHOICES = [
         ("MANTENIMIENTO CORRECTIVO", "Mantenimiento correctivo"),
@@ -243,6 +256,13 @@ class Mantenimiento(models.Model):
     # CAMBIO: de CharField → ForeignKey
     tecnico = models.ForeignKey(
         "Tecnico", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    fecha_programada = models.DateField(null=True, blank=True, db_index=True)
+    estado_operativo = models.CharField(
+        max_length=20,
+        choices=ESTADO_OPERATIVO_CHOICES,
+        default="PENDIENTE",
+        db_index=True,
     )
 
     archivo = models.FileField(
@@ -311,8 +331,71 @@ class Mantenimiento(models.Model):
         blank=True
     )
 
+    @property
+    def duracion_servicio(self):
+        """Devuelve la duración en formato HH:MM sin cambiar el valor decimal."""
+        minutos = None
+
+        if self.fecha_inicio and self.fecha_fin:
+            segundos = (self.fecha_fin - self.fecha_inicio).total_seconds()
+            if segundos > 0:
+                minutos = round(segundos / 60)
+        elif self.hora_entrada and self.hora_salida:
+            entrada = self.hora_entrada.hour * 60 + self.hora_entrada.minute
+            salida = self.hora_salida.hour * 60 + self.hora_salida.minute
+            if salida > entrada:
+                minutos = salida - entrada
+        elif self.horas is not None and self.horas > 0:
+            minutos = round(float(self.horas) * 60)
+
+        if minutos is None:
+            return ""
+
+        horas, minutos_restantes = divmod(minutos, 60)
+        return f"{horas:02d}:{minutos_restantes:02d}"
+
     def __str__(self):
         return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"
+
+
+class HistorialAsignacionMantenimiento(models.Model):
+    mantenimiento = models.ForeignKey(
+        Mantenimiento, on_delete=models.CASCADE, related_name="historial_asignaciones"
+    )
+    tecnico_anterior = models.ForeignKey(
+        Tecnico, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="asignaciones_retiradas",
+    )
+    tecnico_nuevo = models.ForeignKey(
+        Tecnico, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="asignaciones_recibidas",
+    )
+    cambiado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-fecha"]
+
+
+class NotificacionTecnico(models.Model):
+    TIPOS = [
+        ("ASIGNACION", "Asignación"),
+        ("REASIGNACION", "Reasignación"),
+        ("RETIRADO", "Servicio retirado"),
+    ]
+    tecnico = models.ForeignKey(
+        Tecnico, on_delete=models.CASCADE, related_name="notificaciones"
+    )
+    mantenimiento = models.ForeignKey(
+        Mantenimiento, on_delete=models.CASCADE, related_name="notificaciones"
+    )
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    mensaje = models.CharField(max_length=250)
+    leida = models.BooleanField(default=False, db_index=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-fecha"]
 
 
 # MODELO PARA CIUDADES

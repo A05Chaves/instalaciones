@@ -1,11 +1,19 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from app_instalaciones.models import CuadroInsta
+from app_instalaciones.models import (
+    CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
+    NotificacionTecnico, Tecnico,
+)
+from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
+from app_instalaciones.utils.importar_mantenimientos_pdf import (
+    extraer_mantenimiento_desde_texto,
+    importar_resultados_pdf,
+)
 
 
 class EstadoFacturacionTests(TestCase):
@@ -46,3 +54,235 @@ class EstadoFacturacionTests(TestCase):
         self.assertEqual(instalacion.estado_facturacion, "FACTURADO")
         self.assertTrue(instalacion.facturado)
         self.assertEqual(instalacion.dias_para_facturar, 3)
+
+
+class DashboardInstalacionesTests(TestCase):
+    def setUp(self):
+        grupo = Group.objects.create(name="Administrador")
+        self.usuario = User.objects.create_user("administrador", password="prueba123")
+        self.usuario.groups.add(grupo)
+        self.client.force_login(self.usuario)
+
+    def test_grupo_operativo_puede_ver_dashboard_y_mes_invalido_no_falla(self):
+        response = self.client.get(reverse("dashboard_instalaciones"), {"mes": "invalido"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["mes"], "")
+
+    def test_excluye_fechas_negativas_e_incluye_pendientes_vencidos(self):
+        hoy = timezone.localdate()
+        fecha_ingreso = timezone.make_aware(
+            datetime.combine(hoy, time.min)
+        )
+
+        CuadroInsta.objects.create(
+            pvg=2001,
+            ciudad="Pasto",
+            estado="LEGALIZADO",
+            fecha=fecha_ingreso,
+            fecha_inicio=hoy - timedelta(days=1),
+        )
+        CuadroInsta.objects.create(
+            pvg=2002,
+            ciudad="Pasto",
+            estado="LEGALIZADO",
+            fecha=fecha_ingreso - timedelta(days=5),
+            fecha_inicio=hoy,
+        )
+        CuadroInsta.objects.create(
+            pvg=2003,
+            ciudad="Pasto",
+            estado="LEGALIZADO",
+            finaliza=hoy - timedelta(days=3),
+        )
+        CuadroInsta.objects.create(
+            pvg=2004,
+            ciudad="Pasto",
+            estado="LEGALIZADO",
+            alistado=True,
+            fecha_alistado=hoy - timedelta(days=3),
+        )
+
+        response = self.client.get(reverse("dashboard_instalaciones"))
+
+        self.assertEqual(response.context["inconsistencias_instalacion"], 1)
+        self.assertEqual(response.context["total_instalacion"], 1)
+        self.assertEqual(response.context["promedio_instalacion"], 5)
+        self.assertEqual(response.context["vencidos_almacen"], 1)
+        self.assertEqual(response.context["vencidos_facturacion"], 1)
+
+
+class ListaMantenimientosTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user("operador", password="prueba123")
+        self.client.force_login(self.usuario)
+        Mantenimiento.objects.create(
+            codigo="COD-001",
+            cliente="Cliente Pasto",
+            ciudad="Pasto",
+            direccion="Calle 1",
+        )
+        Mantenimiento.objects.create(
+            codigo="COD-002",
+            cliente="Cliente Cali",
+            ciudad="Cali",
+            direccion="Calle 2",
+        )
+
+    def test_formulario_nuevo_esta_cerrado_por_defecto(self):
+        response = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertContains(response, 'id="panel-nuevo-mantenimiento" class="collapse"')
+
+    def test_filtra_mantenimientos_por_texto(self):
+        response = self.client.get(
+            reverse("listar_mantenimientos"),
+            {"busqueda": "Pasto"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["mantenimientos"]), 1)
+        self.assertContains(response, "Cliente Pasto")
+        self.assertNotContains(response, "Cliente Cali")
+
+
+class PortalTecnicoTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user("tecnico_movil", password="prueba123")
+        self.otro_usuario = User.objects.create_user("otro_tecnico", password="prueba123")
+        self.tecnico = Tecnico.objects.create(nombre="Técnico móvil", usuario=self.usuario)
+        self.otro_tecnico = Tecnico.objects.create(nombre="Otro técnico", usuario=self.otro_usuario)
+        self.servicio = Mantenimiento.objects.create(
+            codigo="MOV-001", cliente="Cliente móvil", ciudad="Pasto",
+            direccion="Calle móvil", tecnico=self.tecnico,
+            fecha_programada=timezone.localdate(),
+        )
+        Mantenimiento.objects.create(
+            codigo="AJENO-001", cliente="Servicio ajeno", ciudad="Cali",
+            direccion="Calle ajena", tecnico=self.otro_tecnico,
+            fecha_programada=timezone.localdate(),
+        )
+        self.client.force_login(self.usuario)
+
+    def test_api_solo_entrega_servicios_del_tecnico_autenticado(self):
+        response = self.client.get(reverse("api_servicios_tecnico"))
+
+        self.assertEqual(response.status_code, 200)
+        codigos = [item["codigo"] for item in response.json()["servicios"]]
+        self.assertEqual(codigos, ["MOV-001"])
+
+    def test_tecnico_puede_iniciar_servicio_asignado(self):
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": "En sitio"}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.estado_operativo, "EN_PROCESO")
+        self.assertIsNotNone(self.servicio.fecha_inicio)
+
+    def test_tecnico_no_puede_actualizar_servicio_ajeno(self):
+        ajeno = Mantenimiento.objects.get(codigo="AJENO-001")
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "FINALIZADO"}' % ajeno.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_reasignacion_avisa_al_tecnico_anterior_y_al_nuevo(self):
+        registrar_cambio_tecnico(
+            self.servicio, self.tecnico, self.otro_tecnico, self.usuario
+        )
+
+        self.assertEqual(HistorialAsignacionMantenimiento.objects.count(), 1)
+        self.assertTrue(NotificacionTecnico.objects.filter(
+            tecnico=self.tecnico, tipo="RETIRADO"
+        ).exists())
+        self.assertTrue(NotificacionTecnico.objects.filter(
+            tecnico=self.otro_tecnico, tipo="REASIGNACION"
+        ).exists())
+
+
+class ImportacionMantenimientosPdfTests(TestCase):
+    TEXTO_ASIGNADO = """
+    Descripción Trabajo Abonado: 1823 Partición: 01 Nombre: CLIENTE PRUEBA
+    Orden Nro. 64590 Dirección: Teléfono Celular:CALLE 1 2-3
+    Asignado Estado: Etapa TecnicoREVISION GENERAL DE PANICOS
+    FALLOS EQUIPOS ASIGNADO Creado por:
+    """
+
+    TEXTO_FINALIZADO = """
+    Descripción Trabajo Abonado: 3419 Partición: 01 Nombre: CLIENTE FINAL
+    Orden Nro. 64511 Dirección: Teléfono Celular:CALLE 17 13-56
+    Finalizada Estado: Etapa TecnicoPROGRAMAR TIEMPO
+    PROGRAMACION DATOS ACTA Fecha Inicio : 2026-07-0308:37:59
+    Codigo Acta : 159-800 Tecnico : DIEGO COLIMBA MOTIVO VISITA
+    Motivo visita: MANTENIMIENTO CORRECTIVO Mantenimiento correctivo: PROGRAMACION
+    DATOS DEL CLIENTE Problema solucionado: SI DATOS COTIZACIÓN Cotizacion: NO
+    Trabajo realizado: se configura el tiempo de entrada FIRMA CLIENTE
+    MÁS DETALLES Fecha Fin : 2026-07-0308:59:51 PROGRAMACION FINALIZADA
+    Creado por:
+    """
+
+    def test_extrae_columnas_reales_y_fechas_sin_espacio(self):
+        asignado = extraer_mantenimiento_desde_texto(self.TEXTO_ASIGNADO)
+        finalizado = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+
+        self.assertEqual(asignado["estado_ticket"], "ASIGNADO")
+        self.assertEqual(asignado["tipo_falla"], "FALLOS EQUIPOS")
+        self.assertIn("REVISION GENERAL", asignado["pendiente"])
+        self.assertEqual(finalizado["tecnico_nombre"], "DIEGO COLIMBA")
+        self.assertEqual(finalizado["tipo_falla"], "PROGRAMACION")
+        self.assertEqual(str(finalizado["horas"]), "0.36")
+        self.assertEqual(
+            finalizado["observacion"],
+            "se configura el tiempo de entrada",
+        )
+
+    def test_actualiza_ticket_sin_borrar_orden_manual(self):
+        usuario = User.objects.create_user("importador", password="prueba123")
+        mantenimiento = Mantenimiento.objects.create(
+            numero_ticket="64590",
+            codigo="ANTERIOR",
+            cliente="Anterior",
+            direccion="Anterior",
+            orden="ORDEN-MANUAL",
+        )
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_ASIGNADO)
+        data.update({"ciudad": "Pasto", "tecnico_id": None})
+
+        resumen = importar_resultados_pdf(
+            [{"data": data}],
+            usuario,
+            actualizar_existentes=True,
+        )
+
+        mantenimiento.refresh_from_db()
+        self.assertEqual(resumen["actualizados"], 1)
+        self.assertEqual(mantenimiento.codigo, "1823")
+        self.assertEqual(mantenimiento.estado_ticket, "ASIGNADO")
+        self.assertEqual(mantenimiento.orden, "ORDEN-MANUAL")
+
+    def test_muestra_duracion_importada_en_formato_horas_y_minutos(self):
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+        mantenimiento = Mantenimiento(
+            fecha_inicio=data["fecha_inicio"],
+            fecha_fin=data["fecha_fin"],
+            horas=data["horas"],
+        )
+
+        self.assertEqual(mantenimiento.duracion_servicio, "00:22")
+
+    def test_muestra_duracion_manual_y_deja_vacio_si_no_hay_tiempos(self):
+        mantenimiento = Mantenimiento(
+            hora_entrada=time(8, 15),
+            hora_salida=time(9, 45),
+        )
+        sin_tiempos = Mantenimiento()
+
+        self.assertEqual(mantenimiento.duracion_servicio, "01:30")
+        self.assertEqual(sin_tiempos.duracion_servicio, "")

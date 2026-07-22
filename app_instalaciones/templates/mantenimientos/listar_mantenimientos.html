@@ -40,14 +40,19 @@ Mantenimientos - App_Sesur
 {% endif %}
 
 <div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-primary text-white">
+    <button class="card-header bg-primary text-white border-0 text-start d-flex justify-content-between align-items-center"
+            type="button" data-bs-toggle="collapse" data-bs-target="#panel-nuevo-mantenimiento"
+            aria-expanded="{% if form.errors %}true{% else %}false{% endif %}"
+            aria-controls="panel-nuevo-mantenimiento">
         <strong>
             <i class="fas fa-plus-circle me-2"></i>
             Nuevo mantenimiento
         </strong>
-    </div>
+        <i class="fas fa-chevron-down acordeon-indicador" aria-hidden="true"></i>
+    </button>
 
-    <div class="card-body">
+    <div id="panel-nuevo-mantenimiento" class="collapse{% if form.errors %} show{% endif %}">
+    <div class="card-body border-top">
 
         {% if form.errors %}
             <div class="alert alert-danger">
@@ -95,6 +100,11 @@ Mantenimientos - App_Sesur
                     {{ form.tecnico }}
                 </div>
 
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold">Fecha programada</label>
+                    {{ form.fecha_programada }}
+                </div>
+
                 <div class="col-6 col-md-1">
                     <label class="form-label fw-semibold">Entrada</label>
                     {{ form.hora_entrada }}
@@ -106,8 +116,11 @@ Mantenimientos - App_Sesur
                 </div>
 
                 <div class="col-6 col-md-1">
-                    <label class="form-label fw-semibold">Horas</label>
-                    {{ form.horas }}
+                    <label class="form-label fw-semibold">Duración</label>
+                    {{ form.horas.as_hidden }}
+                    <input type="text" id="duracion-servicio"
+                           class="form-control form-control-sm bg-light text-muted"
+                           value="---" readonly aria-label="Duración del servicio">
                     <div id="horas-error" class="form-text text-danger d-none">
                         La hora de salida debe ser mayor que la de entrada.
                     </div>
@@ -153,6 +166,7 @@ Mantenimientos - App_Sesur
             </div>
         </form>
     </div>
+    </div>
 </div>
 
 <div class="card shadow-sm border-0">
@@ -169,6 +183,28 @@ Mantenimientos - App_Sesur
 
     <div class="card-body p-0">
 
+        <form method="get" class="p-3 bg-light border-bottom" role="search">
+            <div class="input-group">
+                <span class="input-group-text bg-white">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="search" id="busqueda" name="busqueda"
+                       class="form-control"
+                       value="{{ busqueda }}"
+                       placeholder="Buscar por ticket, código, cliente, ciudad, técnico, orden..."
+                       aria-label="Buscar mantenimientos">
+                <button class="btn btn-primary" type="submit">Buscar</button>
+                {% if busqueda %}
+                    <a class="btn btn-outline-secondary" href="{% url 'listar_mantenimientos' %}">Limpiar</a>
+                {% endif %}
+            </div>
+            {% if busqueda %}
+                <small class="text-muted d-block mt-2">
+                    Resultados encontrados: {{ mantenimientos|length }}
+                </small>
+            {% endif %}
+        </form>
+
         <div class="table-responsive">
             <table id="tabla-mantenimientos"
                    class="table table-bordered table-striped table-hover align-middle mb-0">
@@ -184,9 +220,10 @@ Mantenimientos - App_Sesur
                         <th>Tipo de falla</th>
                         <th>Observación</th>
                         <th>Técnico</th>
+                        <th>Programado</th>
                         <th>Entrada</th>
                         <th>Salida</th>
-                        <th>Horas</th>
+                        <th>Duración</th>
                         <th>Orden</th>
                         <th>Realizado</th>
                         <th>Soporte</th>
@@ -299,9 +336,16 @@ Mantenimientos - App_Sesur
 
                         </td>
 
-                        <td>{{ m.hora_entrada|time:"H:i" }}</td>
-                        <td>{{ m.hora_salida|time:"H:i" }}</td>
-                        <td>{{ m.horas }}</td>
+                        <td>
+                            <span class="view-mode">{{ m.fecha_programada|date:"Y-m-d"|default:"---" }}</span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   type="date" name="fecha_programada"
+                                   value="{{ m.fecha_programada|date:'Y-m-d' }}">
+                        </td>
+
+                        <td>{{ m.hora_entrada|time:"H:i"|default:"---" }}</td>
+                        <td>{{ m.hora_salida|time:"H:i"|default:"---" }}</td>
+                        <td>{{ m.duracion_servicio|default:"---" }}</td>
 
                         <td>
 
@@ -372,7 +416,7 @@ Mantenimientos - App_Sesur
                     {% empty %}
 
                     <tr>
-                        <td colspan="16" class="text-center text-muted py-4">
+                        <td colspan="17" class="text-center text-muted py-4">
                             No existen mantenimientos registrados.
                         </td>
                     </tr>

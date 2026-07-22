@@ -28,7 +28,7 @@ Dashboard Instalaciones
         <form method="GET" class="row g-3 align-items-end">
 
             <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">Mes</label>
+                <label class="form-label fw-semibold">Mes de ingreso (cohorte)</label>
                 <input type="month" name="mes" value="{{ mes|default:'' }}" class="form-control">
             </div>
 
@@ -78,7 +78,7 @@ Dashboard Instalaciones
     <div class="col-12 col-md-6 col-xl-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
-                <small class="text-muted">PVG ingresados</small>
+                <small class="text-muted">PVG ingresados en la cohorte</small>
                 <h2 class="fw-bold text-primary mb-0">{{ total_pvg }}</h2>
             </div>
         </div>
@@ -118,7 +118,7 @@ Dashboard Instalaciones
 
 <div class="row g-4 mb-4">
 
-    <div class="col-12 col-md-6 col-xl-3">
+    <div class="col-12 col-md-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
                 <small class="text-muted">Promedio instalación</small>
@@ -128,7 +128,8 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="col-12 col-md-6 col-xl-3">
+    {% if mes %}
+    <div class="col-12 col-md-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
                 <small class="text-muted">Ingresados y ejecutados dentro del mes</small>
@@ -139,8 +140,9 @@ Dashboard Instalaciones
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <div class="col-12 col-md-6 col-xl-3">
+    <div class="col-12 col-md-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
                 <small class="text-muted">Promedio almacén</small>
@@ -150,7 +152,7 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="col-12 col-md-6 col-xl-3">
+    <div class="col-12 col-md-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
                 <small class="text-muted">Promedio facturación</small>
@@ -160,7 +162,7 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="col-12 col-md-6 col-xl-3">
+    <div class="col-12 col-md-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
                 <small class="text-muted">Promedio cierre total</small>
@@ -174,7 +176,7 @@ Dashboard Instalaciones
 
 <div class="row g-4">
 
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-lg-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white">
                 <i class="fas fa-tools me-2"></i>
@@ -209,6 +211,11 @@ Dashboard Instalaciones
                         </tr>
 
                         <tr>
+                            <th>Fechas inconsistentes</th>
+                            <td class="text-danger fw-bold">{{ inconsistencias_instalacion }}</td>
+                        </tr>
+
+                        <tr>
                             <th>Promedio días</th>
                             <td>{{ promedio_instalacion }}</td>
                         </tr>
@@ -218,7 +225,8 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="col-12 col-lg-4">
+    {% if mes %}
+    <div class="col-12 col-lg-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white">
                 <i class="fas fa-calendar-check me-2"></i>
@@ -258,8 +266,9 @@ Dashboard Instalaciones
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-lg-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white">
                 <i class="fas fa-box me-2"></i>
@@ -281,6 +290,18 @@ Dashboard Instalaciones
                             <td class="text-danger fw-bold">{{ fuera_almacen }}</td>
                         </tr>
                         <tr>
+                            <th>Pendientes</th>
+                            <td class="text-warning fw-bold">{{ pendientes_almacen }}</td>
+                        </tr>
+                        <tr>
+                            <th>Pendientes vencidos</th>
+                            <td class="text-danger fw-bold">{{ vencidos_almacen }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fechas inconsistentes</th>
+                            <td class="text-danger fw-bold">{{ inconsistencias_almacen }}</td>
+                        </tr>
+                        <tr>
                             <th>Promedio días</th>
                             <td>{{ promedio_almacen }}</td>
                         </tr>
@@ -290,7 +311,7 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-lg-6 col-xl">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-dark text-white">
                 <i class="fas fa-file-invoice-dollar me-2"></i>
@@ -312,8 +333,51 @@ Dashboard Instalaciones
                             <td class="text-danger fw-bold">{{ fuera_facturacion }}</td>
                         </tr>
                         <tr>
+                            <th>Facturados</th>
+                            <td class="text-success fw-bold">{{ facturados }}</td>
+                        </tr>
+                        <tr>
+                            <th>Retenidos</th>
+                            <td class="text-danger fw-bold">{{ retenidos }}</td>
+                        </tr>
+                        <tr>
+                            <th>Pendientes</th>
+                            <td class="text-warning fw-bold">{{ pendientes_facturacion }}</td>
+                        </tr>
+                        <tr>
+                            <th>Pendientes vencidos</th>
+                            <td class="text-danger fw-bold">{{ vencidos_facturacion }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fechas inconsistentes</th>
+                            <td class="text-danger fw-bold">{{ inconsistencias_facturacion }}</td>
+                        </tr>
+                        <tr>
                             <th>Promedio días</th>
                             <td>{{ promedio_facturacion }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-6 col-xl">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-flag-checkered me-2"></i>
+                Cierre total
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr>
+                            <th>Total cerrados</th>
+                            <td>{{ total_cierre }}</td>
+                        </tr>
+                        <tr>
+                            <th>Promedio días</th>
+                            <td>{{ promedio_cierre_total }}</td>
                         </tr>
                     </tbody>
                 </table>

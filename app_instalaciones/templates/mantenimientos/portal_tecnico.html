@@ -1,0 +1,87 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d6efd">
+    <title>Mis servicios - SESUR</title>
+    <link rel="manifest" href="{% url 'manifiesto_tecnico' %}">
+    <link rel="stylesheet" href="{% static 'sesur/css/portal_tecnico.css' %}">
+</head>
+<body>
+    <header class="cabecera">
+        <div>
+            <small>Portal técnico</small>
+            <h1>{{ tecnico.nombre }}</h1>
+        </div>
+        <form method="post" action="{% url 'logout' %}" id="form-logout">
+            {% csrf_token %}
+            <button type="submit" class="boton boton-claro">Salir</button>
+        </form>
+    </header>
+
+    <main>
+        <section class="estado-red" aria-live="polite">
+            <span id="indicador-red" class="punto"></span>
+            <strong id="texto-red">Comprobando conexión…</strong>
+            <span id="pendientes-sync"></span>
+            <button id="btn-sincronizar" class="boton boton-pequeno" type="button">Sincronizar</button>
+        </section>
+
+        <section id="avisos" class="avisos oculto">
+            <div class="titulo-seccion">
+                <h2>Notificaciones <span id="total-avisos" class="contador"></span></h2>
+                <button id="btn-leer-avisos" class="enlace" type="button">Marcar leídas</button>
+            </div>
+            <div id="lista-avisos"></div>
+        </section>
+
+        <nav class="filtros" aria-label="Filtros de servicios">
+            <button type="button" class="filtro activo" data-filtro="HOY">Hoy</button>
+            <button type="button" class="filtro" data-filtro="PENDIENTE">Pendientes</button>
+            <button type="button" class="filtro" data-filtro="TODOS">Todos</button>
+        </nav>
+
+        <section>
+            <div class="titulo-seccion">
+                <h2 id="titulo-lista">Servicios de hoy</h2>
+                <span id="total-servicios" class="contador">0</span>
+            </div>
+            <div id="lista-servicios" class="lista-servicios">
+                <p class="vacio">Cargando servicios…</p>
+            </div>
+        </section>
+    </main>
+
+    <template id="plantilla-servicio">
+        <article class="servicio">
+            <div class="servicio-cabecera">
+                <div><small class="referencia"></small><h3 class="cliente"></h3></div>
+                <span class="estado"></span>
+            </div>
+            <p class="fecha"></p>
+            <p class="direccion"></p>
+            <p class="detalle"></p>
+            <p class="pendiente"></p>
+            <label>Novedad
+                <textarea class="novedad" rows="2" placeholder="Registra aquí una novedad"></textarea>
+            </label>
+            <div class="acciones">
+                <button type="button" class="boton iniciar">Iniciar servicio</button>
+                <button type="button" class="boton boton-exito finalizar">Finalizar servicio</button>
+            </div>
+        </article>
+    </template>
+
+    <div id="mensaje-app" class="mensaje-app oculto" role="status"></div>
+    <script>
+        window.SESUR_TECNICO = {
+            api: "{% url 'api_servicios_tecnico' %}",
+            leerAvisos: "{% url 'leer_notificaciones_tecnico' %}",
+            serviceWorker: "{% url 'service_worker_tecnico' %}"
+        };
+    </script>
+    <script src="{% static 'sesur/js/portal_tecnico.js' %}"></script>
+</body>
+</html>

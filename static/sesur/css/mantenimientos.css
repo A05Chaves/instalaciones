@@ -2,6 +2,18 @@
    TABLA INSTALACIONES
 ========================== */
 
+[data-bs-target="#panel-nuevo-mantenimiento"] .acordeon-indicador {
+    transition: transform .2s ease;
+}
+
+[data-bs-target="#panel-nuevo-mantenimiento"][aria-expanded="true"] .acordeon-indicador {
+    transform: rotate(180deg);
+}
+
+[data-bs-target="#panel-nuevo-mantenimiento"]:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .25);
+}
+
 .tabla-fija {
     height: 72vh;
     overflow: auto;

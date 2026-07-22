@@ -47,7 +47,7 @@ Configuración de usuarios
                         <th>Nombre</th>
                         <th>Correo</th>
                         <th>Rol actual</th>
-                        <th>Asignar rol</th>
+                        <th>Asignar rol y técnico</th>
                     </tr>
                 </thead>
 
@@ -81,13 +81,24 @@ Configuración de usuarios
 
                                     <input type="hidden" name="usuario_id" value="{{ usuario.id }}">
 
-                                    <select name="grupo_id" class="form-select form-select-sm" required>
+                                    <select name="grupo_id" class="form-select form-select-sm">
                                         <option value="">Seleccione...</option>
 
                                         {% for grupo in grupos %}
                                             <option value="{{ grupo.id }}"
                                                 {% if grupo in usuario.groups.all %}selected{% endif %}>
                                                 {{ grupo.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+
+                                    <select name="tecnico_id" class="form-select form-select-sm">
+                                        <option value="">Sin técnico vinculado</option>
+                                        {% for tecnico in tecnicos %}
+                                            <option value="{{ tecnico.id }}"
+                                                {% if tecnico.usuario_id == usuario.id %}selected{% endif %}
+                                                {% if tecnico.usuario_id and tecnico.usuario_id != usuario.id %}disabled{% endif %}>
+                                                {{ tecnico.nombre }}{% if tecnico.usuario_id and tecnico.usuario_id != usuario.id %} (ocupado){% endif %}
                                             </option>
                                         {% endfor %}
                                     </select>

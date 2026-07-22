@@ -1,0 +1,183 @@
+document.addEventListener("DOMContentLoaded", () => {
+    const cfg = window.SESUR_TECNICO;
+    const lista = document.getElementById("lista-servicios");
+    const plantilla = document.getElementById("plantilla-servicio");
+    let servicios = [];
+    let filtro = "HOY";
+
+    const abrirDB = () => new Promise((resolve, reject) => {
+        const req = indexedDB.open("sesur-tecnico", 1);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains("datos")) db.createObjectStore("datos");
+            if (!db.objectStoreNames.contains("cola")) db.createObjectStore("cola", {keyPath: "clave"});
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+
+    async function guardar(almacen, clave, valor) {
+        const db = await abrirDB();
+        return new Promise((resolve, reject) => {
+            const req = db.transaction(almacen, "readwrite").objectStore(almacen).put(valor, clave);
+            req.onsuccess = resolve; req.onerror = () => reject(req.error);
+        });
+    }
+    async function leer(almacen, clave) {
+        const db = await abrirDB();
+        return new Promise((resolve, reject) => {
+            const req = db.transaction(almacen).objectStore(almacen).get(clave);
+            req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
+        });
+    }
+    async function colaCompleta() {
+        const db = await abrirDB();
+        return new Promise((resolve, reject) => {
+            const req = db.transaction("cola").objectStore("cola").getAll();
+            req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
+        });
+    }
+    async function quitarCola(clave) {
+        const db = await abrirDB();
+        return new Promise(resolve => {
+            const req = db.transaction("cola", "readwrite").objectStore("cola").delete(clave);
+            req.onsuccess = resolve; req.onerror = resolve;
+        });
+    }
+    function cookie(nombre) {
+        const item = document.cookie.split(";").map(v => v.trim()).find(v => v.startsWith(`${nombre}=`));
+        return item ? decodeURIComponent(item.split("=").slice(1).join("=")) : "";
+    }
+    function hoy() {
+        const ahora = new Date();
+        return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+    }
+    function mensaje(texto) {
+        const el = document.getElementById("mensaje-app");
+        el.textContent = texto; el.classList.remove("oculto");
+        setTimeout(() => el.classList.add("oculto"), 3500);
+    }
+    async function actualizarRed() {
+        const online = navigator.onLine;
+        document.getElementById("indicador-red").className = `punto ${online ? "online" : "offline"}`;
+        document.getElementById("texto-red").textContent = online ? "En línea" : "Sin conexión";
+        const cola = await colaCompleta();
+        document.getElementById("pendientes-sync").textContent = cola.length ? `${cola.length} cambio(s) pendiente(s)` : "";
+    }
+    function escapar(texto) {
+        const div = document.createElement("div"); div.textContent = texto || ""; return div.innerHTML;
+    }
+    function render() {
+        let visibles = servicios;
+        if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
+        if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
+        document.getElementById("titulo-lista").textContent = filtro === "HOY" ? "Servicios de hoy" : filtro === "PENDIENTE" ? "Servicios pendientes" : "Todos los servicios";
+        document.getElementById("total-servicios").textContent = visibles.length;
+        lista.innerHTML = "";
+        if (!visibles.length) {
+            lista.innerHTML = '<p class="vacio">No hay servicios en esta sección.</p>'; return;
+        }
+        visibles.forEach(servicio => {
+            const nodo = plantilla.content.cloneNode(true);
+            const articulo = nodo.querySelector("article");
+            articulo.dataset.estado = servicio.estado;
+            nodo.querySelector(".referencia").textContent = servicio.ticket ? `Ticket ${servicio.ticket}` : servicio.codigo;
+            nodo.querySelector(".cliente").textContent = servicio.cliente;
+            nodo.querySelector(".estado").textContent = servicio.estado.replace("_", " ");
+            nodo.querySelector(".fecha").textContent = servicio.fecha_programada ? `📅 ${servicio.fecha_programada}` : "📅 Sin fecha programada";
+            nodo.querySelector(".direccion").textContent = `📍 ${servicio.direccion}${servicio.ciudad ? `, ${servicio.ciudad}` : ""}`;
+            nodo.querySelector(".detalle").textContent = `${servicio.tipo_servicio}${servicio.tipo_falla ? ` · ${servicio.tipo_falla}` : ""}`;
+            const pendiente = nodo.querySelector(".pendiente");
+            pendiente.textContent = servicio.pendiente ? `Pendiente: ${servicio.pendiente}` : "";
+            const novedad = nodo.querySelector(".novedad"); novedad.value = servicio.novedad || "";
+            const iniciar = nodo.querySelector(".iniciar");
+            const finalizar = nodo.querySelector(".finalizar");
+            iniciar.disabled = servicio.estado !== "PENDIENTE";
+            finalizar.disabled = servicio.estado === "FINALIZADO";
+            iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
+            finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
+            lista.appendChild(nodo);
+        });
+    }
+    function renderAvisos(avisos) {
+        const panel = document.getElementById("avisos");
+        const contenedor = document.getElementById("lista-avisos");
+        panel.classList.toggle("oculto", !avisos.length);
+        document.getElementById("total-avisos").textContent = avisos.length;
+        contenedor.innerHTML = avisos.map(a => `<div class="aviso"><strong>${escapar(a.tipo)}</strong><br>${escapar(a.mensaje)}</div>`).join("");
+    }
+    async function encolar(payload) {
+        const db = await abrirDB();
+        const cambio = {clave: `${payload.id}-${Date.now()}`, payload};
+        await new Promise((resolve, reject) => {
+            const req = db.transaction("cola", "readwrite").objectStore("cola").put(cambio);
+            req.onsuccess = resolve; req.onerror = () => reject(req.error);
+        });
+    }
+    async function enviar(payload) {
+        return fetch(cfg.api, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": cookie("csrftoken")},
+            body: JSON.stringify(payload),
+        });
+    }
+    async function cambiarEstado(servicio, estado, novedad) {
+        const payload = {id: servicio.id, estado, novedad};
+        servicio.estado = estado; servicio.novedad = novedad;
+        await guardar("datos", "servicios", servicios); render();
+        try {
+            if (!navigator.onLine) throw new Error("offline");
+            const respuesta = await enviar(payload);
+            if (!respuesta.ok) throw new Error("servidor");
+            const data = await respuesta.json();
+            Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios);
+            mensaje("Servicio actualizado.");
+        } catch (_) {
+            await encolar(payload); mensaje("Cambio guardado en el dispositivo. Se enviará al recuperar conexión.");
+        }
+        actualizarRed();
+    }
+    async function enviarCola() {
+        if (!navigator.onLine) return;
+        for (const cambio of await colaCompleta()) {
+            try {
+                const respuesta = await enviar(cambio.payload);
+                if (respuesta.ok || respuesta.status === 404 || respuesta.status === 403) {
+                    await quitarCola(cambio.clave);
+                    if (!respuesta.ok) mensaje("Un cambio no se aplicó porque el servicio fue reasignado.");
+                }
+            } catch (_) { break; }
+        }
+    }
+    async function sincronizar() {
+        await actualizarRed();
+        if (!navigator.onLine) { mensaje("Continúas sin conexión."); return; }
+        try {
+            await enviarCola();
+            const respuesta = await fetch(cfg.api, {headers: {"Accept": "application/json"}, cache: "no-store"});
+            if (!respuesta.ok) throw new Error();
+            const data = await respuesta.json();
+            servicios = data.servicios; await guardar("datos", "servicios", servicios);
+            await guardar("datos", "avisos", data.notificaciones);
+            render(); renderAvisos(data.notificaciones); mensaje("Información sincronizada.");
+        } catch (_) { mensaje("No fue posible conectar. Se muestran los últimos datos guardados."); }
+        actualizarRed();
+    }
+    document.querySelectorAll(".filtro").forEach(btn => btn.addEventListener("click", () => {
+        document.querySelectorAll(".filtro").forEach(b => b.classList.remove("activo"));
+        btn.classList.add("activo"); filtro = btn.dataset.filtro; render();
+    }));
+    document.getElementById("btn-sincronizar").addEventListener("click", sincronizar);
+    document.getElementById("btn-leer-avisos").addEventListener("click", async () => {
+        if (!navigator.onLine) return mensaje("Necesitas conexión para confirmar las notificaciones.");
+        await fetch(cfg.leerAvisos, {method: "POST", headers: {"X-CSRFToken": cookie("csrftoken")}});
+        await guardar("datos", "avisos", []); renderAvisos([]);
+    });
+    document.getElementById("form-logout").addEventListener("submit", () => indexedDB.deleteDatabase("sesur-tecnico"));
+    window.addEventListener("online", sincronizar); window.addEventListener("offline", actualizarRed);
+    (async () => {
+        servicios = await leer("datos", "servicios") || [];
+        render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
+        if ("serviceWorker" in navigator) navigator.serviceWorker.register(cfg.serviceWorker);
+    })();
+});

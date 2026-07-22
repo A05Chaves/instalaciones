@@ -1,3 +1,6 @@
 # from app_instalaciones import *
 
-from .cuadroInstalaciones import CuadroInsta, Tecnico, Ejecutivo, Ciudad, Mantenimiento
+from .cuadroInstalaciones import (
+    Ciudad, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
+    Mantenimiento, NotificacionTecnico, Tecnico,
+)

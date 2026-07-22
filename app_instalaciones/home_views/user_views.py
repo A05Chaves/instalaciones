@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 
@@ -14,12 +15,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from openpyxl import Workbook
 
 from app_instalaciones.models.cuadroInstalaciones import (
     CuadroInsta,
     Mantenimiento,
     Tecnico,
+    HistorialAsignacionMantenimiento,
+    NotificacionTecnico,
 )
 from app_instalaciones.models.forms import MantenimientoForm
 
@@ -71,15 +75,49 @@ def puede_facturar(user):
     )
 
 
+def puede_ver_dashboard(user):
+    return (
+        user.is_staff
+        or puede_editar_instalacion(user)
+    )
+
+
 def puede_ver(user):
     return user.is_authenticated
+
+
+def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
+    if anterior == nuevo:
+        return
+    HistorialAsignacionMantenimiento.objects.create(
+        mantenimiento=mantenimiento,
+        tecnico_anterior=anterior,
+        tecnico_nuevo=nuevo,
+        cambiado_por=usuario,
+    )
+    referencia = mantenimiento.numero_ticket or mantenimiento.codigo
+    if anterior:
+        NotificacionTecnico.objects.create(
+            tecnico=anterior,
+            mantenimiento=mantenimiento,
+            tipo="RETIRADO",
+            mensaje=f"El servicio {referencia} fue reasignado a otro técnico.",
+        )
+    if nuevo:
+        tipo = "REASIGNACION" if anterior else "ASIGNACION"
+        NotificacionTecnico.objects.create(
+            tecnico=nuevo,
+            mantenimiento=mantenimiento,
+            tipo=tipo,
+            mensaje=f"Tienes un servicio asignado: {referencia} - {mantenimiento.cliente}.",
+        )
 
 # MÉTODO PARA INGRESAR AL MÓDULO DE REGISTRO DE INSTALACIONES
 
 
 def login(request):
     if request.user.is_authenticated:
-        return redirect('home')  # ya está logueado
+        return redirect('portal_tecnico' if _tecnico_del_usuario(request.user) else 'home')
 
     contexto = {}
 
@@ -95,7 +133,7 @@ def login(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             auth_login(request, user)
-            return redirect('home')
+            return redirect('portal_tecnico' if _tecnico_del_usuario(user) else 'home')
         else:
             contexto['error'] = "Usuario o contraseña incorrectos. Intenta nuevamente."
 
@@ -193,6 +231,9 @@ def listar_mantenimientos(request):
             mantenimiento = form.save(commit=False)
             mantenimiento.creado_por = request.user
             mantenimiento.save()
+            registrar_cambio_tecnico(
+                mantenimiento, None, mantenimiento.tecnico, request.user
+            )
 
             messages.success(
                 request, "Mantenimiento registrado correctamente.")
@@ -203,11 +244,29 @@ def listar_mantenimientos(request):
     else:
         form = MantenimientoForm()
 
+    busqueda = (request.GET.get("busqueda") or "").strip()
+
     mantenimientos = (
         Mantenimiento.objects
         .select_related("tecnico")
         .order_by("-fecha_registro")
     )
+
+    if busqueda:
+        mantenimientos = mantenimientos.filter(
+            Q(numero_ticket__icontains=busqueda)
+            | Q(codigo__icontains=busqueda)
+            | Q(cliente__icontains=busqueda)
+            | Q(ciudad__icontains=busqueda)
+            | Q(direccion__icontains=busqueda)
+            | Q(tipo_servicio__icontains=busqueda)
+            | Q(tipo_falla__icontains=busqueda)
+            | Q(tecnico__nombre__icontains=busqueda)
+            | Q(orden__icontains=busqueda)
+            | Q(observacion__icontains=busqueda)
+            | Q(novedad__icontains=busqueda)
+            | Q(pendiente__icontains=busqueda)
+        ).distinct()
 
     tecnicos = Tecnico.objects.all().order_by("nombre")
 
@@ -215,6 +274,7 @@ def listar_mantenimientos(request):
         "form": form,
         "mantenimientos": mantenimientos,
         "tecnicos": tecnicos,
+        "busqueda": busqueda,
     }
 
     return render(
@@ -260,10 +320,11 @@ def buscar_instalacion_por_codigo(request):
 @require_POST
 def mantenimiento_actualizar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
+    tecnico_anterior = m.tecnico
 
     campos_editables = {
         "cliente", "ciudad", "direccion", "tipo_servicio",
-        "tipo_falla", "tecnico", "orden", "realizado",
+        "tipo_falla", "tecnico", "fecha_programada", "orden", "realizado",
     }
     datos = model_to_dict(
         m,
@@ -288,6 +349,7 @@ def mantenimiento_actualizar(request, pk):
     if m.orden and not m.realizado:
         m.realizado = timezone.now().date()
     m.save()
+    registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 
     return JsonResponse({
         "ok": True,
@@ -369,15 +431,142 @@ def facturar_instalacion(request, id):
         "dias": instalacion.dias_para_facturar,
     })
 
+
+def _tecnico_del_usuario(user):
+    try:
+        return user.perfil_tecnico
+    except Tecnico.DoesNotExist:
+        return None
+
+
+def _serializar_servicio_tecnico(mantenimiento):
+    return {
+        "id": mantenimiento.pk,
+        "ticket": mantenimiento.numero_ticket or "",
+        "codigo": mantenimiento.codigo,
+        "cliente": mantenimiento.cliente,
+        "ciudad": mantenimiento.ciudad or "",
+        "direccion": mantenimiento.direccion,
+        "tipo_servicio": mantenimiento.get_tipo_servicio_display(),
+        "tipo_falla": mantenimiento.get_tipo_falla_display() if mantenimiento.tipo_falla else "",
+        "fecha_programada": mantenimiento.fecha_programada.isoformat() if mantenimiento.fecha_programada else "",
+        "estado": mantenimiento.estado_operativo,
+        "novedad": mantenimiento.novedad or "",
+        "observacion": mantenimiento.observacion or "",
+        "pendiente": mantenimiento.pendiente or "",
+        "inicio": mantenimiento.fecha_inicio.isoformat() if mantenimiento.fecha_inicio else "",
+        "fin": mantenimiento.fecha_fin.isoformat() if mantenimiento.fecha_fin else "",
+    }
+
+
+@login_required(login_url="login")
+def portal_tecnico(request):
+    tecnico = _tecnico_del_usuario(request.user)
+    if not tecnico:
+        messages.error(request, "Tu usuario todavía no está vinculado a un técnico.")
+        return redirect("home")
+    return render(request, "mantenimientos/portal_tecnico.html", {"tecnico": tecnico})
+
+
+@login_required(login_url="login")
+@never_cache
+def api_servicios_tecnico(request):
+    tecnico = _tecnico_del_usuario(request.user)
+    if not tecnico:
+        return JsonResponse({"ok": False, "error": "Usuario sin técnico vinculado."}, status=403)
+
+    if request.method == "GET":
+        hoy = timezone.localdate()
+        servicios = Mantenimiento.objects.filter(tecnico=tecnico).filter(
+            Q(fecha_programada=hoy) | ~Q(estado_operativo="FINALIZADO")
+        ).order_by("fecha_programada", "cliente")
+        notificaciones = tecnico.notificaciones.filter(leida=False)[:30]
+        return JsonResponse({
+            "ok": True,
+            "servidor": timezone.now().isoformat(),
+            "servicios": [_serializar_servicio_tecnico(m) for m in servicios],
+            "notificaciones": [{
+                "id": n.pk,
+                "tipo": n.tipo,
+                "mensaje": n.mensaje,
+                "fecha": n.fecha.isoformat(),
+                "servicio_id": n.mantenimiento_id,
+            } for n in notificaciones],
+        })
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido."}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Datos inválidos."}, status=400)
+
+    mantenimiento = get_object_or_404(
+        Mantenimiento, pk=data.get("id"), tecnico=tecnico
+    )
+    estado = data.get("estado")
+    if estado not in dict(Mantenimiento.ESTADO_OPERATIVO_CHOICES):
+        return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
+
+    ahora = timezone.now()
+    mantenimiento.estado_operativo = estado
+    mantenimiento.novedad = str(data.get("novedad", mantenimiento.novedad or ""))[:5000]
+    if estado == "EN_PROCESO" and not mantenimiento.fecha_inicio:
+        mantenimiento.fecha_inicio = ahora
+        mantenimiento.hora_entrada = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+    if estado == "FINALIZADO" and not mantenimiento.fecha_fin:
+        mantenimiento.fecha_fin = ahora
+        mantenimiento.hora_salida = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+        if mantenimiento.fecha_inicio:
+            mantenimiento.horas = round(
+                (mantenimiento.fecha_fin - mantenimiento.fecha_inicio).total_seconds() / 3600, 2
+            )
+    mantenimiento.save()
+    return JsonResponse({"ok": True, "servicio": _serializar_servicio_tecnico(mantenimiento)})
+
+
+@login_required(login_url="login")
+@require_POST
+def leer_notificaciones_tecnico(request):
+    tecnico = _tecnico_del_usuario(request.user)
+    if not tecnico:
+        return JsonResponse({"ok": False}, status=403)
+    tecnico.notificaciones.filter(leida=False).update(leida=True)
+    return JsonResponse({"ok": True})
+
+
+def manifiesto_tecnico(request):
+    return JsonResponse({
+        "name": "Servicios técnicos SESUR",
+        "short_name": "SESUR Técnico",
+        "start_url": reverse("portal_tecnico"),
+        "display": "standalone",
+        "background_color": "#f1f5f9",
+        "theme_color": "#0d6efd",
+        "icons": [{
+            "src": "/static/sesur/img/logosesur.png",
+            "sizes": "192x192",
+            "type": "image/png",
+        }],
+    }, content_type="application/manifest+json")
+
+
+def service_worker_tecnico(request):
+    contenido = render(request, "mantenimientos/service-worker.js", content_type="application/javascript")
+    contenido["Service-Worker-Allowed"] = "/"
+    return contenido
+
 # VISTA DE DASHBOARD
 
 
 @login_required(login_url='login')
-@user_passes_test(lambda u: u.is_staff)
+@user_passes_test(puede_ver_dashboard)
 def dashboard_instalaciones(request):
     mes = request.GET.get('mes')
     ciudades_seleccionadas = request.GET.getlist('ciudad')
     fecha_corte = timezone.localdate()
+    fecha_mes = None
 
     qs = CuadroInsta.objects.all()
 
@@ -389,7 +578,7 @@ def dashboard_instalaciones(request):
                 fecha__month=fecha_mes.month
             )
         except ValueError:
-            pass
+            mes = ""
 
     if ciudades_seleccionadas:
         qs = qs.filter(ciudad__in=ciudades_seleccionadas)
@@ -406,13 +595,14 @@ def dashboard_instalaciones(request):
         estado__iexact="ANULADO"
     )
 
-    total_instalacion = registros_instalacion.count()
+    total_instalacion = 0
 
     cumple_instalacion = 0
     fuera_instalacion = 0
     pendiente_instalacion = 0
     suma_dias_instalacion = 0
     total_con_dias = 0
+    inconsistencias_instalacion = 0
 
     for item in registros_instalacion:
 
@@ -427,8 +617,13 @@ def dashboard_instalaciones(request):
         dias = item.dias_instalacion
 
         if dias is not None:
+            if dias < 0:
+                inconsistencias_instalacion += 1
+                continue
+
             suma_dias_instalacion += dias
             total_con_dias += 1
+            total_instalacion += 1
 
             if dias <= 8:
                 cumple_instalacion += 1
@@ -440,9 +635,9 @@ def dashboard_instalaciones(request):
     eficiencia_instalacion = 0
     promedio_instalacion = 0
 
-    if total_instalacion > 0:
+    if total_con_dias > 0:
         eficiencia_instalacion = round(
-            (cumple_instalacion / total_instalacion) * 100, 2
+            (cumple_instalacion / total_con_dias) * 100, 2
         )
 
     if total_con_dias > 0:
@@ -456,7 +651,7 @@ def dashboard_instalaciones(request):
     pvg_ejecutados_rango = 0
     eficiencia_ejecucion_rango = 0
 
-    if mes:
+    if fecha_mes:
         pvg_ingresados_rango = qs.exclude(
             estado__iexact="ANULADO"
         ).count()
@@ -479,20 +674,36 @@ def dashboard_instalaciones(request):
     )
 
     # ALMACÉN
-    registros_almacen = qs.filter(
-        finaliza__isnull=False,
-        fecha_alistado__isnull=False
-    )
+    registros_almacen = qs.exclude(
+        estado__iexact="ANULADO"
+    ).filter(finaliza__isnull=False)
 
-    total_almacen = registros_almacen.count()
+    total_almacen = 0
     cumple_almacen = 0
     suma_dias_almacen = 0
+    total_almacen_completados = 0
+    pendientes_almacen = 0
+    vencidos_almacen = 0
+    inconsistencias_almacen = 0
 
     for item in registros_almacen:
+        if not item.fecha_alistado:
+            pendientes_almacen += 1
+            if (fecha_corte - item.finaliza).days > 2:
+                vencidos_almacen += 1
+                total_almacen += 1
+            continue
+
         dias = item.dias_para_alistar
 
         if dias is not None:
+            if dias < 0:
+                inconsistencias_almacen += 1
+                continue
+
             suma_dias_almacen += dias
+            total_almacen += 1
+            total_almacen_completados += 1
 
             if dias <= 2:
                 cumple_almacen += 1
@@ -504,27 +715,44 @@ def dashboard_instalaciones(request):
         eficiencia_almacen = round(
             (cumple_almacen / total_almacen) * 100, 2
         )
+    if total_almacen_completados > 0:
         promedio_almacen = round(
-            suma_dias_almacen / total_almacen, 2
+            suma_dias_almacen / total_almacen_completados, 2
         )
 
     fuera_almacen = total_almacen - cumple_almacen
 
     # FACTURACIÓN
-    registros_facturacion = qs.filter(
-        fecha_alistado__isnull=False,
-        fecha_facturacion__isnull=False
-    )
+    registros_facturacion = qs.exclude(
+        estado__iexact="ANULADO"
+    ).filter(fecha_alistado__isnull=False)
 
-    total_facturacion = registros_facturacion.count()
+    total_facturacion = 0
     cumple_facturacion = 0
     suma_dias_facturacion = 0
+    total_facturacion_completados = 0
+    pendientes_facturacion = 0
+    vencidos_facturacion = 0
+    inconsistencias_facturacion = 0
 
     for item in registros_facturacion:
+        if not item.fecha_facturacion:
+            pendientes_facturacion += 1
+            if (fecha_corte - item.fecha_alistado).days > 2:
+                vencidos_facturacion += 1
+                total_facturacion += 1
+            continue
+
         dias = item.dias_para_facturar
 
         if dias is not None:
+            if dias < 0:
+                inconsistencias_facturacion += 1
+                continue
+
             suma_dias_facturacion += dias
+            total_facturacion += 1
+            total_facturacion_completados += 1
 
             if dias <= 2:
                 cumple_facturacion += 1
@@ -536,11 +764,19 @@ def dashboard_instalaciones(request):
         eficiencia_facturacion = round(
             (cumple_facturacion / total_facturacion) * 100, 2
         )
+    if total_facturacion_completados > 0:
         promedio_facturacion = round(
-            suma_dias_facturacion / total_facturacion, 2
+            suma_dias_facturacion / total_facturacion_completados, 2
         )
 
     fuera_facturacion = total_facturacion - cumple_facturacion
+
+    facturados = registros_facturacion.filter(
+        estado_facturacion="FACTURADO"
+    ).count()
+    retenidos = registros_facturacion.filter(
+        estado_facturacion="RETENIDO"
+    ).count()
 
     # CIERRE TOTAL
     registros_cierre = qs.filter(
@@ -585,18 +821,27 @@ def dashboard_instalaciones(request):
         'anulados_instalacion': anulados_instalacion,
         'eficiencia_instalacion': eficiencia_instalacion,
         'promedio_instalacion': promedio_instalacion,
+        'inconsistencias_instalacion': inconsistencias_instalacion,
 
         'total_almacen': total_almacen,
         'cumple_almacen': cumple_almacen,
         'fuera_almacen': fuera_almacen,
         'eficiencia_almacen': eficiencia_almacen,
         'promedio_almacen': promedio_almacen,
+        'pendientes_almacen': pendientes_almacen,
+        'vencidos_almacen': vencidos_almacen,
+        'inconsistencias_almacen': inconsistencias_almacen,
 
         'total_facturacion': total_facturacion,
         'cumple_facturacion': cumple_facturacion,
         'fuera_facturacion': fuera_facturacion,
         'eficiencia_facturacion': eficiencia_facturacion,
         'promedio_facturacion': promedio_facturacion,
+        'pendientes_facturacion': pendientes_facturacion,
+        'vencidos_facturacion': vencidos_facturacion,
+        'inconsistencias_facturacion': inconsistencias_facturacion,
+        'facturados': facturados,
+        'retenidos': retenidos,
 
         'total_cierre': total_cierre,
         'promedio_cierre_total': promedio_cierre_total,
@@ -604,10 +849,6 @@ def dashboard_instalaciones(request):
         'pvg_ejecutados_rango': pvg_ejecutados_rango,
         'pendientes_ejecucion_rango': pendientes_ejecucion_rango,
         'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
-        'pvg_ingresados_rango': pvg_ingresados_rango,
-        'pvg_ejecutados_rango': pvg_ejecutados_rango,
-        'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
-
     }
 
     return render(request, 'dashboard_instalaciones.html', contexto)
@@ -658,6 +899,7 @@ def configuracion_usuarios(request):
         'Almacen',
         'Facturacion',
         'Visor',
+        'Tecnico',
     ]
 
     for nombre in grupos_base:
@@ -666,12 +908,24 @@ def configuracion_usuarios(request):
     if request.method == 'POST':
         usuario_id = request.POST.get('usuario_id')
         grupo_id = request.POST.get('grupo_id')
+        tecnico_id = request.POST.get('tecnico_id')
 
         usuario = get_object_or_404(User, id=usuario_id)
-        grupo = get_object_or_404(Group, id=grupo_id)
+        if grupo_id:
+            grupo = get_object_or_404(Group, id=grupo_id)
+            usuario.groups.clear()
+            usuario.groups.add(grupo)
 
-        usuario.groups.clear()
-        usuario.groups.add(grupo)
+        tecnico = None
+        if tecnico_id:
+            tecnico = get_object_or_404(Tecnico, id=tecnico_id)
+            if tecnico.usuario and tecnico.usuario != usuario:
+                messages.error(request, "Ese técnico ya está vinculado a otro usuario.")
+                return redirect('configuracion_usuarios')
+        Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)).update(usuario=None)
+        if tecnico:
+            tecnico.usuario = usuario
+            tecnico.save(update_fields=["usuario"])
 
         messages.success(
             request,
@@ -686,6 +940,7 @@ def configuracion_usuarios(request):
     return render(request, 'configuracion_usuarios.html', {
         'usuarios': usuarios,
         'grupos': grupos,
+        'tecnicos': Tecnico.objects.select_related("usuario").order_by("nombre"),
     })
 
 
@@ -708,7 +963,7 @@ def exportar_mantenimientos(request):
         "Técnico",
         "Hora entrada",
         "Hora salida",
-        "Horas",
+        "Duración",
         "Orden",
         "Realizado",
         "Novedad",
@@ -737,7 +992,7 @@ def exportar_mantenimientos(request):
             m.tecnico.nombre if m.tecnico else "",
             m.hora_entrada.strftime("%H:%M") if m.hora_entrada else "",
             m.hora_salida.strftime("%H:%M") if m.hora_salida else "",
-            m.horas or "",
+            m.duracion_servicio or "---",
             m.orden or "",
             m.realizado.strftime("%Y-%m-%d") if m.realizado else "",
             m.novedad or "",
@@ -765,10 +1020,17 @@ def importar_mantenimientos_pdf(request):
             messages.error(request, "Debe seleccionar un archivo PDF.")
             return redirect("importar_mantenimientos_pdf")
 
-        resultados = analizar_pdf_mantenimientos(archivo_pdf)
+        actualizar_existentes = (
+            request.POST.get("actualizar_existentes") == "1"
+        )
+        resultados = analizar_pdf_mantenimientos(
+            archivo_pdf,
+            actualizar_existentes=actualizar_existentes,
+        )
 
         request.session["preview_mantenimientos_pdf"] = preparar_resultados_para_session(
             resultados)
+        request.session["actualizar_mantenimientos_pdf"] = actualizar_existentes
 
         total = len(resultados)
         importables = sum(1 for r in resultados if r["importable"])
@@ -805,16 +1067,25 @@ def confirmar_importar_mantenimientos_pdf(request):
         messages.error(request, "No hay datos para importar.")
         return redirect("importar_mantenimientos_pdf")
 
-    resumen = importar_resultados_pdf(resultados, request.user)
+    actualizar_existentes = request.session.get(
+        "actualizar_mantenimientos_pdf", False
+    )
+    resumen = importar_resultados_pdf(
+        resultados,
+        request.user,
+        actualizar_existentes=actualizar_existentes,
+    )
 
     messages.success(
         request,
         f"Importación finalizada. "
         f"Creados: {resumen['creados']}. "
+        f"Actualizados: {resumen['actualizados']}. "
         f"Repetidos: {resumen['repetidos']}. "
         f"Errores: {resumen['errores']}."
     )
 
     request.session.pop("preview_mantenimientos_pdf", None)
+    request.session.pop("actualizar_mantenimientos_pdf", None)
 
     return redirect("listar_mantenimientos")

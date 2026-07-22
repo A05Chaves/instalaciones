@@ -1,11 +1,18 @@
 """
 
 from django.contrib import admin
-from app_instalaciones.models.cuadroInstalaciones import CuadroInsta
+from app_instalaciones.models.cuadroInstalaciones import (
+    CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
+    NotificacionTecnico, Tecnico,
+)
 
 
 # DE ESTA FORMA LA BASE QUE AGREGAMOS YA APARECE EN EL PANEL ADMINISTRATIVO
 admin.site.register(CuadroInsta)
+admin.site.register(Mantenimiento)
+admin.site.register(Tecnico)
+admin.site.register(HistorialAsignacionMantenimiento)
+admin.site.register(NotificacionTecnico)
 
 """
 from django.contrib import admin

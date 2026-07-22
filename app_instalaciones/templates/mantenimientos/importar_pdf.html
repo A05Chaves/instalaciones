@@ -20,6 +20,18 @@ Importar PDF de mantenimientos
                 <input type="file" name="archivo_pdf" accept=".pdf" class="form-control" required>
             </div>
 
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox"
+                       name="actualizar_existentes" value="1"
+                       id="actualizar-existentes" checked>
+                <label class="form-check-label" for="actualizar-existentes">
+                    Actualizar tickets que ya existen con la información corregida del PDF
+                </label>
+                <div class="form-text">
+                    No elimina registros ni reemplaza archivos adjuntos u órdenes agregadas manualmente.
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-success">
                 Analizar PDF
             </button>

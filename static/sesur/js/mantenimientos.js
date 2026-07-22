@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const entradaInput = document.getElementById("id_hora_entrada");
     const salidaInput = document.getElementById("id_hora_salida");
     const horasInput = document.getElementById("id_horas");
+    const duracionInput = document.getElementById("duracion-servicio");
     const errorMsg = document.getElementById("horas-error");
     const guardarBtn = document.getElementById("btn-guardar");
     const busquedaInput = document.getElementById("busqueda");
@@ -17,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const realizadoInput = document.querySelector("input[name='realizado']");
 
     function calcularHoras() {
-        if (!entradaInput || !salidaInput || !horasInput || !errorMsg) return;
+        if (!entradaInput || !salidaInput || !horasInput || !duracionInput || !errorMsg) return;
 
         const entrada = entradaInput.value;
         const salida = salidaInput.value;
@@ -32,18 +33,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (diferencia <= 0) {
                 horasInput.value = "";
-                horasInput.classList.add("is-invalid");
+                duracionInput.value = "---";
+                duracionInput.classList.add("is-invalid");
                 errorMsg.classList.remove("d-none");
                 if (guardarBtn) guardarBtn.disabled = true;
             } else {
                 horasInput.value = (diferencia / 60).toFixed(2);
-                horasInput.classList.remove("is-invalid");
+                const horas = String(Math.floor(diferencia / 60)).padStart(2, "0");
+                const minutos = String(diferencia % 60).padStart(2, "0");
+                duracionInput.value = `${horas}:${minutos}`;
+                duracionInput.classList.remove("is-invalid");
                 errorMsg.classList.add("d-none");
                 if (guardarBtn) guardarBtn.disabled = false;
             }
         } else {
             horasInput.value = "";
-            horasInput.classList.remove("is-invalid");
+            duracionInput.value = "---";
+            duracionInput.classList.remove("is-invalid");
             errorMsg.classList.add("d-none");
             if (guardarBtn) guardarBtn.disabled = false;
         }
@@ -52,6 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (entradaInput && salidaInput) {
         entradaInput.addEventListener("change", calcularHoras);
         salidaInput.addEventListener("change", calcularHoras);
+        calcularHoras();
     }
 
     if (busquedaInput) {

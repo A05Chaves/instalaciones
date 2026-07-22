@@ -330,6 +330,7 @@ class MantenimientoForm(forms.ModelForm):
             'novedad',
             'observacion',
             'tecnico',
+            'fecha_programada',
             'archivo',
             'pendiente',
             'horas',
@@ -372,6 +373,9 @@ class MantenimientoForm(forms.ModelForm):
             'class': 'form-select form-select-sm',
 
         })
+        self.fields['fecha_programada'].widget = forms.DateInput(
+            attrs={'class': 'form-control form-control-sm', 'type': 'date'}
+        )
 
         self.fields['horas'].widget.attrs.update({
             'readonly': True,
@@ -391,6 +395,7 @@ class MantenimientoForm(forms.ModelForm):
             'archivo',
             'tecnico',
             'tipo_falla',
+            'fecha_programada',
         ]
 
         for campo in campos_no_obligatorios:

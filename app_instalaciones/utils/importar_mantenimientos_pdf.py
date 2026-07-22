@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 from decimal import Decimal
 
@@ -43,6 +44,10 @@ FALLAS_MAP = {
     "INSTALACIÓN": "INSTALACION",
     "MANTO PREVENTIVO": "MANTO PREVENTIVO",
     "MANTENIMIENTO PREVENTIVO": "MANTO PREVENTIVO",
+    "FALLA DE EQUIPO": "FALLOS EQUIPOS",
+    "FALLA EQUIPO": "FALLOS EQUIPOS",
+    "FALLO DE BATERIA": "FALLOS EQUIPOS",
+    "FALLA DE BATERIA": "FALLOS EQUIPOS",
 }
 
 
@@ -50,6 +55,14 @@ def limpiar_texto(valor):
     if not valor:
         return ""
     return re.sub(r"\s+", " ", valor).strip()
+
+
+def normalizar_clave(valor):
+    valor = limpiar_texto(valor).upper()
+    return "".join(
+        caracter for caracter in unicodedata.normalize("NFD", valor)
+        if unicodedata.category(caracter) != "Mn"
+    )
 
 
 def buscar_regex(patron, texto, flags=re.IGNORECASE | re.DOTALL):
@@ -63,9 +76,10 @@ def buscar_regex(patron, texto, flags=re.IGNORECASE | re.DOTALL):
 
 PATRON_TRABAJOS = (
     r"FALLA\s+(?:DE\s+)?COMUNICACI[ÓO]N"
-    r"|FALLOS?\s+EQUIPOS?"
+    r"|FALL[AO]S?\s+(?:DE\s+)?EQUIPOS?"
+    r"|FALL[AO]\s+DE\s+BATER[IÍ]A"
     r"|ACTIVACI[ÓO]N"
-    r"|PROGRAMAC\s*I[ÓO]N"
+    r"|PROGRAMACI[ÓO]N"
     r"|ACTUALIZACI[ÓO]N\s+DATOS"
     r"|CCTV"
     r"|OTRO\s+SERVICIO"
@@ -81,17 +95,17 @@ def extraer_trabajo_pdf(texto):
     CCTV, ACTIVACION, FALLOS EQUIPOS, etc.
     """
 
-    match = re.search(
-        rf"\b({PATRON_TRABAJOS})\b"
-        rf"\s+(?:ASIGNADO|FINALIZADA|FINALIZADO|PENDIENTE)",
+    coincidencias = re.findall(
+        rf"\b({PATRON_TRABAJOS})\b",
         texto,
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
-    if not match:
+    if not coincidencias:
         return ""
 
-    return limpiar_texto(match.group(1))
+    # El valor de la columna Trabajo suele ser la última coincidencia de la página.
+    return limpiar_texto(coincidencias[-1])
 
 
 def extraer_descripcion_pdf(texto):
@@ -101,8 +115,8 @@ def extraer_descripcion_pdf(texto):
     """
 
     match = re.search(
-        r"Etapa\s+Tecnico\s+(.*?)"
-        r"(?=\s+(?:DATOS\s+ACTA|Fecha\s+Inicio\s*:|Codigo\s+Acta\s*:|Creado\s+por:))",
+        r"Etapa\s+Tecnico\s*(.*?)"
+        rf"(?=\s+(?:(?:{PATRON_TRABAJOS})\s+)?(?:DATOS\s+ACTA|Creado\s+por:))",
         texto,
         re.IGNORECASE | re.DOTALL
     )
@@ -137,21 +151,41 @@ def extraer_trabajo_y_descripcion(texto):
     return extraer_trabajo_pdf(texto), extraer_descripcion_pdf(texto)
 
 
+def extraer_tecnico_pdf(texto):
+    tecnico = buscar_regex(
+        r"Tecnico\s*:\s*(.*?)(?=MOTIVO\s*VISITA)",
+        texto,
+    )
+    if tecnico:
+        return tecnico
+
+    return ""
+
+
 def normalizar_servicio(valor):
-    valor = limpiar_texto(valor).upper()
+    valor = normalizar_clave(valor)
 
     for clave, servicio in SERVICIOS_MAP.items():
-        if clave in valor:
+        if normalizar_clave(clave) in valor:
             return servicio
 
+    trabajo = normalizar_clave(valor)
+    if "PREVENTIVO" in trabajo:
+        return "MANTENIMIENTO PREVENTIVO"
+    if "INSTALACION" in trabajo:
+        return "INSTALACION"
+    if "CCTV" in trabajo:
+        return "CCTV"
+    if trabajo:
+        return "MANTENIMIENTO CORRECTIVO"
     return "OTRO SERVICIO"
 
 
 def normalizar_falla(valor):
-    valor = limpiar_texto(valor).upper()
+    valor = normalizar_clave(valor)
 
     for clave, falla in FALLAS_MAP.items():
-        if clave in valor:
+        if normalizar_clave(clave) in valor:
             return falla
 
     if valor:
@@ -165,6 +199,12 @@ def convertir_fecha_hora(valor):
 
     if not valor:
         return None
+
+    valor = re.sub(
+        r"(\d{4}-\d{2}-\d{2})\s*(\d{2}:\d{2}:\d{2})",
+        r"\1 \2",
+        valor,
+    )
 
     try:
         return datetime.strptime(valor, "%Y-%m-%d %H:%M:%S")
@@ -185,54 +225,48 @@ def calcular_horas(fecha_inicio, fecha_fin):
 
 
 def extraer_mantenimiento_desde_texto(texto):
-    numero_ticket = buscar_regex(r"Orden Nro\.\s*(\d+)", texto)
-    estado_ticket = buscar_regex(r"Estado:\s*([A-Za-zÁÉÍÓÚáéíóúñÑ ]+)", texto)
+    numero_ticket = buscar_regex(r"Orden\s+Nro\.?\s*:?[\s\r\n]*(\d+)", texto)
+    estado_ticket = buscar_regex(
+        r"\b(ASIGNADO|FINALIZADA|FINALIZADO|PENDIENTE|EN\s+SITIO)\s+Estado\s*:",
+        texto,
+    )
+    estado_ticket = normalizar_clave(estado_ticket)
 
     codigo = buscar_regex(r"Codigo cliente:\s*(\d+)", texto)
     if not codigo:
         codigo = buscar_regex(r"Abonado:\s*(\d+)", texto)
 
     cliente = buscar_regex(
-        r"Nombres cliente:\s*(.*?)\s+Direccion cliente:",
-        texto
+        r"Nombre\s*:\s*(.*?)\s+Orden\s+Nro\.?,?",
+        texto,
     )
-
-    if not cliente:
-        cliente = buscar_regex(
-            r"Nombre:\s*(.*?)\s+Orden Nro\.",
-            texto
-        )
 
     direccion = buscar_regex(
-        r"Direccion cliente:\s*(.*?)\s+INFORMACIÓN DEL PROBLEMA",
-        texto
+        r"Celular\s*:\s*(.*?)\s+(?:Asignado|Finalizada|Finalizado|Pendiente)\s+Estado\s*:",
+        texto,
     )
 
-    if not direccion:
-        direccion = buscar_regex(
-            r"Dirección:\s*(?:Teléfono.*?Celular:)?\s*(.*?)\s+Estado:",
-            texto
-        )
-
-    tecnico_nombre = buscar_regex(
-        r"Tecnico\s*:\s*(.*?)\s+(?:MOTIVO VISITA|DATOS COTIZACIÓN|Cotizacion:|Codigo Acta)",
-        texto
-    )
+    tecnico_nombre = extraer_tecnico_pdf(texto)
 
     tipo_servicio_pdf = buscar_regex(
-        r"Motivo visita:\s*(.*?)\s+(?:Mantenimiento correctivo:|CCTV:|DATOS DEL CLIENTE)",
+        r"Motivo\s+visita\s*:\s*(.*?)\s+(?:Mantenimiento\s+correctivo\s*:|CCTV\s*:|DATOS\s+DEL\s*CLIENTE)",
         texto
     )
 
-    tipo_falla_pdf, observacion = extraer_trabajo_y_descripcion(texto)
+    tipo_falla_pdf, descripcion = extraer_trabajo_y_descripcion(texto)
+
+    trabajo_realizado = buscar_regex(
+        rf"Trabajo\s+realizado\s*:\s*(.*?)(?=\s+(?:FIRMA\s+CLIENTE|M[ÁA]S\s+DETALLES|Georreferencia\s+final|Fecha\s+Fin|(?:{PATRON_TRABAJOS})\s+(?:FINALIZADA|FINALIZADO)|Creado\s+por:))",
+        texto,
+    )
 
     fecha_inicio_txt = buscar_regex(
-        r"Fecha Inicio\s*:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"Fecha Inicio\s*:\s*(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
         texto
     )
 
     fecha_fin_txt = buscar_regex(
-        r"Fecha Fin\s*:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+        r"Fecha Fin\s*:\s*(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
         texto
     )
 
@@ -263,14 +297,14 @@ def extraer_mantenimiento_desde_texto(texto):
     fecha_inicio = convertir_fecha_hora(fecha_inicio_txt)
     fecha_fin = convertir_fecha_hora(fecha_fin_txt)
 
-    tipo_servicio = normalizar_servicio(tipo_servicio_pdf)
+    tipo_servicio = normalizar_servicio(tipo_servicio_pdf or tipo_falla_pdf)
     tipo_falla = normalizar_falla(tipo_falla_pdf)
 
     horas = calcular_horas(fecha_inicio, fecha_fin)
 
     return {
         "numero_ticket": numero_ticket,
-        "estado_ticket": limpiar_texto(estado_ticket).upper(),
+        "estado_ticket": estado_ticket,
         "codigo": codigo,
         "cliente": cliente,
         "direccion": direccion,
@@ -286,40 +320,62 @@ def extraer_mantenimiento_desde_texto(texto):
         "codigo_acta": codigo_acta,
         "problema_solucionado": problema_solucionado.upper() if problema_solucionado else "",
         "cotizacion": cotizacion.upper() if cotizacion else "",
-        "observacion": observacion,
-        "pendiente": pendiente,
+        "observacion": trabajo_realizado or descripcion,
+        "pendiente": pendiente or (
+            descripcion
+            if estado_ticket not in {"FINALIZADA", "FINALIZADO"}
+            else ""
+        ),
         "omt": omt,
     }
 
 
-def analizar_pdf_mantenimientos(archivo_pdf):
+def analizar_pdf_mantenimientos(archivo_pdf, actualizar_existentes=False):
     reader = PdfReader(archivo_pdf)
 
     resultados = []
+    tecnicos_por_clave = {
+        normalizar_clave(tecnico.nombre).replace(" ", ""): tecnico
+        for tecnico in Tecnico.objects.all()
+    }
 
     for indice, page in enumerate(reader.pages, start=1):
         texto = page.extract_text() or ""
         data = extraer_mantenimiento_desde_texto(texto)
+
+        # El modo normal puede unir nombre y apellido cuando la columna es angosta.
+        if data["tecnico_nombre"] and " " not in data["tecnico_nombre"]:
+            texto_layout = page.extract_text(extraction_mode="layout") or ""
+            tecnico_layout = extraer_tecnico_pdf(texto_layout)
+            if tecnico_layout:
+                data["tecnico_nombre"] = tecnico_layout
 
         advertencias = []
 
         if not data["numero_ticket"]:
             advertencias.append("No se encontró número de ticket.")
 
-        if data["numero_ticket"] and Mantenimiento.objects.filter(
+        ticket_existente = data["numero_ticket"] and Mantenimiento.objects.filter(
             numero_ticket=data["numero_ticket"]
-        ).exists():
-            advertencias.append("Ticket ya existe en la base de datos.")
+        ).exists()
+        if ticket_existente:
+            if actualizar_existentes:
+                advertencias.append(
+                    "Ticket existente: se actualizará con los datos del PDF."
+                )
+            else:
+                advertencias.append("Ticket ya existe en la base de datos.")
 
         tecnico = None
         if data["tecnico_nombre"]:
-            tecnico = Tecnico.objects.filter(
-                nombre__icontains=data["tecnico_nombre"]
-            ).first()
+            clave_tecnico = normalizar_clave(
+                data["tecnico_nombre"]
+            ).replace(" ", "")
+            tecnico = tecnicos_por_clave.get(clave_tecnico)
 
             if not tecnico:
                 advertencias.append(
-                    f"Técnico no encontrado: {data['tecnico_nombre']}"
+                    f"Se creará el técnico: {data['tecnico_nombre']}"
                 )
         else:
             advertencias.append("No se encontró técnico.")
@@ -350,15 +406,18 @@ def analizar_pdf_mantenimientos(archivo_pdf):
             "pagina": indice,
             "data": data,
             "advertencias": advertencias,
-            "importable": bool(data["numero_ticket"]) and "Ticket ya existe en la base de datos." not in advertencias,
+            "importable": bool(data["numero_ticket"]) and (
+                actualizar_existentes or not ticket_existente
+            ),
         })
 
     return resultados
 
 
 @transaction.atomic
-def importar_resultados_pdf(resultados, usuario):
+def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
     creados = 0
+    actualizados = 0
     repetidos = 0
     errores = 0
 
@@ -369,42 +428,64 @@ def importar_resultados_pdf(resultados, usuario):
             errores += 1
             continue
 
-        if Mantenimiento.objects.filter(
+        existente = Mantenimiento.objects.filter(
             numero_ticket=data["numero_ticket"]
-        ).exists():
+        ).first()
+        if existente and not actualizar_existentes:
             repetidos += 1
             continue
 
-        Mantenimiento.objects.create(
-            numero_ticket=data["numero_ticket"],
-            estado_ticket=data["estado_ticket"],
-            codigo=data["codigo"],
-            cliente=data["cliente"] or "SIN CLIENTE",
-            ciudad=data.get("ciudad", ""),
-            direccion=data["direccion"] or "",
-            tipo_servicio=data["tipo_servicio"],
-            tipo_falla=data["tipo_falla"] or None,
-            tecnico_id=data["tecnico_id"],
-            fecha_inicio=data["fecha_inicio"],
-            fecha_fin=data["fecha_fin"],
-            hora_entrada=data["hora_entrada"],
-            hora_salida=data["hora_salida"],
-            horas=data["horas"],
-            orden="",
-            realizado=data["realizado"],
-            codigo_acta=data["codigo_acta"],
-            problema_solucionado=data["problema_solucionado"],
-            cotizacion=data["cotizacion"],
-            observacion=data["observacion"],
-            pendiente=data["pendiente"],
-            omt=data["omt"],
-            creado_por=usuario,
-        )
+        tecnico_id = data.get("tecnico_id")
+        if not tecnico_id and data.get("tecnico_nombre"):
+            tecnico = Tecnico.objects.filter(
+                nombre__iexact=data["tecnico_nombre"]
+            ).first()
+            if not tecnico:
+                tecnico = Tecnico.objects.create(
+                    nombre=limpiar_texto(data["tecnico_nombre"])
+                )
+            tecnico_id = tecnico.id
 
-        creados += 1
+        valores = {
+            "estado_ticket": data["estado_ticket"],
+            "codigo": data["codigo"],
+            "cliente": data["cliente"] or "SIN CLIENTE",
+            "ciudad": data.get("ciudad", ""),
+            "direccion": data["direccion"] or "",
+            "tipo_servicio": data["tipo_servicio"],
+            "tipo_falla": data["tipo_falla"] or None,
+            "tecnico_id": tecnico_id,
+            "fecha_inicio": data["fecha_inicio"],
+            "fecha_fin": data["fecha_fin"],
+            "hora_entrada": data["hora_entrada"],
+            "hora_salida": data["hora_salida"],
+            "horas": data["horas"],
+            "realizado": data["realizado"],
+            "codigo_acta": data["codigo_acta"],
+            "problema_solucionado": data["problema_solucionado"],
+            "cotizacion": data["cotizacion"],
+            "observacion": data["observacion"],
+            "pendiente": data["pendiente"],
+            "omt": data["omt"],
+        }
+
+        if existente:
+            for campo, valor in valores.items():
+                setattr(existente, campo, valor)
+            existente.save()
+            actualizados += 1
+        else:
+            Mantenimiento.objects.create(
+                numero_ticket=data["numero_ticket"],
+                orden="",
+                creado_por=usuario,
+                **valores,
+            )
+            creados += 1
 
     return {
         "creados": creados,
+        "actualizados": actualizados,
         "repetidos": repetidos,
         "errores": errores,
     }
