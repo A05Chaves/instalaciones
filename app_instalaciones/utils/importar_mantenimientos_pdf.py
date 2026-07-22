@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from pypdf import PdfReader
 from django.db import transaction
+from django.utils import timezone
 
 from app_instalaciones.models import Mantenimiento, Tecnico, CuadroInsta
 
@@ -437,12 +438,13 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
 
         tecnico_id = data.get("tecnico_id")
         if not tecnico_id and data.get("tecnico_nombre"):
+            nombre_tecnico = limpiar_texto(data["tecnico_nombre"])[:100]
             tecnico = Tecnico.objects.filter(
-                nombre__iexact=data["tecnico_nombre"]
+                nombre__iexact=nombre_tecnico
             ).first()
             if not tecnico:
                 tecnico = Tecnico.objects.create(
-                    nombre=limpiar_texto(data["tecnico_nombre"])
+                    nombre=nombre_tecnico
                 )
             tecnico_id = tecnico.id
 
@@ -468,6 +470,15 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
             "pendiente": data["pendiente"],
             "omt": data["omt"],
         }
+
+        # PostgreSQL aplica estrictamente max_length; algunos PDF contienen
+        # columnas unidas o texto residual más largo que el campo del modelo.
+        for campo, valor in valores.items():
+            if isinstance(valor, str):
+                nombre_campo = campo[:-3] if campo.endswith("_id") else campo
+                max_length = Mantenimiento._meta.get_field(nombre_campo).max_length
+                if max_length:
+                    valores[campo] = valor[:max_length]
 
         if existente:
             for campo, valor in valores.items():
@@ -512,9 +523,17 @@ def restaurar_resultados_desde_session(resultados):
 
         if data.get("fecha_inicio"):
             data["fecha_inicio"] = datetime.fromisoformat(data["fecha_inicio"])
+            if timezone.is_naive(data["fecha_inicio"]):
+                data["fecha_inicio"] = timezone.make_aware(
+                    data["fecha_inicio"], timezone.get_current_timezone()
+                )
 
         if data.get("fecha_fin"):
             data["fecha_fin"] = datetime.fromisoformat(data["fecha_fin"])
+            if timezone.is_naive(data["fecha_fin"]):
+                data["fecha_fin"] = timezone.make_aware(
+                    data["fecha_fin"], timezone.get_current_timezone()
+                )
 
         if data.get("hora_entrada"):
             data["hora_entrada"] = datetime.fromisoformat(

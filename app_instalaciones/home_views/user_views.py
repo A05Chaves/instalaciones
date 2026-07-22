@@ -8,6 +8,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User, Group
+from django.contrib.auth.forms import UserCreationForm
 from django.forms.models import model_to_dict
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
@@ -925,42 +926,96 @@ def configuracion_usuarios(request):
     for nombre in grupos_base:
         Group.objects.get_or_create(name=nombre)
 
+    formulario_creacion = UserCreationForm()
+
     if request.method == 'POST':
-        usuario_id = request.POST.get('usuario_id')
-        grupo_id = request.POST.get('grupo_id')
-        tecnico_id = request.POST.get('tecnico_id')
+        accion = request.POST.get('accion', 'actualizar_usuario')
 
-        usuario = get_object_or_404(User, id=usuario_id)
-        if grupo_id:
-            grupo = get_object_or_404(Group, id=grupo_id)
-            usuario.groups.clear()
-            usuario.groups.add(grupo)
+        if accion == 'crear_usuario':
+            formulario_creacion = UserCreationForm(request.POST)
+            grupo_id = request.POST.get('grupo_id')
+            tecnico_id = request.POST.get('tecnico_id')
+            grupo = Group.objects.filter(id=grupo_id).first()
+            tecnico = None
 
-        tecnico = None
-        if tecnico_id:
-            tecnico = get_object_or_404(Tecnico, id=tecnico_id)
-            if tecnico.usuario and tecnico.usuario != usuario:
-                messages.error(request, "Ese técnico ya está vinculado a otro usuario.")
+            if not grupo:
+                formulario_creacion.add_error(None, "Debes seleccionar un rol.")
+
+            if tecnico_id:
+                tecnico = get_object_or_404(Tecnico, id=tecnico_id)
+                if tecnico.usuario:
+                    formulario_creacion.add_error(
+                        None, "Ese técnico ya está vinculado a otro usuario."
+                    )
+
+            if grupo and grupo.name == 'Tecnico' and not tecnico:
+                formulario_creacion.add_error(
+                    None, "El rol Técnico debe estar vinculado a un técnico."
+                )
+
+            if formulario_creacion.is_valid():
+                usuario = formulario_creacion.save(commit=False)
+                usuario.first_name = (request.POST.get('first_name') or '').strip()
+                usuario.last_name = (request.POST.get('last_name') or '').strip()
+                usuario.email = (request.POST.get('email') or '').strip()
+                usuario.is_staff = False
+                usuario.is_superuser = False
+                usuario.save()
+
+                usuario.groups.add(grupo)
+
+                if tecnico:
+                    tecnico.usuario = usuario
+                    tecnico.save(update_fields=['usuario'])
+
+                messages.success(
+                    request, f"Usuario {usuario.username} creado correctamente."
+                )
                 return redirect('configuracion_usuarios')
-        Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)).update(usuario=None)
-        if tecnico:
-            tecnico.usuario = usuario
-            tecnico.save(update_fields=["usuario"])
 
-        messages.success(
-            request,
-            f"Rol actualizado para el usuario {usuario.username}."
-        )
+            messages.error(
+                request, "No se pudo crear el usuario. Revisa los campos indicados."
+            )
 
-        return redirect('configuracion_usuarios')
+        else:
+            usuario_id = request.POST.get('usuario_id')
+            grupo_id = request.POST.get('grupo_id')
+            tecnico_id = request.POST.get('tecnico_id')
+
+            usuario = get_object_or_404(User, id=usuario_id)
+            if grupo_id:
+                grupo = get_object_or_404(Group, id=grupo_id)
+                usuario.groups.clear()
+                usuario.groups.add(grupo)
+
+            tecnico = None
+            if tecnico_id:
+                tecnico = get_object_or_404(Tecnico, id=tecnico_id)
+                if tecnico.usuario and tecnico.usuario != usuario:
+                    messages.error(request, "Ese técnico ya está vinculado a otro usuario.")
+                    return redirect('configuracion_usuarios')
+            Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)).update(usuario=None)
+            if tecnico:
+                tecnico.usuario = usuario
+                tecnico.save(update_fields=["usuario"])
+
+            messages.success(
+                request,
+                f"Rol actualizado para el usuario {usuario.username}."
+            )
+
+            return redirect('configuracion_usuarios')
 
     usuarios = User.objects.all().order_by('username')
     grupos = Group.objects.filter(name__in=grupos_base).order_by('name')
+    for campo in formulario_creacion.fields.values():
+        campo.widget.attrs['class'] = 'form-control'
 
     return render(request, 'configuracion_usuarios.html', {
         'usuarios': usuarios,
         'grupos': grupos,
         'tecnicos': Tecnico.objects.select_related("usuario").order_by("nombre"),
+        'formulario_creacion': formulario_creacion,
     })
 
 

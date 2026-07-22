@@ -13,6 +13,8 @@ from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
     extraer_mantenimiento_desde_texto,
     importar_resultados_pdf,
+    preparar_resultados_para_session,
+    restaurar_resultados_desde_session,
 )
 
 
@@ -202,6 +204,36 @@ class PermisosMantenimientosTests(TestCase):
         self.assertTrue(Mantenimiento.objects.filter(pk=mantenimiento.pk).exists())
 
 
+class ConfiguracionUsuariosTests(TestCase):
+    def test_superusuario_crea_tecnico_sin_acceso_a_admin_django(self):
+        administrador = User.objects.create_superuser(
+            "superconfig", "super@example.com", "ClaveSegura-4567"
+        )
+        tecnico = Tecnico.objects.create(nombre="Técnico creado")
+        grupo = Group.objects.create(name="Tecnico")
+        self.client.force_login(administrador)
+
+        response = self.client.post(reverse("configuracion_usuarios"), {
+            "accion": "crear_usuario",
+            "username": "nuevo_tecnico",
+            "first_name": "Nuevo",
+            "last_name": "Técnico",
+            "email": "tecnico@example.com",
+            "password1": "ClaveTecnico-9876",
+            "password2": "ClaveTecnico-9876",
+            "grupo_id": grupo.pk,
+            "tecnico_id": tecnico.pk,
+        })
+
+        self.assertRedirects(response, reverse("configuracion_usuarios"))
+        usuario = User.objects.get(username="nuevo_tecnico")
+        tecnico.refresh_from_db()
+        self.assertEqual(tecnico.usuario, usuario)
+        self.assertTrue(usuario.groups.filter(name="Tecnico").exists())
+        self.assertFalse(usuario.is_staff)
+        self.assertFalse(usuario.is_superuser)
+
+
 class PortalTecnicoTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user("tecnico_movil", password="prueba123")
@@ -342,3 +374,36 @@ class ImportacionMantenimientosPdfTests(TestCase):
 
         self.assertEqual(mantenimiento.duracion_servicio, "01:30")
         self.assertEqual(sin_tiempos.duracion_servicio, "")
+
+    def test_restauracion_convierte_fechas_pdf_a_zona_horaria(self):
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+        resultados = preparar_resultados_para_session([{"data": data}])
+
+        restaurados = restaurar_resultados_desde_session(resultados)
+
+        self.assertTrue(timezone.is_aware(restaurados[0]["data"]["fecha_inicio"]))
+        self.assertTrue(timezone.is_aware(restaurados[0]["data"]["fecha_fin"]))
+
+    def test_importacion_recorta_textos_al_limite_de_postgresql(self):
+        usuario = User.objects.create_user("importador_largo", password="prueba123")
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_ASIGNADO)
+        data.update({
+            "numero_ticket": "LARGO-1",
+            "codigo": "C" * 80,
+            "cliente": "Cliente " * 30,
+            "direccion": "Dirección " * 30,
+            "omt": "O" * 180,
+            "tecnico_nombre": "T" * 140,
+            "tecnico_id": None,
+            "ciudad": "Pasto",
+        })
+
+        resumen = importar_resultados_pdf([{"data": data}], usuario)
+
+        mantenimiento = Mantenimiento.objects.get(numero_ticket="LARGO-1")
+        self.assertEqual(resumen["creados"], 1)
+        self.assertEqual(len(mantenimiento.codigo), 50)
+        self.assertEqual(len(mantenimiento.cliente), 100)
+        self.assertEqual(len(mantenimiento.direccion), 100)
+        self.assertEqual(len(mantenimiento.omt), 100)
+        self.assertEqual(len(mantenimiento.tecnico.nombre), 100)

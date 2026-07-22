@@ -31,6 +31,87 @@ Configuración de usuarios
     {% endfor %}
 {% endif %}
 
+<div class="card border-0 shadow mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="fas fa-user-plus me-2"></i>
+        Crear usuario
+    </div>
+    <div class="card-body">
+        <form method="POST" class="row g-3">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="crear_usuario">
+
+            {% if formulario_creacion.non_field_errors %}
+                <div class="col-12 alert alert-danger mb-0">
+                    {{ formulario_creacion.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Usuario</label>
+                {{ formulario_creacion.username }}
+                <div class="text-danger small">{{ formulario_creacion.username.errors }}</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Nombres</label>
+                <input type="text" name="first_name" class="form-control"
+                       value="{{ request.POST.first_name|default:'' }}">
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Apellidos</label>
+                <input type="text" name="last_name" class="form-control"
+                       value="{{ request.POST.last_name|default:'' }}">
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Correo</label>
+                <input type="email" name="email" class="form-control"
+                       value="{{ request.POST.email|default:'' }}">
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Contraseña</label>
+                {{ formulario_creacion.password1 }}
+                <div class="text-danger small">{{ formulario_creacion.password1.errors }}</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Confirmar contraseña</label>
+                {{ formulario_creacion.password2 }}
+                <div class="text-danger small">{{ formulario_creacion.password2.errors }}</div>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label fw-semibold">Rol</label>
+                <select name="grupo_id" class="form-select" required>
+                    <option value="">Seleccione...</option>
+                    {% for grupo in grupos %}
+                        <option value="{{ grupo.id }}"
+                            {% if request.POST.grupo_id == grupo.id|stringformat:'s' %}selected{% endif %}>
+                            {{ grupo.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-5">
+                <label class="form-label fw-semibold">Vincular técnico (opcional)</label>
+                <select name="tecnico_id" class="form-select">
+                    <option value="">Sin técnico vinculado</option>
+                    {% for tecnico in tecnicos %}
+                        {% if not tecnico.usuario_id %}
+                            <option value="{{ tecnico.id }}"
+                                {% if request.POST.tecnico_id == tecnico.id|stringformat:'s' %}selected{% endif %}>
+                                {{ tecnico.nombre }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-user-plus me-1"></i> Crear usuario
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card border-0 shadow">
     <div class="card-header bg-dark text-white">
         <i class="fas fa-users-cog me-2"></i>
@@ -78,6 +159,7 @@ Configuración de usuarios
                             {% else %}
                                 <form method="POST" class="d-flex gap-2">
                                     {% csrf_token %}
+                                    <input type="hidden" name="accion" value="actualizar_usuario">
 
                                     <input type="hidden" name="usuario_id" value="{{ usuario.id }}">
 
