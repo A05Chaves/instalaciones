@@ -56,20 +56,26 @@
 
     <template id="plantilla-servicio">
         <article class="servicio">
-            <div class="servicio-cabecera">
+            <button type="button" class="resumen-servicio" aria-expanded="false">
                 <div><small class="referencia"></small><h3 class="cliente"></h3></div>
-                <span class="estado"></span>
-            </div>
-            <p class="fecha"></p>
-            <p class="direccion"></p>
-            <p class="detalle"></p>
-            <p class="pendiente"></p>
-            <label>Novedad
-                <textarea class="novedad" rows="2" placeholder="Registra aquí una novedad"></textarea>
-            </label>
-            <div class="acciones">
-                <button type="button" class="boton iniciar">Iniciar servicio</button>
-                <button type="button" class="boton boton-exito finalizar">Finalizar servicio</button>
+                <span class="resumen-derecha">
+                    <span class="estado"></span>
+                    <span class="flecha" aria-hidden="true">⌄</span>
+                </span>
+            </button>
+            <div class="detalle-servicio oculto">
+                <p class="fecha"></p>
+                <p class="direccion"></p>
+                <p class="detalle"></p>
+                <p class="pendiente"></p>
+                <label>Novedad
+                    <textarea class="novedad" rows="2" placeholder="Registra aquí una novedad"></textarea>
+                </label>
+                <div class="acciones">
+                    <button type="button" class="boton boton-secundario guardar-novedad">Guardar novedad</button>
+                    <button type="button" class="boton iniciar">Iniciar servicio</button>
+                    <button type="button" class="boton boton-exito finalizar">Finalizar servicio</button>
+                </div>
             </div>
         </article>
     </template>

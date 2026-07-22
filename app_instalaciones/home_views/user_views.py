@@ -531,13 +531,23 @@ def api_servicios_tecnico(request):
 
     ahora = timezone.now()
     mantenimiento.estado_operativo = estado
-    mantenimiento.novedad = str(data.get("novedad", mantenimiento.novedad or ""))[:5000]
+    novedad_anterior = mantenimiento.novedad or ""
+    novedad_nueva = str(data.get("novedad", novedad_anterior)).strip()[:5000]
+    mantenimiento.novedad = novedad_nueva
+    if novedad_nueva and novedad_nueva != novedad_anterior:
+        fecha_nota = timezone.localtime(ahora).strftime("%Y-%m-%d %H:%M")
+        nota = f"[NOTA TÉCNICO - {tecnico.nombre} - {fecha_nota}] {novedad_nueva}"
+        observacion_actual = (mantenimiento.observacion or "").strip()
+        mantenimiento.observacion = (
+            f"{observacion_actual}\n{nota}" if observacion_actual else nota
+        )
     if estado == "EN_PROCESO" and not mantenimiento.fecha_inicio:
         mantenimiento.fecha_inicio = ahora
         mantenimiento.hora_entrada = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
     if estado == "FINALIZADO" and not mantenimiento.fecha_fin:
         mantenimiento.fecha_fin = ahora
         mantenimiento.hora_salida = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+        mantenimiento.realizado = timezone.localdate()
         if mantenimiento.fecha_inicio:
             mantenimiento.horas = round(
                 (mantenimiento.fecha_fin - mantenimiento.fecha_inicio).total_seconds() / 3600, 2

@@ -270,6 +270,35 @@ class PortalTecnicoTests(TestCase):
         self.servicio.refresh_from_db()
         self.assertEqual(self.servicio.estado_operativo, "EN_PROCESO")
         self.assertIsNotNone(self.servicio.fecha_inicio)
+        self.assertEqual(self.servicio.novedad, "En sitio")
+        self.assertIn("[NOTA TÉCNICO - Técnico móvil -", self.servicio.observacion)
+        self.assertIn("En sitio", self.servicio.observacion)
+        self.assertEqual(response.json()["servicio"]["codigo"], "MOV-001")
+
+        self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "FINALIZADO", "novedad": "En sitio"}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.observacion.count("[NOTA TÉCNICO"), 1)
+
+    def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
+        self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": "En sitio"}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        administrador = User.objects.create_user("admin_tabla", password="prueba123")
+        grupo = Group.objects.create(name="Administrador")
+        administrador.groups.add(grupo)
+        self.client.force_login(administrador)
+
+        response = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertContains(response, "Estado móvil")
+        self.assertContains(response, "En proceso")
+        self.assertContains(response, "En sitio")
 
     def test_tecnico_no_puede_actualizar_servicio_ajeno(self):
         ajeno = Mantenimiento.objects.get(codigo="AJENO-001")

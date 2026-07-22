@@ -81,7 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const nodo = plantilla.content.cloneNode(true);
             const articulo = nodo.querySelector("article");
             articulo.dataset.estado = servicio.estado;
-            nodo.querySelector(".referencia").textContent = servicio.ticket ? `Ticket ${servicio.ticket}` : servicio.codigo;
+            nodo.querySelector(".referencia").textContent =
+                `Código cliente: ${servicio.codigo || "Sin código"}` +
+                (servicio.ticket ? ` · Ticket: ${servicio.ticket}` : "");
             nodo.querySelector(".cliente").textContent = servicio.cliente;
             nodo.querySelector(".estado").textContent = servicio.estado.replace("_", " ");
             nodo.querySelector(".fecha").textContent = servicio.fecha_programada ? `📅 ${servicio.fecha_programada}` : "📅 Sin fecha programada";
@@ -89,11 +91,20 @@ document.addEventListener("DOMContentLoaded", () => {
             nodo.querySelector(".detalle").textContent = `${servicio.tipo_servicio}${servicio.tipo_falla ? ` · ${servicio.tipo_falla}` : ""}`;
             const pendiente = nodo.querySelector(".pendiente");
             pendiente.textContent = servicio.pendiente ? `Pendiente: ${servicio.pendiente}` : "";
+            const resumen = nodo.querySelector(".resumen-servicio");
+            const detalleServicio = nodo.querySelector(".detalle-servicio");
+            resumen.addEventListener("click", () => {
+                const abierto = resumen.getAttribute("aria-expanded") === "true";
+                resumen.setAttribute("aria-expanded", String(!abierto));
+                detalleServicio.classList.toggle("oculto", abierto);
+            });
             const novedad = nodo.querySelector(".novedad"); novedad.value = servicio.novedad || "";
+            const guardarNovedad = nodo.querySelector(".guardar-novedad");
             const iniciar = nodo.querySelector(".iniciar");
             const finalizar = nodo.querySelector(".finalizar");
             iniciar.disabled = servicio.estado !== "PENDIENTE";
             finalizar.disabled = servicio.estado === "FINALIZADO";
+            guardarNovedad.addEventListener("click", () => cambiarEstado(servicio, servicio.estado, novedad.value));
             iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
             lista.appendChild(nodo);
@@ -128,7 +139,11 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             if (!navigator.onLine) throw new Error("offline");
             const respuesta = await enviar(payload);
-            if (!respuesta.ok) throw new Error("servidor");
+            if (respuesta.status === 404) {
+                mensaje("El servicio fue reasignado y ya no puedes actualizarlo.");
+                return sincronizar();
+            }
+            if (!respuesta.ok || respuesta.redirected) throw new Error("servidor");
             const data = await respuesta.json();
             Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios);
             mensaje("Servicio actualizado.");
@@ -142,9 +157,12 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const cambio of await colaCompleta()) {
             try {
                 const respuesta = await enviar(cambio.payload);
-                if (respuesta.ok || respuesta.status === 404 || respuesta.status === 403) {
+                if (respuesta.ok || respuesta.status === 404) {
                     await quitarCola(cambio.clave);
                     if (!respuesta.ok) mensaje("Un cambio no se aplicó porque el servicio fue reasignado.");
+                } else {
+                    mensaje("Hay cambios pendientes que el servidor todavía no aceptó.");
+                    break;
                 }
             } catch (_) { break; }
         }

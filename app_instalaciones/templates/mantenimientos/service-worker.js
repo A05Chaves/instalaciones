@@ -1,4 +1,4 @@
-const CACHE = "sesur-tecnico-v1";
+const CACHE = "sesur-tecnico-v3";
 const SHELL = [
   "{% url 'portal_tecnico' %}",
   "/static/sesur/css/portal_tecnico.css",

@@ -176,9 +176,15 @@ Mantenimientos - App_Sesur
             Mantenimientos registrados
         </strong>
 
-        <span class="badge bg-primary">
-            Total: {{ mantenimientos|length }}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-light btn-sm"
+                    onclick="window.location.reload()" title="Actualizar cambios del portal móvil">
+                <i class="fas fa-sync-alt me-1"></i> Actualizar tabla
+            </button>
+            <span class="badge bg-primary">
+                Total: {{ mantenimientos|length }}
+            </span>
+        </div>
     </div>
 
     <div class="card-body p-0">
@@ -221,6 +227,8 @@ Mantenimientos - App_Sesur
                         <th>Observación</th>
                         <th>Técnico</th>
                         <th>Programado</th>
+                        <th>Estado móvil</th>
+                        <th>Novedad técnico</th>
                         <th>Entrada</th>
                         <th>Salida</th>
                         <th>Duración</th>
@@ -300,7 +308,7 @@ Mantenimientos - App_Sesur
 
                         <td title="{{ m.observacion|default:'' }}">
                             <span class="view-mode">
-                                {{ m.observacion|default:"Sin observación"|truncatechars:45 }}
+                                {{ m.observacion|default:"Sin observación"|truncatechars:80 }}
                             </span>
 
                             <textarea class="edit-mode form-control form-control-sm d-none"
@@ -341,6 +349,20 @@ Mantenimientos - App_Sesur
                             <input class="edit-mode form-control form-control-sm d-none"
                                    type="date" name="fecha_programada"
                                    value="{{ m.fecha_programada|date:'Y-m-d' }}">
+                        </td>
+
+                        <td class="text-center">
+                            {% if m.estado_operativo == "FINALIZADO" %}
+                                <span class="badge bg-success">Finalizado</span>
+                            {% elif m.estado_operativo == "EN_PROCESO" %}
+                                <span class="badge bg-primary">En proceso</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% endif %}
+                        </td>
+
+                        <td title="{{ m.novedad|default:'' }}">
+                            {{ m.novedad|default:"---"|truncatechars:55 }}
                         </td>
 
                         <td>{{ m.hora_entrada|time:"H:i"|default:"---" }}</td>
@@ -418,7 +440,7 @@ Mantenimientos - App_Sesur
                     {% empty %}
 
                     <tr>
-                        <td colspan="17" class="text-center text-muted py-4">
+                        <td colspan="19" class="text-center text-muted py-4">
                             No existen mantenimientos registrados.
                         </td>
                     </tr>
