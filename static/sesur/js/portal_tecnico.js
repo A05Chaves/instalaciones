@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let visibles = servicios;
         if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
         if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
+        if (filtro === "EJECUCION") visibles = servicios.filter(s => s.estado === "EN_PROCESO");
         if (terminoBusqueda) {
             visibles = visibles.filter(servicio => [
                 servicio.codigo, servicio.ticket, servicio.cliente,
@@ -79,12 +80,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 servicio.tipo_falla, servicio.estado,
             ].some(valor => String(valor || "").toLocaleLowerCase("es").includes(terminoBusqueda)));
         }
-        document.getElementById("titulo-lista").textContent = filtro === "HOY" ? "Servicios de hoy" : filtro === "PENDIENTE" ? "Servicios pendientes" : "Todos los servicios";
+        document.getElementById("titulo-lista").textContent = filtro === "HOY" ? "Servicios de hoy" : filtro === "PENDIENTE" ? "Servicios pendientes" : filtro === "EJECUCION" ? "Servicio en ejecución" : "Todos los servicios";
         document.getElementById("total-servicios").textContent = visibles.length;
         lista.innerHTML = "";
         if (!visibles.length) {
             lista.innerHTML = '<p class="vacio">No hay servicios en esta sección.</p>'; return;
         }
+        const servicioEnEjecucion = servicios.find(s => s.estado === "EN_PROCESO");
         visibles.forEach(servicio => {
             const nodo = plantilla.content.cloneNode(true);
             const articulo = nodo.querySelector("article");
@@ -107,15 +109,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 detalleServicio.classList.toggle("oculto", abierto);
             });
             const novedad = nodo.querySelector(".novedad"); novedad.value = servicio.novedad || "";
-            const guardarNovedad = nodo.querySelector(".guardar-novedad");
             const iniciar = nodo.querySelector(".iniciar");
             const finalizar = nodo.querySelector(".finalizar");
-            iniciar.disabled = servicio.estado !== "PENDIENTE";
-            finalizar.disabled = servicio.estado === "FINALIZADO";
             const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
-            guardarNovedad.disabled = bloqueado;
             novedad.disabled = bloqueado;
-            guardarNovedad.addEventListener("click", () => cambiarEstado(servicio, servicio.estado, novedad.value));
+            iniciar.disabled = servicio.estado !== "PENDIENTE" || Boolean(servicioEnEjecucion);
+            iniciar.title = servicioEnEjecucion && servicio.estado === "PENDIENTE"
+                ? "Finaliza el servicio en ejecución antes de iniciar otro."
+                : "";
+            const actualizarFinalizar = () => {
+                finalizar.disabled = servicio.estado !== "EN_PROCESO" || !novedad.value.trim();
+                finalizar.title = servicio.estado === "EN_PROCESO" && !novedad.value.trim()
+                    ? "Escribe la novedad antes de finalizar."
+                    : "";
+            };
+            actualizarFinalizar();
+            novedad.addEventListener("input", actualizarFinalizar);
             iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
             lista.appendChild(nodo);
@@ -145,6 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     async function cambiarEstado(servicio, estado, novedad) {
         const payload = {id: servicio.id, estado, novedad};
+        const estadoAnterior = servicio.estado;
         servicio.estado = estado; servicio.novedad = novedad;
         await guardar("datos", "servicios", servicios); render();
         try {
@@ -153,6 +163,13 @@ document.addEventListener("DOMContentLoaded", () => {
             if (respuesta.status === 404) {
                 mensaje("El servicio fue reasignado y ya no puedes actualizarlo.");
                 return sincronizar();
+            }
+            if (respuesta.status === 400 || respuesta.status === 409) {
+                servicio.estado = estadoAnterior;
+                const error = await respuesta.json().catch(() => ({}));
+                render();
+                mensaje(error.error || "El servidor no aceptó el cambio.");
+                return;
             }
             if (!respuesta.ok || respuesta.redirected) throw new Error("servidor");
             const data = await respuesta.json();
@@ -168,9 +185,12 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const cambio of await colaCompleta()) {
             try {
                 const respuesta = await enviar(cambio.payload);
-                if (respuesta.ok || respuesta.status === 404) {
+                if (respuesta.ok || respuesta.status === 400 || respuesta.status === 404 || respuesta.status === 409) {
                     await quitarCola(cambio.clave);
-                    if (!respuesta.ok) mensaje("Un cambio no se aplicó porque el servicio fue reasignado.");
+                    if (!respuesta.ok) {
+                        const error = await respuesta.json().catch(() => ({}));
+                        mensaje(error.error || "Un cambio pendiente no pudo aplicarse.");
+                    }
                 } else {
                     mensaje("Hay cambios pendientes que el servidor todavía no aceptó.");
                     break;

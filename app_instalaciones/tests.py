@@ -288,6 +288,11 @@ class PortalTecnicoTests(TestCase):
         Ciudad.objects.create(nombre="Pasto")
         self.client.post(
             reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        self.client.post(
+            reverse("api_servicios_tecnico"),
             data='{"id": %d, "estado": "FINALIZADO", "novedad": "Terminado"}' % self.servicio.pk,
             content_type="application/json",
         )
@@ -314,6 +319,55 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(segundo_cambio.status_code, 409)
         self.servicio.refresh_from_db()
         self.assertEqual(self.servicio.orden, "OT-987")
+
+    def test_no_permite_dos_servicios_en_ejecucion(self):
+        segundo = Mantenimiento.objects.create(
+            codigo="MOV-002", cliente="Segundo", ciudad="Pasto",
+            direccion="Calle 2", tecnico=self.tecnico,
+            fecha_programada=timezone.localdate(),
+        )
+        primero = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        intento_segundo = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % segundo.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(primero.status_code, 200)
+        self.assertEqual(intento_segundo.status_code, 409)
+        segundo.refresh_from_db()
+        self.assertEqual(segundo.estado_operativo, "PENDIENTE")
+
+    def test_finalizar_exige_novedad(self):
+        self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "FINALIZADO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.estado_operativo, "EN_PROCESO")
+
+    def test_asignacion_sin_fecha_se_programa_automaticamente(self):
+        servicio = Mantenimiento.objects.create(
+            codigo="SIN-FECHA", cliente="Sin fecha", direccion="Calle 3"
+        )
+
+        registrar_cambio_tecnico(servicio, None, self.tecnico, self.usuario)
+
+        servicio.refresh_from_db()
+        self.assertEqual(servicio.fecha_programada, timezone.localdate())
 
     def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
         self.client.post(

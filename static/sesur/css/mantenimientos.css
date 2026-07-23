@@ -35,6 +35,48 @@
     white-space: nowrap;
 }
 
+#tabla-mantenimientos .col-cliente,
+#tabla-mantenimientos .col-direccion,
+#tabla-mantenimientos .col-observacion {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+
+#tabla-mantenimientos .col-cliente {
+    width: 175px;
+    min-width: 175px;
+    max-width: 175px;
+}
+
+#tabla-mantenimientos .col-direccion {
+    width: 195px;
+    min-width: 195px;
+    max-width: 195px;
+}
+
+#tabla-mantenimientos .col-observacion {
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
+}
+
+#tabla-mantenimientos .col-observacion .view-mode {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+}
+
+#tabla-mantenimientos .col-cliente .form-control,
+#tabla-mantenimientos .col-direccion .form-control,
+#tabla-mantenimientos .col-observacion .form-control {
+    width: 100%;
+    min-width: 0;
+}
+
 .tabla-mantenimientos-scroll::-webkit-scrollbar {
     width: 13px;
     height: 13px;

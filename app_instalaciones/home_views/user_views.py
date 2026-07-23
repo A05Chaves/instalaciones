@@ -110,6 +110,11 @@ def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
         tecnico_nuevo=nuevo,
         cambiado_por=usuario,
     )
+    if nuevo and not mantenimiento.fecha_programada:
+        mantenimiento.fecha_programada = timezone.localdate()
+        Mantenimiento.objects.filter(pk=mantenimiento.pk).update(
+            fecha_programada=mantenimiento.fecha_programada
+        )
     referencia = mantenimiento.numero_ticket or mantenimiento.codigo
     if anterior:
         NotificacionTecnico.objects.create(
@@ -526,6 +531,10 @@ def api_servicios_tecnico(request):
 
     if request.method == "GET":
         hoy = timezone.localdate()
+        Mantenimiento.objects.filter(
+            tecnico=tecnico,
+            fecha_programada__isnull=True,
+        ).update(fecha_programada=hoy)
         servicios = Mantenimiento.objects.filter(tecnico=tecnico).filter(
             Q(fecha_programada=hoy) | ~Q(estado_operativo="FINALIZADO")
         ).order_by("fecha_programada", "cliente")
@@ -569,9 +578,27 @@ def api_servicios_tecnico(request):
         return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
 
     ahora = timezone.now()
-    mantenimiento.estado_operativo = estado
     novedad_anterior = mantenimiento.novedad or ""
     novedad_nueva = str(data.get("novedad", novedad_anterior)).strip()[:5000]
+    if estado == "FINALIZADO" and mantenimiento.estado_operativo != "EN_PROCESO":
+        return JsonResponse(
+            {"ok": False, "error": "Debes iniciar el servicio antes de finalizarlo."},
+            status=409,
+        )
+    if estado == "FINALIZADO" and not novedad_nueva:
+        return JsonResponse(
+            {"ok": False, "error": "Debes registrar la novedad antes de finalizar."},
+            status=400,
+        )
+    if estado == "EN_PROCESO" and Mantenimiento.objects.filter(
+        tecnico=tecnico,
+        estado_operativo="EN_PROCESO",
+    ).exclude(pk=mantenimiento.pk).exists():
+        return JsonResponse(
+            {"ok": False, "error": "Debes finalizar el servicio en ejecución antes de iniciar otro."},
+            status=409,
+        )
+    mantenimiento.estado_operativo = estado
     mantenimiento.novedad = novedad_nueva
     if novedad_nueva and novedad_nueva != novedad_anterior:
         fecha_nota = timezone.localtime(ahora).strftime("%Y-%m-%d %H:%M")

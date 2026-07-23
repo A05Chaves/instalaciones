@@ -219,12 +219,12 @@ Mantenimientos - App_Sesur
                     <tr>
                         <th>Fecha</th>
                         <th>Código</th>
-                        <th>Cliente</th>
+                        <th class="col-cliente">Cliente</th>
                         <th>Ciudad</th>
-                        <th>Dirección</th>
+                        <th class="col-direccion">Dirección</th>
                         <th>Servicio</th>
                         <th>Tipo de falla</th>
-                        <th>Observación</th>
+                        <th class="col-observacion">Observación</th>
                         <th>Técnico</th>
                         <th>Programado</th>
                         <th>Estado móvil</th>
@@ -248,7 +248,7 @@ Mantenimientos - App_Sesur
 
                         <td>{{ m.codigo }}</td>
 
-                        <td>
+                        <td class="col-cliente">
                             <span class="view-mode">{{ m.cliente }}</span>
                             <input class="edit-mode form-control form-control-sm d-none"
                                    name="cliente"
@@ -262,7 +262,7 @@ Mantenimientos - App_Sesur
                                    value="{{ m.ciudad }}">
                         </td>
 
-                        <td>
+                        <td class="col-direccion">
                             <span class="view-mode">{{ m.direccion }}</span>
                             <input class="edit-mode form-control form-control-sm d-none"
                                    name="direccion"
@@ -306,7 +306,7 @@ Mantenimientos - App_Sesur
                             </select>
                         </td>
 
-                        <td title="{{ m.observacion|default:'' }}">
+                        <td class="col-observacion" title="{{ m.observacion|default:'' }}">
                             <span class="view-mode">
                                 {{ m.observacion|default:"Sin observación"|truncatechars:80 }}
                             </span>
