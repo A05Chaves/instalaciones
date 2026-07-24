@@ -229,8 +229,8 @@ Mantenimientos - App_Sesur
                         <th>Programado</th>
                         <th>Estado móvil</th>
                         <th>Novedad técnico</th>
-                        <th>Entrada</th>
-                        <th>Salida</th>
+                        <th>Inicio técnico</th>
+                        <th>Fin técnico</th>
                         <th>Duración</th>
                         <th>Orden</th>
                         <th>Realizado</th>
@@ -365,8 +365,22 @@ Mantenimientos - App_Sesur
                             {{ m.novedad|default:"---"|truncatechars:55 }}
                         </td>
 
-                        <td>{{ m.hora_entrada|time:"H:i"|default:"---" }}</td>
-                        <td>{{ m.hora_salida|time:"H:i"|default:"---" }}</td>
+                        <td>
+                            {% if m.fecha_inicio %}
+                                {{ m.fecha_inicio|date:"Y-m-d" }}
+                                <small class="d-block text-muted">{{ m.fecha_inicio|date:"H:i" }}</small>
+                            {% else %}
+                                ---
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if m.fecha_fin %}
+                                {{ m.fecha_fin|date:"Y-m-d" }}
+                                <small class="d-block text-muted">{{ m.fecha_fin|date:"H:i" }}</small>
+                            {% else %}
+                                ---
+                            {% endif %}
+                        </td>
                         <td>{{ m.duracion_servicio|default:"---" }}</td>
 
                         <td class="campo-orden">

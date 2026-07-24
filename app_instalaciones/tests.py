@@ -369,6 +369,37 @@ class PortalTecnicoTests(TestCase):
         servicio.refresh_from_db()
         self.assertEqual(servicio.fecha_programada, timezone.localdate())
 
+    def test_conserva_fecha_y_hora_reales_del_dispositivo(self):
+        inicio = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data=(
+                '{"id": %d, "estado": "EN_PROCESO", "novedad": "", '
+                '"fecha_evento": "2026-07-24T14:15:00.000Z"}'
+            ) % self.servicio.pk,
+            content_type="application/json",
+        )
+        fin = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data=(
+                '{"id": %d, "estado": "FINALIZADO", "novedad": "Trabajo terminado", '
+                '"fecha_evento": "2026-07-24T15:45:00.000Z"}'
+            ) % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(inicio.status_code, 200)
+        self.assertEqual(fin.status_code, 200)
+        self.servicio.refresh_from_db()
+        inicio_local = timezone.localtime(self.servicio.fecha_inicio)
+        fin_local = timezone.localtime(self.servicio.fecha_fin)
+        self.assertEqual((inicio_local.hour, inicio_local.minute), (9, 15))
+        self.assertEqual((fin_local.hour, fin_local.minute), (10, 45))
+        self.assertEqual(self.servicio.hora_entrada.strftime("%H:%M"), "09:15")
+        self.assertEqual(self.servicio.hora_salida.strftime("%H:%M"), "10:45")
+        self.assertEqual(str(self.servicio.horas), "1.50")
+        self.assertEqual(self.servicio.realizado.isoformat(), "2026-07-24")
+        self.assertIn("2026-07-24 10:45", self.servicio.observacion)
+
     def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
         self.client.post(
             reverse("api_servicios_tecnico"),

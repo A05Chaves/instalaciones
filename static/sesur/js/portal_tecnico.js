@@ -99,6 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
             nodo.querySelector(".fecha").textContent = servicio.fecha_programada ? `📅 ${servicio.fecha_programada}` : "📅 Sin fecha programada";
             nodo.querySelector(".direccion").textContent = `📍 ${servicio.direccion}${servicio.ciudad ? `, ${servicio.ciudad}` : ""}`;
             nodo.querySelector(".detalle").textContent = `${servicio.tipo_servicio}${servicio.tipo_falla ? ` · ${servicio.tipo_falla}` : ""}`;
+            const tiempos = [];
+            if (servicio.inicio) tiempos.push(`Inicio: ${new Date(servicio.inicio).toLocaleString("es-CO")}`);
+            if (servicio.fin) tiempos.push(`Finalización: ${new Date(servicio.fin).toLocaleString("es-CO")}`);
+            nodo.querySelector(".tiempos").textContent = tiempos.join(" · ");
             const pendiente = nodo.querySelector(".pendiente");
             pendiente.textContent = servicio.pendiente ? `Pendiente: ${servicio.pendiente}` : "";
             const resumen = nodo.querySelector(".resumen-servicio");
@@ -153,7 +157,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     async function cambiarEstado(servicio, estado, novedad) {
-        const payload = {id: servicio.id, estado, novedad};
+        const payload = {
+            id: servicio.id,
+            estado,
+            novedad,
+            fecha_evento: new Date().toISOString(),
+        };
         const estadoAnterior = servicio.estado;
         servicio.estado = estado; servicio.novedad = novedad;
         await guardar("datos", "servicios", servicios); render();

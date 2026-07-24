@@ -15,6 +15,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from openpyxl import Workbook
@@ -578,6 +579,15 @@ def api_servicios_tecnico(request):
         return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
 
     ahora = timezone.now()
+    fecha_evento = parse_datetime(str(data.get("fecha_evento") or ""))
+    if fecha_evento:
+        if timezone.is_naive(fecha_evento):
+            fecha_evento = timezone.make_aware(
+                fecha_evento, timezone.get_current_timezone()
+            )
+    else:
+        fecha_evento = ahora
+    fecha_evento_local = timezone.localtime(fecha_evento)
     novedad_anterior = mantenimiento.novedad or ""
     novedad_nueva = str(data.get("novedad", novedad_anterior)).strip()[:5000]
     if estado == "FINALIZADO" and mantenimiento.estado_operativo != "EN_PROCESO":
@@ -601,20 +611,24 @@ def api_servicios_tecnico(request):
     mantenimiento.estado_operativo = estado
     mantenimiento.novedad = novedad_nueva
     if novedad_nueva and novedad_nueva != novedad_anterior:
-        fecha_nota = timezone.localtime(ahora).strftime("%Y-%m-%d %H:%M")
+        fecha_nota = fecha_evento_local.strftime("%Y-%m-%d %H:%M")
         nota = f"[NOTA TÉCNICO - {tecnico.nombre} - {fecha_nota}] {novedad_nueva}"
         observacion_actual = (mantenimiento.observacion or "").strip()
         mantenimiento.observacion = (
             f"{observacion_actual}\n{nota}" if observacion_actual else nota
         )
     if estado == "EN_PROCESO" and not mantenimiento.fecha_inicio:
-        mantenimiento.fecha_inicio = ahora
-        mantenimiento.hora_entrada = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+        mantenimiento.fecha_inicio = fecha_evento
+        mantenimiento.hora_entrada = fecha_evento_local.time().replace(
+            second=0, microsecond=0
+        )
     if estado == "FINALIZADO":
-        mantenimiento.realizado = mantenimiento.realizado or timezone.localdate()
+        mantenimiento.realizado = mantenimiento.realizado or fecha_evento_local.date()
         if not mantenimiento.fecha_fin:
-            mantenimiento.fecha_fin = ahora
-            mantenimiento.hora_salida = timezone.localtime(ahora).time().replace(second=0, microsecond=0)
+            mantenimiento.fecha_fin = fecha_evento
+            mantenimiento.hora_salida = fecha_evento_local.time().replace(
+                second=0, microsecond=0
+            )
         if mantenimiento.fecha_inicio and mantenimiento.fecha_fin:
             mantenimiento.horas = round(
                 (mantenimiento.fecha_fin - mantenimiento.fecha_inicio).total_seconds() / 3600, 2

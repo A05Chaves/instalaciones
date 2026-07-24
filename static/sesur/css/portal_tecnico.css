@@ -29,6 +29,7 @@ main { max-width: 760px; margin: auto; padding: 1rem; }
 .detalle-servicio { padding: 0 1rem 1rem; border-top: 1px solid #e2e8f0; }
 .servicio h3 { margin: .15rem 0; font-size: 1.05rem; }
 .servicio p { margin: .55rem 0; line-height: 1.35; }
+.tiempos { color: #334155; font-size: .88rem; font-weight: 700; }
 .estado { font-size: .72rem; font-weight: 800; background: #e2e8f0; padding: .3rem .5rem; border-radius: 1rem; white-space: nowrap; }
 label { display: block; font-size: .85rem; font-weight: 700; margin-top: .8rem; }
 textarea { width: 100%; margin-top: .35rem; border: 1px solid #cbd5e1; border-radius: .6rem; padding: .65rem; font: inherit; }
