@@ -269,7 +269,7 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.servicio.refresh_from_db()
         self.assertEqual(self.servicio.estado_operativo, "EN_PROCESO")
-        self.assertIsNotNone(self.servicio.fecha_inicio)
+        self.assertIsNotNone(self.servicio.inicio_tecnico)
         self.assertEqual(self.servicio.novedad, "En sitio")
         self.assertIn("[NOTA TÉCNICO - Técnico móvil -", self.servicio.observacion)
         self.assertIn("En sitio", self.servicio.observacion)
@@ -370,11 +370,20 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(servicio.fecha_programada, timezone.localdate())
 
     def test_conserva_fecha_y_hora_reales_del_dispositivo(self):
+        self.servicio.fecha_inicio = timezone.make_aware(
+            datetime(2026, 7, 15, 15, 10)
+        )
+        self.servicio.fecha_fin = timezone.make_aware(
+            datetime(2026, 7, 15, 15, 48)
+        )
+        self.servicio.horas = "0.63"
+        self.servicio.save()
+
         inicio = self.client.post(
             reverse("api_servicios_tecnico"),
             data=(
                 '{"id": %d, "estado": "EN_PROCESO", "novedad": "", '
-                '"fecha_evento": "2026-07-24T14:15:00.000Z"}'
+                '"fecha_evento": "2026-07-24T14:15:00.000Z", "registrado_offline": true}'
             ) % self.servicio.pk,
             content_type="application/json",
         )
@@ -382,7 +391,7 @@ class PortalTecnicoTests(TestCase):
             reverse("api_servicios_tecnico"),
             data=(
                 '{"id": %d, "estado": "FINALIZADO", "novedad": "Trabajo terminado", '
-                '"fecha_evento": "2026-07-24T15:45:00.000Z"}'
+                '"fecha_evento": "2026-07-24T14:15:35.000Z", "registrado_offline": true}'
             ) % self.servicio.pk,
             content_type="application/json",
         )
@@ -390,15 +399,16 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(inicio.status_code, 200)
         self.assertEqual(fin.status_code, 200)
         self.servicio.refresh_from_db()
-        inicio_local = timezone.localtime(self.servicio.fecha_inicio)
-        fin_local = timezone.localtime(self.servicio.fecha_fin)
+        inicio_local = timezone.localtime(self.servicio.inicio_tecnico)
+        fin_local = timezone.localtime(self.servicio.fin_tecnico)
         self.assertEqual((inicio_local.hour, inicio_local.minute), (9, 15))
-        self.assertEqual((fin_local.hour, fin_local.minute), (10, 45))
-        self.assertEqual(self.servicio.hora_entrada.strftime("%H:%M"), "09:15")
-        self.assertEqual(self.servicio.hora_salida.strftime("%H:%M"), "10:45")
-        self.assertEqual(str(self.servicio.horas), "1.50")
+        self.assertEqual((fin_local.hour, fin_local.minute, fin_local.second), (9, 15, 35))
+        self.assertEqual(self.servicio.hora_entrada.strftime("%H:%M:%S"), "09:15:00")
+        self.assertEqual(self.servicio.hora_salida.strftime("%H:%M:%S"), "09:15:35")
+        self.assertEqual(str(self.servicio.horas), "0.01")
+        self.assertEqual(self.servicio.duracion_servicio, "00:00:35")
         self.assertEqual(self.servicio.realizado.isoformat(), "2026-07-24")
-        self.assertIn("2026-07-24 10:45", self.servicio.observacion)
+        self.assertIn("2026-07-24 09:15", self.servicio.observacion)
 
     def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
         self.client.post(
@@ -459,6 +469,7 @@ class ImportacionMantenimientosPdfTests(TestCase):
     DATOS DEL CLIENTE Problema solucionado: SI DATOS COTIZACIÓN Cotizacion: NO
     Trabajo realizado: se configura el tiempo de entrada FIRMA CLIENTE
     MÁS DETALLES Fecha Fin : 2026-07-0308:59:51 PROGRAMACION FINALIZADA
+    Creado: 2026-07-20 06:04:33
     Creado por:
     """
 
@@ -472,6 +483,10 @@ class ImportacionMantenimientosPdfTests(TestCase):
         self.assertEqual(finalizado["tecnico_nombre"], "DIEGO COLIMBA")
         self.assertEqual(finalizado["tipo_falla"], "PROGRAMACION")
         self.assertEqual(str(finalizado["horas"]), "0.36")
+        self.assertEqual(
+            finalizado["fecha_creacion_servicio"],
+            datetime(2026, 7, 20, 6, 4, 33),
+        )
         self.assertEqual(
             finalizado["observacion"],
             "se configura el tiempo de entrada",
@@ -510,7 +525,7 @@ class ImportacionMantenimientosPdfTests(TestCase):
             horas=data["horas"],
         )
 
-        self.assertEqual(mantenimiento.duracion_servicio, "00:22")
+        self.assertEqual(mantenimiento.duracion_servicio, "00:21:52")
 
     def test_muestra_duracion_manual_y_deja_vacio_si_no_hay_tiempos(self):
         mantenimiento = Mantenimiento(
@@ -519,7 +534,7 @@ class ImportacionMantenimientosPdfTests(TestCase):
         )
         sin_tiempos = Mantenimiento()
 
-        self.assertEqual(mantenimiento.duracion_servicio, "01:30")
+        self.assertEqual(mantenimiento.duracion_servicio, "01:30:00")
         self.assertEqual(sin_tiempos.duracion_servicio, "")
 
     def test_restauracion_convierte_fechas_pdf_a_zona_horaria(self):
@@ -554,3 +569,8 @@ class ImportacionMantenimientosPdfTests(TestCase):
         self.assertEqual(len(mantenimiento.direccion), 100)
         self.assertEqual(len(mantenimiento.omt), 100)
         self.assertEqual(len(mantenimiento.tecnico.nombre), 100)
+        self.assertIsNotNone(mantenimiento.fecha_creacion_servicio)
+        self.assertEqual(
+            timezone.localtime(mantenimiento.fecha_creacion_servicio).date(),
+            timezone.localdate(),
+        )

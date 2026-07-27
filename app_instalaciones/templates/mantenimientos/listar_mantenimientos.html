@@ -244,7 +244,7 @@ Mantenimientos - App_Sesur
 
                     <tr data-id="{{ m.id }}">
 
-                        <td>{{ m.fecha_registro|date:"Y-m-d H:i" }}</td>
+                        <td>{{ m.fecha_visible|date:"Y-m-d H:i" }}</td>
 
                         <td>{{ m.codigo }}</td>
 
@@ -366,17 +366,17 @@ Mantenimientos - App_Sesur
                         </td>
 
                         <td>
-                            {% if m.fecha_inicio %}
-                                {{ m.fecha_inicio|date:"Y-m-d" }}
-                                <small class="d-block text-muted">{{ m.fecha_inicio|date:"H:i" }}</small>
+                            {% if m.inicio_tecnico and m.estado_operativo != "PENDIENTE" %}
+                                {{ m.inicio_tecnico|date:"Y-m-d" }}
+                                <small class="d-block text-muted">{{ m.inicio_tecnico|date:"H:i:s" }}</small>
                             {% else %}
                                 ---
                             {% endif %}
                         </td>
                         <td>
-                            {% if m.fecha_fin %}
-                                {{ m.fecha_fin|date:"Y-m-d" }}
-                                <small class="d-block text-muted">{{ m.fecha_fin|date:"H:i" }}</small>
+                            {% if m.fin_tecnico and m.estado_operativo == "FINALIZADO" %}
+                                {{ m.fin_tecnico|date:"Y-m-d" }}
+                                <small class="d-block text-muted">{{ m.fin_tecnico|date:"H:i:s" }}</small>
                             {% else %}
                                 ---
                             {% endif %}

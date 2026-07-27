@@ -508,8 +508,12 @@ def _serializar_servicio_tecnico(mantenimiento):
         "novedad": mantenimiento.novedad or "",
         "observacion": mantenimiento.observacion or "",
         "pendiente": mantenimiento.pendiente or "",
-        "inicio": mantenimiento.fecha_inicio.isoformat() if mantenimiento.fecha_inicio else "",
-        "fin": mantenimiento.fecha_fin.isoformat() if mantenimiento.fecha_fin else "",
+        "inicio": mantenimiento.inicio_tecnico.isoformat() if (
+            mantenimiento.inicio_tecnico and mantenimiento.estado_operativo != "PENDIENTE"
+        ) else "",
+        "fin": mantenimiento.fin_tecnico.isoformat() if (
+            mantenimiento.fin_tecnico and mantenimiento.estado_operativo == "FINALIZADO"
+        ) else "",
         "bloqueado": mantenimiento.estado_operativo == "FINALIZADO" or bool(mantenimiento.orden),
     }
 
@@ -579,18 +583,20 @@ def api_servicios_tecnico(request):
         return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
 
     ahora = timezone.now()
-    fecha_evento = parse_datetime(str(data.get("fecha_evento") or ""))
-    if fecha_evento:
-        if timezone.is_naive(fecha_evento):
-            fecha_evento = timezone.make_aware(
-                fecha_evento, timezone.get_current_timezone()
-            )
-    else:
-        fecha_evento = ahora
+    fecha_evento = ahora
+    if data.get("registrado_offline"):
+        fecha_offline = parse_datetime(str(data.get("fecha_evento") or ""))
+        if fecha_offline:
+            if timezone.is_naive(fecha_offline):
+                fecha_offline = timezone.make_aware(
+                    fecha_offline, timezone.get_current_timezone()
+                )
+            fecha_evento = fecha_offline
     fecha_evento_local = timezone.localtime(fecha_evento)
+    estado_anterior = mantenimiento.estado_operativo
     novedad_anterior = mantenimiento.novedad or ""
     novedad_nueva = str(data.get("novedad", novedad_anterior)).strip()[:5000]
-    if estado == "FINALIZADO" and mantenimiento.estado_operativo != "EN_PROCESO":
+    if estado == "FINALIZADO" and estado_anterior != "EN_PROCESO":
         return JsonResponse(
             {"ok": False, "error": "Debes iniciar el servicio antes de finalizarlo."},
             status=409,
@@ -617,21 +623,24 @@ def api_servicios_tecnico(request):
         mantenimiento.observacion = (
             f"{observacion_actual}\n{nota}" if observacion_actual else nota
         )
-    if estado == "EN_PROCESO" and not mantenimiento.fecha_inicio:
-        mantenimiento.fecha_inicio = fecha_evento
+    if estado == "EN_PROCESO" and estado_anterior != "EN_PROCESO":
+        mantenimiento.inicio_tecnico = fecha_evento
         mantenimiento.hora_entrada = fecha_evento_local.time().replace(
-            second=0, microsecond=0
+            microsecond=0
         )
+        mantenimiento.fin_tecnico = None
+        mantenimiento.hora_salida = None
+        mantenimiento.horas = None
+        mantenimiento.realizado = None
     if estado == "FINALIZADO":
-        mantenimiento.realizado = mantenimiento.realizado or fecha_evento_local.date()
-        if not mantenimiento.fecha_fin:
-            mantenimiento.fecha_fin = fecha_evento
-            mantenimiento.hora_salida = fecha_evento_local.time().replace(
-                second=0, microsecond=0
-            )
-        if mantenimiento.fecha_inicio and mantenimiento.fecha_fin:
+        mantenimiento.realizado = fecha_evento_local.date()
+        mantenimiento.fin_tecnico = fecha_evento
+        mantenimiento.hora_salida = fecha_evento_local.time().replace(
+            microsecond=0
+        )
+        if mantenimiento.inicio_tecnico and mantenimiento.fin_tecnico:
             mantenimiento.horas = round(
-                (mantenimiento.fecha_fin - mantenimiento.fecha_inicio).total_seconds() / 3600, 2
+                (mantenimiento.fin_tecnico - mantenimiento.inicio_tecnico).total_seconds() / 3600, 2
             )
     mantenimiento.save()
     return JsonResponse({"ok": True, "servicio": _serializar_servicio_tecnico(mantenimiento)})
@@ -1148,8 +1157,8 @@ def exportar_mantenimientos(request):
 
     for m in mantenimientos:
         ws.append([
-            m.fecha_registro.strftime(
-                "%Y-%m-%d %H:%M") if m.fecha_registro else "",
+            timezone.localtime(m.fecha_visible).strftime(
+                "%Y-%m-%d %H:%M") if m.fecha_visible else "",
             m.codigo or "",
             m.cliente or "",
             m.ciudad or "",

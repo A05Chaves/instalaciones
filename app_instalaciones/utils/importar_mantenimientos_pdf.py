@@ -271,6 +271,11 @@ def extraer_mantenimiento_desde_texto(texto):
         texto
     )
 
+    fecha_creado_txt = buscar_regex(
+        r"\bCreado\s*:\s*(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
+        texto
+    )
+
     codigo_acta = buscar_regex(r"Codigo Acta\s*:\s*([A-Za-z0-9\-]+)", texto)
 
     problema_solucionado = buscar_regex(
@@ -297,6 +302,7 @@ def extraer_mantenimiento_desde_texto(texto):
 
     fecha_inicio = convertir_fecha_hora(fecha_inicio_txt)
     fecha_fin = convertir_fecha_hora(fecha_fin_txt)
+    fecha_creacion_servicio = convertir_fecha_hora(fecha_creado_txt)
 
     tipo_servicio = normalizar_servicio(tipo_servicio_pdf or tipo_falla_pdf)
     tipo_falla = normalizar_falla(tipo_falla_pdf)
@@ -314,6 +320,7 @@ def extraer_mantenimiento_desde_texto(texto):
         "tipo_falla": tipo_falla,
         "fecha_inicio": fecha_inicio,
         "fecha_fin": fecha_fin,
+        "fecha_creacion_servicio": fecha_creacion_servicio,
         "hora_entrada": fecha_inicio.time() if fecha_inicio else None,
         "hora_salida": fecha_fin.time() if fecha_fin else None,
         "horas": horas,
@@ -451,6 +458,14 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
                 )
             tecnico_id = tecnico.id
 
+        fecha_creacion_servicio = (
+            data.get("fecha_creacion_servicio") or timezone.now()
+        )
+        if timezone.is_naive(fecha_creacion_servicio):
+            fecha_creacion_servicio = timezone.make_aware(
+                fecha_creacion_servicio, timezone.get_current_timezone()
+            )
+
         valores = {
             "estado_ticket": data["estado_ticket"],
             "codigo": data["codigo"],
@@ -462,6 +477,7 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
             "tecnico_id": tecnico_id,
             "fecha_inicio": data["fecha_inicio"],
             "fecha_fin": data["fecha_fin"],
+            "fecha_creacion_servicio": fecha_creacion_servicio,
             "hora_entrada": data["hora_entrada"],
             "hora_salida": data["hora_salida"],
             "horas": data["horas"],
@@ -509,7 +525,7 @@ def preparar_resultados_para_session(resultados):
     for item in resultados:
         data = item["data"]
 
-        for campo in ["fecha_inicio", "fecha_fin", "hora_entrada", "hora_salida", "realizado"]:
+        for campo in ["fecha_creacion_servicio", "fecha_inicio", "fecha_fin", "hora_entrada", "hora_salida", "realizado"]:
             valor = data.get(campo)
             if valor:
                 data[campo] = valor.isoformat()
@@ -523,6 +539,15 @@ def preparar_resultados_para_session(resultados):
 def restaurar_resultados_desde_session(resultados):
     for item in resultados:
         data = item["data"]
+
+        if data.get("fecha_creacion_servicio"):
+            data["fecha_creacion_servicio"] = datetime.fromisoformat(
+                data["fecha_creacion_servicio"]
+            )
+            if timezone.is_naive(data["fecha_creacion_servicio"]):
+                data["fecha_creacion_servicio"] = timezone.make_aware(
+                    data["fecha_creacion_servicio"], timezone.get_current_timezone()
+                )
 
         if data.get("fecha_inicio"):
             data["fecha_inicio"] = datetime.fromisoformat(data["fecha_inicio"])

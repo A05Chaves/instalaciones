@@ -280,6 +280,7 @@ class Mantenimiento(models.Model):
     fecha_orden = models.DateTimeField(null=True, blank=True)
     realizado = models.DateField(null=True, blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_creacion_servicio = models.DateTimeField(null=True, blank=True, db_index=True)
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
     numero_ticket = models.CharField(
@@ -308,6 +309,9 @@ class Mantenimiento(models.Model):
         blank=True
     )
 
+    inicio_tecnico = models.DateTimeField(null=True, blank=True)
+    fin_tecnico = models.DateTimeField(null=True, blank=True)
+
     codigo_acta = models.CharField(
         max_length=50,
         null=True,
@@ -334,29 +338,40 @@ class Mantenimiento(models.Model):
 
     @property
     def duracion_servicio(self):
-        """Devuelve la duración en formato HH:MM sin cambiar el valor decimal."""
-        minutos = None
+        """Devuelve la duración en formato HH:MM:SS sin cambiar el valor decimal."""
+        segundos_totales = None
 
-        if self.fecha_inicio and self.fecha_fin:
+        if self.inicio_tecnico and self.fin_tecnico:
+            segundos = (self.fin_tecnico - self.inicio_tecnico).total_seconds()
+            if segundos > 0:
+                segundos_totales = round(segundos)
+        elif self.estado_operativo != "PENDIENTE":
+            return ""
+        elif self.fecha_inicio and self.fecha_fin:
             segundos = (self.fecha_fin - self.fecha_inicio).total_seconds()
             if segundos > 0:
-                minutos = round(segundos / 60)
+                segundos_totales = round(segundos)
         elif self.hora_entrada and self.hora_salida:
             entrada = self.hora_entrada.hour * 60 + self.hora_entrada.minute
             salida = self.hora_salida.hour * 60 + self.hora_salida.minute
             if salida > entrada:
-                minutos = salida - entrada
+                segundos_totales = (salida - entrada) * 60
         elif self.horas is not None and self.horas > 0:
-            minutos = round(float(self.horas) * 60)
+            segundos_totales = round(float(self.horas) * 3600)
 
-        if minutos is None:
+        if segundos_totales is None:
             return ""
 
-        horas, minutos_restantes = divmod(minutos, 60)
-        return f"{horas:02d}:{minutos_restantes:02d}"
+        horas, resto = divmod(segundos_totales, 3600)
+        minutos, segundos = divmod(resto, 60)
+        return f"{horas:02d}:{minutos:02d}:{segundos:02d}"
 
     def __str__(self):
         return f"{self.fecha_registro.strftime('%Y-%m-%d %H:%M')} - {self.cliente}"
+
+    @property
+    def fecha_visible(self):
+        return self.fecha_creacion_servicio or self.fecha_registro
 
     def save(self, *args, **kwargs):
         if self.orden and not self.fecha_orden:

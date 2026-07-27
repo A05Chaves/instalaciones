@@ -162,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
             estado,
             novedad,
             fecha_evento: new Date().toISOString(),
+            registrado_offline: !navigator.onLine,
         };
         const estadoAnterior = servicio.estado;
         servicio.estado = estado; servicio.novedad = novedad;
@@ -185,6 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios);
             mensaje("Servicio actualizado.");
         } catch (_) {
+            payload.registrado_offline = true;
             await encolar(payload); mensaje("Cambio guardado en el dispositivo. Se enviará al recuperar conexión.");
         }
         actualizarRed();
