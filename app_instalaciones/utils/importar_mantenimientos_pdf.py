@@ -272,9 +272,21 @@ def extraer_mantenimiento_desde_texto(texto):
     )
 
     fecha_creado_txt = buscar_regex(
-        r"\bCreado\s*:\s*(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
+        r"\bCreado\s*:\s*(?:(?!Fecha\s+Visita|Materiales).){0,100}?"
+        r"(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
         texto
     )
+    if not fecha_creado_txt:
+        # En algunos PDF PyPDF ordena las columnas así:
+        # "Creado por: ... 2026-07-06 18:06:11 Creado:".
+        # La fecha sigue perteneciendo al campo Creado aunque la etiqueta quede
+        # después de su valor en el texto extraído.
+        fecha_creado_txt = buscar_regex(
+            r"\bCreado\s+por\s*:"
+            r"(?:(?!Fecha\s+Visita|Materiales).){0,300}?"
+            r"(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2}:\d{2})",
+            texto
+        )
 
     codigo_acta = buscar_regex(r"Codigo Acta\s*:\s*([A-Za-z0-9\-]+)", texto)
 
@@ -350,6 +362,19 @@ def analizar_pdf_mantenimientos(archivo_pdf, actualizar_existentes=False):
     for indice, page in enumerate(reader.pages, start=1):
         texto = page.extract_text() or ""
         data = extraer_mantenimiento_desde_texto(texto)
+
+        # Algunos reportes ponen "Creado:" en una página de continuación
+        # sin repetir el ticket. Esa fecha pertenece al último ticket leído.
+        if not data["numero_ticket"]:
+            fecha_continuacion = data.get("fecha_creacion_servicio")
+            if fecha_continuacion:
+                for resultado_anterior in reversed(resultados):
+                    data_anterior = resultado_anterior["data"]
+                    if data_anterior.get("numero_ticket"):
+                        if not data_anterior.get("fecha_creacion_servicio"):
+                            data_anterior["fecha_creacion_servicio"] = fecha_continuacion
+                        break
+            continue
 
         # El modo normal puede unir nombre y apellido cuando la columna es angosta.
         if data["tecnico_nombre"] and " " not in data["tecnico_nombre"]:

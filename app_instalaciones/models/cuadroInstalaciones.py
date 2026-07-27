@@ -206,7 +206,7 @@ class Mantenimiento(models.Model):
     ESTADO_OPERATIVO_CHOICES = [
         ("PENDIENTE", "Pendiente"),
         ("EN_PROCESO", "En proceso"),
-        ("FINALIZADO", "Finalizado"),
+        ("FINALIZADO", "Realizado"),
     ]
     # NUEVO: tipo de falla (para el select del template)
     TIPO_SERVICIO_CHOICES = [
@@ -374,6 +374,10 @@ class Mantenimiento(models.Model):
         return self.fecha_creacion_servicio or self.fecha_registro
 
     def save(self, *args, **kwargs):
+        # Una orden o fecha de realización también puede ser registrada por el
+        # operador cuando el técnico no pudo cerrar el servicio desde el móvil.
+        if self.orden or self.realizado:
+            self.estado_operativo = "FINALIZADO"
         if self.orden and not self.fecha_orden:
             self.fecha_orden = timezone.now()
         super().save(*args, **kwargs)

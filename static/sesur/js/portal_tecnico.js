@@ -95,7 +95,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 `Código cliente: ${servicio.codigo || "Sin código"}` +
                 (servicio.ticket ? ` · Ticket: ${servicio.ticket}` : "");
             nodo.querySelector(".cliente").textContent = servicio.cliente;
-            nodo.querySelector(".estado").textContent = servicio.estado.replace("_", " ");
+            nodo.querySelector(".estado").textContent = servicio.estado === "FINALIZADO"
+                ? "REALIZADO"
+                : servicio.estado.replace("_", " ");
             nodo.querySelector(".fecha").textContent = servicio.fecha_programada ? `📅 ${servicio.fecha_programada}` : "📅 Sin fecha programada";
             nodo.querySelector(".direccion").textContent = `📍 ${servicio.direccion}${servicio.ciudad ? `, ${servicio.ciudad}` : ""}`;
             nodo.querySelector(".detalle").textContent = `${servicio.tipo_servicio}${servicio.tipo_falla ? ` · ${servicio.tipo_falla}` : ""}`;

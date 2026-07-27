@@ -131,8 +131,8 @@ document.addEventListener("DOMContentLoaded", function () {
     function activarModoEdicion(tr, soloOrden = false) {
         if (soloOrden) {
             tr.classList.add("solo-orden");
-            tr.querySelectorAll(".campo-orden .view-mode").forEach(el => el.classList.add("d-none"));
-            tr.querySelectorAll(".campo-orden .edit-mode").forEach(el => el.classList.remove("d-none"));
+            tr.querySelectorAll(".campo-cierre .view-mode").forEach(el => el.classList.add("d-none"));
+            tr.querySelectorAll(".campo-cierre .edit-mode").forEach(el => el.classList.remove("d-none"));
             tr.classList.add("editing");
             return;
         }
@@ -143,8 +143,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function desactivarModoEdicion(tr) {
         if (tr.classList.contains("solo-orden")) {
-            tr.querySelectorAll(".campo-orden .view-mode").forEach(el => el.classList.remove("d-none"));
-            tr.querySelectorAll(".campo-orden .edit-mode").forEach(el => el.classList.add("d-none"));
+            tr.querySelectorAll(".campo-cierre .view-mode").forEach(el => el.classList.remove("d-none"));
+            tr.querySelectorAll(".campo-cierre .edit-mode").forEach(el => el.classList.add("d-none"));
             tr.classList.remove("solo-orden", "editing");
             return;
         }
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (data.ok) {
                     window.location.reload();
                 } else {
-                    alert("No se pudo guardar. Intenta nuevamente.");
+                    alert(data.error || "No se pudo guardar. Intenta nuevamente.");
                 }
             })
             .catch(error => {

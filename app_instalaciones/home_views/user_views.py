@@ -12,10 +12,11 @@ from django.contrib.auth.forms import UserCreationForm
 from django.forms.models import model_to_dict
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime, parse_time
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from openpyxl import Workbook
@@ -271,7 +272,10 @@ def listar_mantenimientos(request):
     mantenimientos = (
         Mantenimiento.objects
         .select_related("tecnico")
-        .order_by("-fecha_registro")
+        .annotate(fecha_ordenamiento=Coalesce(
+            "fecha_creacion_servicio", "fecha_registro"
+        ))
+        .order_by("-fecha_ordenamiento", "-pk")
     )
 
     if busqueda:
@@ -339,12 +343,62 @@ def buscar_instalacion_por_codigo(request):
 # vistas para edicion y subir archivos de mantenimientos
 
 
+def _aplicar_horas_manuales(mantenimiento, datos):
+    entrada_txt = (datos.get("hora_entrada") or "").strip()
+    salida_txt = (datos.get("hora_salida") or "").strip()
+    if not entrada_txt and not salida_txt:
+        return None
+    if not entrada_txt or not salida_txt:
+        return "Debe ingresar tanto la hora de entrada como la hora de salida."
+
+    entrada = parse_time(entrada_txt)
+    salida = parse_time(salida_txt)
+    fecha = parse_date((datos.get("realizado") or "").strip())
+    fecha = fecha or mantenimiento.realizado or timezone.localdate()
+    if not entrada or not salida:
+        return "Las horas de entrada y salida no tienen un formato válido."
+
+    inicio = timezone.make_aware(
+        datetime.combine(fecha, entrada), timezone.get_current_timezone()
+    )
+    fin = timezone.make_aware(
+        datetime.combine(fecha, salida), timezone.get_current_timezone()
+    )
+    if fin <= inicio:
+        return "La hora de salida debe ser posterior a la hora de entrada."
+
+    mantenimiento.realizado = fecha
+    mantenimiento.hora_entrada = entrada
+    mantenimiento.hora_salida = salida
+    mantenimiento.inicio_tecnico = inicio
+    mantenimiento.fin_tecnico = fin
+    mantenimiento.horas = round((fin - inicio).total_seconds() / 3600, 2)
+    return None
+
+
+def _aplicar_novedad_operador(mantenimiento, datos, usuario, novedad_anterior):
+    if "novedad" not in datos:
+        return
+    novedad = (datos.get("novedad") or "").strip()[:5000]
+    mantenimiento.novedad = novedad
+    if not novedad or novedad == novedad_anterior:
+        return
+
+    fecha_nota = timezone.localtime().strftime("%Y-%m-%d %H:%M")
+    nota = f"[NOTA OPERADOR - {usuario.username} - {fecha_nota}] {novedad}"
+    observacion_actual = (mantenimiento.observacion or "").strip()
+    mantenimiento.observacion = (
+        f"{nota}\n{observacion_actual}" if observacion_actual else nota
+    )
+
+
 @login_required
 @user_passes_test(puede_gestionar_mantenimientos, login_url='home')
 @require_POST
 def mantenimiento_actualizar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
     tecnico_anterior = m.tecnico
+    novedad_anterior = m.novedad or ""
 
     if m.orden:
         return JsonResponse(
@@ -359,7 +413,15 @@ def mantenimiento_actualizar(request, pk):
                 status=400,
             )
         m.orden = orden[:50]
-        m.realizado = m.realizado or timezone.localdate()
+        fecha_realizado = parse_date((request.POST.get("realizado") or "").strip())
+        m.realizado = fecha_realizado or m.realizado or timezone.localdate()
+        error_horas = _aplicar_horas_manuales(m, request.POST)
+        if error_horas:
+            return JsonResponse({"ok": False, "error": error_horas}, status=400)
+        _aplicar_novedad_operador(
+            m, request.POST, request.user, novedad_anterior
+        )
+        m.estado_operativo = "FINALIZADO"
         m.save()
         return JsonResponse({
             "ok": True,
@@ -371,6 +433,7 @@ def mantenimiento_actualizar(request, pk):
     campos_editables = {
         "cliente", "ciudad", "direccion", "tipo_servicio",
         "tipo_falla", "tecnico", "fecha_programada", "orden", "realizado",
+        "hora_entrada", "hora_salida", "novedad",
     }
     datos = model_to_dict(
         m,
@@ -394,6 +457,14 @@ def mantenimiento_actualizar(request, pk):
     m = form.save(commit=False)
     if m.orden and not m.realizado:
         m.realizado = timezone.now().date()
+    if m.orden or m.realizado:
+        m.estado_operativo = "FINALIZADO"
+    error_horas = _aplicar_horas_manuales(m, request.POST)
+    if error_horas:
+        return JsonResponse({"ok": False, "error": error_horas}, status=400)
+    _aplicar_novedad_operador(
+        m, request.POST, request.user, novedad_anterior
+    )
     m.save()
     registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 

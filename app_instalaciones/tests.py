@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
@@ -11,6 +12,7 @@ from app_instalaciones.models import (
 )
 from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
+    analizar_pdf_mantenimientos,
     extraer_mantenimiento_desde_texto,
     importar_resultados_pdf,
     preparar_resultados_para_session,
@@ -148,6 +150,35 @@ class ListaMantenimientosTests(TestCase):
         self.assertEqual(len(response.context["mantenimientos"]), 1)
         self.assertContains(response, "Cliente Pasto")
         self.assertNotContains(response, "Cliente Cali")
+
+    def test_ordena_por_fecha_del_servicio_del_mas_nuevo_al_mas_antiguo(self):
+        zona = timezone.get_current_timezone()
+        Mantenimiento.objects.filter(codigo="COD-001").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 6, 8, 0), zona
+            )
+        )
+        Mantenimiento.objects.filter(codigo="COD-002").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 20, 8, 0), zona
+            )
+        )
+
+        response = self.client.get(reverse("listar_mantenimientos"))
+        codigos = list(response.context["mantenimientos"].values_list(
+            "codigo", flat=True
+        ))
+
+        self.assertEqual(codigos, ["COD-002", "COD-001"])
+
+    def test_orden_registrada_por_operador_marca_el_servicio_realizado(self):
+        mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
+        mantenimiento.orden = "OT-123"
+        mantenimiento.save()
+        mantenimiento.refresh_from_db()
+
+        self.assertEqual(mantenimiento.estado_operativo, "FINALIZADO")
+        self.assertEqual(mantenimiento.get_estado_operativo_display(), "Realizado")
 
 
 class PermisosMantenimientosTests(TestCase):
@@ -303,7 +334,14 @@ class PortalTecnicoTests(TestCase):
 
         response = self.client.post(
             reverse("mantenimiento_actualizar", args=[self.servicio.pk]),
-            {"orden": "OT-987", "cliente": "Nombre no permitido"},
+            {
+                "orden": "OT-987",
+                "realizado": "2026-07-27",
+                "hora_entrada": "08:10:00",
+                "hora_salida": "09:25:00",
+                "novedad": "Se reemplazó el sensor y quedó funcionando.",
+                "cliente": "Nombre no permitido",
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -311,6 +349,21 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(self.servicio.orden, "OT-987")
         self.assertEqual(self.servicio.cliente, "Cliente móvil")
         self.assertIsNotNone(self.servicio.fecha_orden)
+        self.assertEqual(self.servicio.hora_entrada.strftime("%H:%M:%S"), "08:10:00")
+        self.assertEqual(self.servicio.hora_salida.strftime("%H:%M:%S"), "09:25:00")
+        self.assertEqual(self.servicio.duracion_servicio, "01:15:00")
+        self.assertEqual(self.servicio.realizado.isoformat(), "2026-07-27")
+        self.assertEqual(
+            self.servicio.novedad,
+            "Se reemplazó el sensor y quedó funcionando.",
+        )
+        self.assertIn("[NOTA OPERADOR - operador_orden -", self.servicio.observacion)
+        self.assertIn("Se reemplazó el sensor", self.servicio.observacion)
+        self.assertTrue(
+            self.servicio.observacion.startswith(
+                "[NOTA OPERADOR - operador_orden -"
+            )
+        )
 
         segundo_cambio = self.client.post(
             reverse("mantenimiento_actualizar", args=[self.servicio.pk]),
@@ -490,6 +543,48 @@ class ImportacionMantenimientosPdfTests(TestCase):
         self.assertEqual(
             finalizado["observacion"],
             "se configura el tiempo de entrada",
+        )
+
+    def test_asocia_fecha_creado_de_pagina_continuacion_al_ticket_anterior(self):
+        pagina_ticket = MagicMock()
+        pagina_ticket.extract_text.return_value = self.TEXTO_ASIGNADO
+        pagina_continuacion = MagicMock()
+        pagina_continuacion.extract_text.return_value = """
+            Creado por: RODRIGUEZ
+            Creado: Tecnico: 2026-07-06 18:06:11
+            Fecha Visita:
+            Materiales:
+        """
+
+        with patch(
+            "app_instalaciones.utils.importar_mantenimientos_pdf.PdfReader"
+        ) as lector:
+            lector.return_value.pages = [pagina_ticket, pagina_continuacion]
+            resultados = analizar_pdf_mantenimientos(MagicMock())
+
+        self.assertEqual(len(resultados), 1)
+        self.assertEqual(
+            resultados[0]["data"]["fecha_creacion_servicio"],
+            datetime(2026, 7, 6, 18, 6, 11),
+        )
+
+    def test_extrae_fecha_cuando_pypdf_pone_el_valor_antes_de_creado(self):
+        texto = """
+            Creado por:
+            Observación:
+            RODRIGUEZ
+            2026-07-06 18:06:11
+            Creado:
+            Fecha Visita:
+            Tecnico:
+            Materiales:
+        """
+
+        resultado = extraer_mantenimiento_desde_texto(texto)
+
+        self.assertEqual(
+            resultado["fecha_creacion_servicio"],
+            datetime(2026, 7, 6, 18, 6, 11),
         )
 
     def test_no_actualiza_ticket_cerrado_con_orden_manual(self):

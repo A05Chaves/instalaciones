@@ -353,7 +353,7 @@ Mantenimientos - App_Sesur
 
                         <td class="text-center">
                             {% if m.estado_operativo == "FINALIZADO" %}
-                                <span class="badge bg-success">Finalizado</span>
+                                <span class="badge bg-success">Realizado</span>
                             {% elif m.estado_operativo == "EN_PROCESO" %}
                                 <span class="badge bg-primary">En proceso</span>
                             {% else %}
@@ -361,29 +361,44 @@ Mantenimientos - App_Sesur
                             {% endif %}
                         </td>
 
-                        <td title="{{ m.novedad|default:'' }}">
-                            {{ m.novedad|default:"---"|truncatechars:55 }}
+                        <td class="campo-cierre" title="{{ m.novedad|default:'' }}">
+                            <span class="view-mode">
+                                {{ m.novedad|default:"---"|truncatechars:55 }}
+                            </span>
+                            <textarea class="edit-mode form-control form-control-sm d-none"
+                                      name="novedad" rows="2"
+                                      placeholder="Observación de lo realizado">{{ m.novedad|default:"" }}</textarea>
                         </td>
 
-                        <td>
+                        <td class="campo-cierre">
+                            <span class="view-mode">
                             {% if m.inicio_tecnico and m.estado_operativo != "PENDIENTE" %}
                                 {{ m.inicio_tecnico|date:"Y-m-d" }}
                                 <small class="d-block text-muted">{{ m.inicio_tecnico|date:"H:i:s" }}</small>
                             {% else %}
                                 ---
                             {% endif %}
+                            </span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   type="time" step="1" name="hora_entrada"
+                                   value="{{ m.hora_entrada|time:'H:i:s' }}">
                         </td>
-                        <td>
+                        <td class="campo-cierre">
+                            <span class="view-mode">
                             {% if m.fin_tecnico and m.estado_operativo == "FINALIZADO" %}
                                 {{ m.fin_tecnico|date:"Y-m-d" }}
                                 <small class="d-block text-muted">{{ m.fin_tecnico|date:"H:i:s" }}</small>
                             {% else %}
                                 ---
                             {% endif %}
+                            </span>
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   type="time" step="1" name="hora_salida"
+                                   value="{{ m.hora_salida|time:'H:i:s' }}">
                         </td>
                         <td>{{ m.duracion_servicio|default:"---" }}</td>
 
-                        <td class="campo-orden">
+                        <td class="campo-orden campo-cierre">
 
                             <span class="view-mode">
                                 {{ m.orden|default:"---" }}
@@ -400,7 +415,7 @@ Mantenimientos - App_Sesur
 
                         </td>
 
-                        <td>
+                        <td class="campo-cierre">
 
                             <span class="view-mode">
                                 {{ m.realizado|date:"Y-m-d" }}
