@@ -374,9 +374,17 @@ class Mantenimiento(models.Model):
         return self.fecha_creacion_servicio or self.fecha_registro
 
     def save(self, *args, **kwargs):
-        # Una orden o fecha de realización también puede ser registrada por el
-        # operador cuando el técnico no pudo cerrar el servicio desde el móvil.
-        if self.orden or self.realizado:
+        # El cierre manual solo es válido cuando el operador diligenció toda la
+        # información. Asignar un técnico o indicar únicamente una fecha no debe
+        # marcar el servicio como realizado.
+        cierre_operador_completo = all([
+            self.orden,
+            self.realizado,
+            self.hora_entrada,
+            self.hora_salida,
+            (self.novedad or "").strip(),
+        ])
+        if cierre_operador_completo:
             self.estado_operativo = "FINALIZADO"
         if self.orden and not self.fecha_orden:
             self.fecha_orden = timezone.now()

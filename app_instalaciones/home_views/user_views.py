@@ -455,16 +455,31 @@ def mantenimiento_actualizar(request, pk):
         )
 
     m = form.save(commit=False)
-    if m.orden and not m.realizado:
-        m.realizado = timezone.now().date()
-    if m.orden or m.realizado:
-        m.estado_operativo = "FINALIZADO"
     error_horas = _aplicar_horas_manuales(m, request.POST)
     if error_horas:
         return JsonResponse({"ok": False, "error": error_horas}, status=400)
     _aplicar_novedad_operador(
         m, request.POST, request.user, novedad_anterior
     )
+    if m.orden:
+        campos_faltantes = []
+        if not m.realizado:
+            campos_faltantes.append("fecha de realización")
+        if not m.hora_entrada:
+            campos_faltantes.append("hora de entrada")
+        if not m.hora_salida:
+            campos_faltantes.append("hora de salida")
+        if not (m.novedad or "").strip():
+            campos_faltantes.append("novedad técnico")
+        if campos_faltantes:
+            return JsonResponse({
+                "ok": False,
+                "error": (
+                    "Para cerrar el servicio debe completar: "
+                    + ", ".join(campos_faltantes) + "."
+                ),
+            }, status=400)
+        m.estado_operativo = "FINALIZADO"
     m.save()
     registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 
@@ -576,6 +591,13 @@ def _serializar_servicio_tecnico(mantenimiento):
         "tipo_falla": mantenimiento.get_tipo_falla_display() if mantenimiento.tipo_falla else "",
         "fecha_programada": mantenimiento.fecha_programada.isoformat() if mantenimiento.fecha_programada else "",
         "estado": mantenimiento.estado_operativo,
+        "estado_label": (
+            "REALIZADO"
+            if mantenimiento.estado_operativo == "FINALIZADO"
+            else "EN PROCESO"
+            if mantenimiento.estado_operativo == "EN_PROCESO"
+            else "ASIGNADO"
+        ),
         "novedad": mantenimiento.novedad or "",
         "observacion": mantenimiento.observacion or "",
         "pendiente": mantenimiento.pendiente or "",

@@ -356,6 +356,8 @@ Mantenimientos - App_Sesur
                                 <span class="badge bg-success">Realizado</span>
                             {% elif m.estado_operativo == "EN_PROCESO" %}
                                 <span class="badge bg-primary">En proceso</span>
+                            {% elif m.tecnico %}
+                                <span class="badge bg-warning text-dark">Asignado</span>
                             {% else %}
                                 <span class="badge bg-warning text-dark">Pendiente</span>
                             {% endif %}

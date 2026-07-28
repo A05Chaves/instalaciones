@@ -174,11 +174,28 @@ class ListaMantenimientosTests(TestCase):
     def test_orden_registrada_por_operador_marca_el_servicio_realizado(self):
         mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
         mantenimiento.orden = "OT-123"
+        mantenimiento.realizado = timezone.localdate()
+        mantenimiento.hora_entrada = time(8, 0)
+        mantenimiento.hora_salida = time(9, 0)
+        mantenimiento.novedad = "Servicio realizado desde plataforma"
         mantenimiento.save()
         mantenimiento.refresh_from_db()
 
         self.assertEqual(mantenimiento.estado_operativo, "FINALIZADO")
         self.assertEqual(mantenimiento.get_estado_operativo_display(), "Realizado")
+
+    def test_asignar_tecnico_no_cierra_el_servicio(self):
+        mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
+        tecnico = Tecnico.objects.create(nombre="Técnico asignado")
+        mantenimiento.tecnico = tecnico
+        mantenimiento.realizado = timezone.localdate()
+        mantenimiento.save()
+        mantenimiento.refresh_from_db()
+
+        self.assertEqual(mantenimiento.estado_operativo, "PENDIENTE")
+
+        response = self.client.get(reverse("listar_mantenimientos"))
+        self.assertContains(response, "Asignado")
 
 
 class PermisosMantenimientosTests(TestCase):
