@@ -508,6 +508,7 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
             "horas": data["horas"],
             "realizado": data["realizado"],
             "codigo_acta": data["codigo_acta"],
+            "orden": data["codigo_acta"] or "",
             "problema_solucionado": data["problema_solucionado"],
             "cotizacion": data["cotizacion"],
             "observacion": data["observacion"],
@@ -532,7 +533,6 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
         else:
             Mantenimiento.objects.create(
                 numero_ticket=data["numero_ticket"],
-                orden="",
                 creado_por=usuario,
                 **valores,
             )

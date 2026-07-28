@@ -54,6 +54,7 @@ Vista previa importación PDF
                     <th>Técnico</th>
                     <th>Inicio</th>
                     <th>Fin</th>
+                    <th>Orden / código acta</th>
                     <th>Descripción / trabajo</th>
                     <th>Resultado</th>
                 </tr>
@@ -71,6 +72,7 @@ Vista previa importación PDF
                     <td>{{ r.data.tecnico_nombre }}</td>
                     <td>{{ r.data.fecha_inicio|date:"Y-m-d H:i"|default:"-" }}</td>
                     <td>{{ r.data.fecha_fin|date:"Y-m-d H:i"|default:"-" }}</td>
+                    <td>{{ r.data.codigo_acta|default:"-" }}</td>
                     <td style="min-width: 260px;">{{ r.data.observacion|default:r.data.pendiente|truncatechars:120 }}</td>
                     <td>
                         {% if r.importable %}

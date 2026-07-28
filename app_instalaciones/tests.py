@@ -701,6 +701,18 @@ class ImportacionMantenimientosPdfTests(TestCase):
 
         self.assertEqual(mantenimiento.duracion_servicio, "00:21:52")
 
+    def test_codigo_acta_se_guarda_como_numero_de_orden(self):
+        usuario = User.objects.create_user("importador_acta", password="prueba123")
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+        data.update({"ciudad": "Pasto", "tecnico_id": None})
+
+        resumen = importar_resultados_pdf([{"data": data}], usuario)
+
+        mantenimiento = Mantenimiento.objects.get(numero_ticket="64511")
+        self.assertEqual(resumen["creados"], 1)
+        self.assertEqual(mantenimiento.codigo_acta, "159-800")
+        self.assertEqual(mantenimiento.orden, "159-800")
+
     def test_muestra_duracion_manual_y_deja_vacio_si_no_hay_tiempos(self):
         mantenimiento = Mantenimiento(
             hora_entrada=time(8, 15),
