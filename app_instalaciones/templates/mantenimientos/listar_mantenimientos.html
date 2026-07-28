@@ -404,7 +404,7 @@ Mantenimientos - App_Sesur
 
                         <td class="campo-cierre">
                             <span class="view-mode">
-                            {% if m.inicio_tecnico and m.estado_operativo != "PENDIENTE" %}
+                            {% if m.inicio_tecnico %}
                                 {{ m.inicio_tecnico|date:"Y-m-d" }}
                                 <small class="d-block text-muted">{{ m.inicio_tecnico|date:"H:i:s" }}</small>
                             {% else %}
@@ -417,7 +417,7 @@ Mantenimientos - App_Sesur
                         </td>
                         <td class="campo-cierre">
                             <span class="view-mode">
-                            {% if m.fin_tecnico and m.estado_operativo == "FINALIZADO" %}
+                            {% if m.fin_tecnico %}
                                 {{ m.fin_tecnico|date:"Y-m-d" }}
                                 <small class="d-block text-muted">{{ m.fin_tecnico|date:"H:i:s" }}</small>
                             {% else %}

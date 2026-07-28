@@ -252,6 +252,9 @@ class ListaMantenimientosTests(TestCase):
                 "codigo": "COD-SUPER",
                 "cliente": "Cliente corregido",
                 "tipo_falla": "OTRO",
+                "realizado": "2026-07-28",
+                "hora_entrada": "10:15:00",
+                "hora_salida": "11:40:00",
                 "estado_operativo": "PENDIENTE",
             },
         )
@@ -261,6 +264,22 @@ class ListaMantenimientosTests(TestCase):
         self.assertEqual(mantenimiento.codigo, "COD-SUPER")
         self.assertEqual(mantenimiento.cliente, "Cliente corregido")
         self.assertEqual(mantenimiento.estado_operativo, "PENDIENTE")
+        self.assertEqual(
+            timezone.localtime(mantenimiento.inicio_tecnico).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            "2026-07-28 10:15:00",
+        )
+        self.assertEqual(
+            timezone.localtime(mantenimiento.fin_tecnico).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            "2026-07-28 11:40:00",
+        )
+        self.assertEqual(mantenimiento.duracion_servicio, "01:25:00")
+        tabla = self.client.get(reverse("listar_mantenimientos"))
+        self.assertContains(tabla, "10:15:00")
+        self.assertContains(tabla, "11:40:00")
 
 
 class PermisosMantenimientosTests(TestCase):
