@@ -171,6 +171,41 @@ class ListaMantenimientosTests(TestCase):
 
         self.assertEqual(codigos, ["COD-002", "COD-001"])
 
+    def test_filtra_por_fecha_efectiva_del_mantenimiento(self):
+        zona = timezone.get_current_timezone()
+        Mantenimiento.objects.filter(codigo="COD-001").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 6, 8, 0), zona
+            )
+        )
+        Mantenimiento.objects.filter(codigo="COD-002").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 20, 8, 0), zona
+            )
+        )
+
+        response = self.client.get(
+            reverse("listar_mantenimientos"), {"fecha": "2026-07-20"}
+        )
+
+        codigos = list(response.context["mantenimientos"].values_list(
+            "codigo", flat=True
+        ))
+        self.assertEqual(codigos, ["COD-002"])
+
+    def test_filtra_por_estado_movil_asignado(self):
+        tecnico = Tecnico.objects.create(nombre="Técnico filtro")
+        Mantenimiento.objects.filter(codigo="COD-002").update(tecnico=tecnico)
+
+        response = self.client.get(
+            reverse("listar_mantenimientos"), {"estado_movil": "ASIGNADO"}
+        )
+
+        codigos = list(response.context["mantenimientos"].values_list(
+            "codigo", flat=True
+        ))
+        self.assertEqual(codigos, ["COD-002"])
+
     def test_orden_registrada_por_operador_marca_el_servicio_realizado(self):
         mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
         mantenimiento.orden = "OT-123"

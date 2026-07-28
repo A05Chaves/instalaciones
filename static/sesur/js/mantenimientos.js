@@ -1,6 +1,34 @@
 document.addEventListener("DOMContentLoaded", function () {
     const tabla = $("#tabla-mantenimientos");
 
+    const tablaMantenimientos = document.getElementById("tabla-mantenimientos");
+    if (tablaMantenimientos) {
+        const encabezados = Array.from(
+            tablaMantenimientos.querySelectorAll("thead th")
+        );
+        const indiceEstado = encabezados.findIndex(
+            th => th.textContent.trim() === "Estado móvil"
+        );
+        const indiceAccion = encabezados.findIndex(
+            th => th.textContent.trim() === "Acción"
+        );
+        if (indiceEstado >= 0 && indiceAccion >= 0) {
+            const filaEncabezado = encabezados[indiceEstado].parentElement;
+            filaEncabezado.insertBefore(
+                encabezados[indiceAccion],
+                encabezados[indiceEstado].nextSibling
+            );
+            tablaMantenimientos.querySelectorAll("tbody tr").forEach(fila => {
+                const celdas = Array.from(fila.children);
+                if (celdas.length > Math.max(indiceEstado, indiceAccion)) {
+                    fila.insertBefore(
+                        celdas[indiceAccion],
+                        celdas[indiceEstado].nextSibling
+                    );
+                }
+            });
+        }
+    }
 
     const entradaInput = document.getElementById("id_hora_entrada");
     const salidaInput = document.getElementById("id_hora_salida");

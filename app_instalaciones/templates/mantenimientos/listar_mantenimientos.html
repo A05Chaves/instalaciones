@@ -199,12 +199,26 @@ Mantenimientos - App_Sesur
                        value="{{ busqueda }}"
                        placeholder="Buscar por ticket, código, cliente, ciudad, técnico, orden..."
                        aria-label="Buscar mantenimientos">
+                <span class="input-group-text bg-white">
+                    <i class="fas fa-calendar-alt text-muted"></i>
+                </span>
+                <input type="date" name="fecha" class="form-control"
+                       value="{{ fecha_filtro }}"
+                       aria-label="Filtrar mantenimientos por fecha">
+                <select name="estado_movil" class="form-select"
+                        aria-label="Filtrar por estado móvil">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE" {% if estado_filtro == "PENDIENTE" %}selected{% endif %}>Pendiente</option>
+                    <option value="ASIGNADO" {% if estado_filtro == "ASIGNADO" %}selected{% endif %}>Asignado</option>
+                    <option value="EN_PROCESO" {% if estado_filtro == "EN_PROCESO" %}selected{% endif %}>En proceso</option>
+                    <option value="FINALIZADO" {% if estado_filtro == "FINALIZADO" %}selected{% endif %}>Realizado</option>
+                </select>
                 <button class="btn btn-primary" type="submit">Buscar</button>
-                {% if busqueda %}
+                {% if busqueda or fecha_filtro or estado_filtro %}
                     <a class="btn btn-outline-secondary" href="{% url 'listar_mantenimientos' %}">Limpiar</a>
                 {% endif %}
             </div>
-            {% if busqueda %}
+            {% if busqueda or fecha_filtro or estado_filtro %}
                 <small class="text-muted d-block mt-2">
                     Resultados encontrados: {{ mantenimientos|length }}
                 </small>

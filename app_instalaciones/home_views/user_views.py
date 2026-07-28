@@ -268,6 +268,9 @@ def listar_mantenimientos(request):
         form = MantenimientoForm()
 
     busqueda = (request.GET.get("busqueda") or "").strip()
+    fecha_filtro_txt = (request.GET.get("fecha") or "").strip()
+    fecha_filtro = parse_date(fecha_filtro_txt)
+    estado_filtro = (request.GET.get("estado_movil") or "").strip().upper()
 
     mantenimientos = (
         Mantenimiento.objects
@@ -294,6 +297,24 @@ def listar_mantenimientos(request):
             | Q(pendiente__icontains=busqueda)
         ).distinct()
 
+    if fecha_filtro:
+        mantenimientos = mantenimientos.filter(
+            fecha_ordenamiento__date=fecha_filtro
+        )
+
+    if estado_filtro == "PENDIENTE":
+        mantenimientos = mantenimientos.filter(
+            estado_operativo="PENDIENTE", tecnico__isnull=True
+        )
+    elif estado_filtro == "ASIGNADO":
+        mantenimientos = mantenimientos.filter(
+            estado_operativo="PENDIENTE", tecnico__isnull=False
+        )
+    elif estado_filtro in {"EN_PROCESO", "FINALIZADO"}:
+        mantenimientos = mantenimientos.filter(
+            estado_operativo=estado_filtro
+        )
+
     tecnicos = Tecnico.objects.all().order_by("nombre")
 
     context = {
@@ -301,6 +322,8 @@ def listar_mantenimientos(request):
         "mantenimientos": mantenimientos,
         "tecnicos": tecnicos,
         "busqueda": busqueda,
+        "fecha_filtro": fecha_filtro_txt,
+        "estado_filtro": estado_filtro,
     }
 
     return render(
