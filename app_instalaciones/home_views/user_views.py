@@ -590,6 +590,7 @@ def _serializar_servicio_tecnico(mantenimiento):
         "tipo_servicio": mantenimiento.get_tipo_servicio_display(),
         "tipo_falla": mantenimiento.get_tipo_falla_display() if mantenimiento.tipo_falla else "",
         "fecha_programada": mantenimiento.fecha_programada.isoformat() if mantenimiento.fecha_programada else "",
+        "realizado": mantenimiento.realizado.isoformat() if mantenimiento.realizado else "",
         "estado": mantenimiento.estado_operativo,
         "estado_label": (
             "REALIZADO"
@@ -634,7 +635,7 @@ def api_servicios_tecnico(request):
             fecha_programada__isnull=True,
         ).update(fecha_programada=hoy)
         servicios = Mantenimiento.objects.filter(tecnico=tecnico).filter(
-            Q(fecha_programada=hoy) | ~Q(estado_operativo="FINALIZADO")
+            ~Q(estado_operativo="FINALIZADO") | Q(realizado=hoy)
         ).order_by("fecha_programada", "cliente")
         notificaciones = tecnico.notificaciones.filter(leida=False)[:30]
         return JsonResponse({

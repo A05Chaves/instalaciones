@@ -70,7 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function render() {
         let visibles = servicios;
-        if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
+        if (filtro === "HOY") visibles = servicios.filter(s =>
+            s.fecha_programada === hoy() ||
+            (s.estado === "FINALIZADO" && s.realizado === hoy())
+        );
         if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
         if (filtro === "EJECUCION") visibles = servicios.filter(s => s.estado === "EN_PROCESO");
         if (terminoBusqueda) {
@@ -166,7 +169,9 @@ document.addEventListener("DOMContentLoaded", () => {
             registrado_offline: !navigator.onLine,
         };
         const estadoAnterior = servicio.estado;
+        const realizadoAnterior = servicio.realizado;
         servicio.estado = estado; servicio.novedad = novedad;
+        if (estado === "FINALIZADO") servicio.realizado = hoy();
         await guardar("datos", "servicios", servicios); render();
         try {
             if (!navigator.onLine) throw new Error("offline");
@@ -177,6 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (respuesta.status === 400 || respuesta.status === 409) {
                 servicio.estado = estadoAnterior;
+                servicio.realizado = realizadoAnterior;
                 const error = await respuesta.json().catch(() => ({}));
                 render();
                 mensaje(error.error || "El servidor no aceptó el cambio.");
@@ -242,6 +248,10 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("online", sincronizar); window.addEventListener("offline", actualizarRed);
     (async () => {
         servicios = await leer("datos", "servicios") || [];
+        servicios = servicios.filter(s =>
+            s.estado !== "FINALIZADO" || s.realizado === hoy()
+        );
+        await guardar("datos", "servicios", servicios);
         render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
         if ("serviceWorker" in navigator) navigator.serviceWorker.register(cfg.serviceWorker);
     })();

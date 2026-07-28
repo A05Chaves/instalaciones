@@ -307,6 +307,33 @@ class PortalTecnicoTests(TestCase):
         codigos = [item["codigo"] for item in response.json()["servicios"]]
         self.assertEqual(codigos, ["MOV-001"])
 
+    def test_api_oculta_realizados_de_dias_anteriores(self):
+        ayer = timezone.localdate() - timedelta(days=1)
+        Mantenimiento.objects.create(
+            codigo="REALIZADO-AYER",
+            cliente="Servicio anterior",
+            direccion="Calle anterior",
+            tecnico=self.tecnico,
+            fecha_programada=timezone.localdate(),
+            realizado=ayer,
+            estado_operativo="FINALIZADO",
+        )
+        Mantenimiento.objects.create(
+            codigo="REALIZADO-HOY",
+            cliente="Servicio de hoy",
+            direccion="Calle de hoy",
+            tecnico=self.tecnico,
+            fecha_programada=ayer,
+            realizado=timezone.localdate(),
+            estado_operativo="FINALIZADO",
+        )
+
+        response = self.client.get(reverse("api_servicios_tecnico"))
+        codigos = [item["codigo"] for item in response.json()["servicios"]]
+
+        self.assertIn("REALIZADO-HOY", codigos)
+        self.assertNotIn("REALIZADO-AYER", codigos)
+
     def test_tecnico_puede_iniciar_servicio_asignado(self):
         response = self.client.post(
             reverse("api_servicios_tecnico"),
