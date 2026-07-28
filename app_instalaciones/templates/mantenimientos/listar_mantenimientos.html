@@ -260,7 +260,13 @@ Mantenimientos - App_Sesur
 
                         <td>{{ m.fecha_visible|date:"Y-m-d H:i" }}</td>
 
-                        <td>{{ m.codigo }}</td>
+                        <td>
+                            <span class="view-mode">{{ m.codigo }}</span>
+                            {% if request.user.is_superuser %}
+                            <input class="edit-mode form-control form-control-sm d-none"
+                                   name="codigo" value="{{ m.codigo }}">
+                            {% endif %}
+                        </td>
 
                         <td class="col-cliente">
                             <span class="view-mode">{{ m.cliente }}</span>
@@ -366,6 +372,7 @@ Mantenimientos - App_Sesur
                         </td>
 
                         <td class="text-center">
+                            <span class="view-mode">
                             {% if m.estado_operativo == "FINALIZADO" %}
                                 <span class="badge bg-success">Realizado</span>
                             {% elif m.estado_operativo == "EN_PROCESO" %}
@@ -374,6 +381,15 @@ Mantenimientos - App_Sesur
                                 <span class="badge bg-warning text-dark">Asignado</span>
                             {% else %}
                                 <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% endif %}
+                            </span>
+                            {% if request.user.is_superuser %}
+                            <select class="edit-mode form-select form-select-sm d-none"
+                                    name="estado_operativo">
+                                <option value="PENDIENTE" {% if m.estado_operativo == "PENDIENTE" %}selected{% endif %}>Pendiente / asignado</option>
+                                <option value="EN_PROCESO" {% if m.estado_operativo == "EN_PROCESO" %}selected{% endif %}>En proceso</option>
+                                <option value="FINALIZADO" {% if m.estado_operativo == "FINALIZADO" %}selected{% endif %}>Realizado</option>
+                            </select>
                             {% endif %}
                         </td>
 
@@ -462,12 +478,12 @@ Mantenimientos - App_Sesur
 
                             <div class="btn-group btn-group-sm">
 
-                                {% if not m.orden %}
+                                {% if request.user.is_superuser or not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-primary btn-inline-edit"
                                         data-id="{{ m.id }}"
-                                        data-solo-orden="{% if m.estado_operativo == 'FINALIZADO' %}true{% else %}false{% endif %}"
-                                        title="{% if m.estado_operativo == 'FINALIZADO' %}Registrar orden{% else %}Editar{% endif %}">
+                                        data-solo-orden="{% if not request.user.is_superuser and m.estado_operativo == 'FINALIZADO' %}true{% else %}false{% endif %}"
+                                        title="{% if request.user.is_superuser %}Edición completa{% elif m.estado_operativo == 'FINALIZADO' %}Registrar orden{% else %}Editar{% endif %}">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 {% endif %}

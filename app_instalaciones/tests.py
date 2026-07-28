@@ -53,7 +53,7 @@ class EstadoFacturacionTests(TestCase):
             {"estado_facturacion": "FACTURADO"},
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.content)
         instalacion.refresh_from_db()
         self.assertEqual(instalacion.estado_facturacion, "FACTURADO")
         self.assertTrue(instalacion.facturado)
@@ -231,6 +231,36 @@ class ListaMantenimientosTests(TestCase):
 
         response = self.client.get(reverse("listar_mantenimientos"))
         self.assertContains(response, "Asignado")
+
+    def test_superadministrador_puede_editar_completo_un_servicio_cerrado(self):
+        Ciudad.objects.get_or_create(nombre="Pasto")
+        mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
+        mantenimiento.orden = "OT-CERRADA"
+        mantenimiento.realizado = timezone.localdate()
+        mantenimiento.hora_entrada = time(8, 0)
+        mantenimiento.hora_salida = time(9, 0)
+        mantenimiento.novedad = "Trabajo terminado"
+        mantenimiento.save()
+
+        superusuario = User.objects.create_superuser(
+            "super_mantenimiento", "super@example.com", "Clave-12345"
+        )
+        self.client.force_login(superusuario)
+        response = self.client.post(
+            reverse("mantenimiento_actualizar", args=[mantenimiento.pk]),
+            {
+                "codigo": "COD-SUPER",
+                "cliente": "Cliente corregido",
+                "tipo_falla": "OTRO",
+                "estado_operativo": "PENDIENTE",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        mantenimiento.refresh_from_db()
+        self.assertEqual(mantenimiento.codigo, "COD-SUPER")
+        self.assertEqual(mantenimiento.cliente, "Cliente corregido")
+        self.assertEqual(mantenimiento.estado_operativo, "PENDIENTE")
 
 
 class PermisosMantenimientosTests(TestCase):

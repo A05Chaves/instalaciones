@@ -374,6 +374,7 @@ class Mantenimiento(models.Model):
         return self.fecha_creacion_servicio or self.fecha_registro
 
     def save(self, *args, **kwargs):
+        permitir_estado_manual = kwargs.pop("permitir_estado_manual", False)
         # El cierre manual solo es válido cuando el operador diligenció toda la
         # información. Asignar un técnico o indicar únicamente una fecha no debe
         # marcar el servicio como realizado.
@@ -384,7 +385,7 @@ class Mantenimiento(models.Model):
             self.hora_salida,
             (self.novedad or "").strip(),
         ])
-        if cierre_operador_completo:
+        if cierre_operador_completo and not permitir_estado_manual:
             self.estado_operativo = "FINALIZADO"
         if self.orden and not self.fecha_orden:
             self.fecha_orden = timezone.now()

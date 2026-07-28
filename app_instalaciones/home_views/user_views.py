@@ -423,12 +423,12 @@ def mantenimiento_actualizar(request, pk):
     tecnico_anterior = m.tecnico
     novedad_anterior = m.novedad or ""
 
-    if m.orden:
+    if m.orden and not request.user.is_superuser:
         return JsonResponse(
             {"ok": False, "error": "El servicio está cerrado y no admite cambios."},
             status=409,
         )
-    if m.estado_operativo == "FINALIZADO":
+    if m.estado_operativo == "FINALIZADO" and not request.user.is_superuser:
         orden = (request.POST.get("orden") or "").strip()
         if not orden:
             return JsonResponse(
@@ -454,9 +454,9 @@ def mantenimiento_actualizar(request, pk):
         })
 
     campos_editables = {
-        "cliente", "ciudad", "direccion", "tipo_servicio",
+        "codigo", "cliente", "ciudad", "direccion", "tipo_servicio",
         "tipo_falla", "tecnico", "fecha_programada", "orden", "realizado",
-        "hora_entrada", "hora_salida", "novedad",
+        "hora_entrada", "hora_salida", "novedad", "observacion",
     }
     datos = model_to_dict(
         m,
@@ -484,7 +484,16 @@ def mantenimiento_actualizar(request, pk):
     _aplicar_novedad_operador(
         m, request.POST, request.user, novedad_anterior
     )
-    if m.orden:
+    if request.user.is_superuser:
+        estado_manual = (request.POST.get("estado_operativo") or "").strip()
+        if estado_manual:
+            if estado_manual not in dict(Mantenimiento.ESTADO_OPERATIVO_CHOICES):
+                return JsonResponse(
+                    {"ok": False, "error": "Estado móvil inválido."},
+                    status=400,
+                )
+            m.estado_operativo = estado_manual
+    elif m.orden:
         campos_faltantes = []
         if not m.realizado:
             campos_faltantes.append("fecha de realización")
@@ -503,7 +512,7 @@ def mantenimiento_actualizar(request, pk):
                 ),
             }, status=400)
         m.estado_operativo = "FINALIZADO"
-    m.save()
+    m.save(permitir_estado_manual=request.user.is_superuser)
     registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 
     return JsonResponse({
