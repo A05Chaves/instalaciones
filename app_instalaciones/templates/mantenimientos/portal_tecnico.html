@@ -95,7 +95,11 @@
             leerAvisos: "{% url 'leer_notificaciones_tecnico' %}",
             serviceWorker: "{% url 'service_worker_tecnico' %}"
         };
+        window.SESUR_SESSION = {
+            renovar: "{% url 'renovar_sesion' %}"
+        };
     </script>
+    <script src="{% static 'sesur/js/session_activity.js' %}"></script>
     <script src="{% static 'sesur/js/portal_tecnico.js' %}"></script>
 </body>
 </html>

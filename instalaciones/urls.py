@@ -29,6 +29,8 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='users/password_reset_complete.html'), name='password_reset_complete'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
+    path('api/sesion/renovar/', user_views.renovar_sesion,
+         name='renovar_sesion'),
     path('importar-excel/', views.importar_excel, name='importar_excel'),
     path('exportar_excel/', views.exportar_excel, name='exportar_excel'),
 

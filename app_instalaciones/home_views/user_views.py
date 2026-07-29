@@ -222,6 +222,18 @@ def logout(request):
     auth_logout(request)
     return redirect(reverse('home'))
 
+
+@login_required(login_url="login")
+@require_POST
+def renovar_sesion(request):
+    """Renueva la sesión únicamente después de actividad real del usuario."""
+    request.session.modified = True
+    return JsonResponse({
+        "ok": True,
+        "vence_en_segundos": request.session.get_expiry_age(),
+    })
+
+
 # NUEVO ARREGLO LISTA DE MANTENIMIENTOS
 
 

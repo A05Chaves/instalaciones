@@ -2,6 +2,7 @@ from datetime import datetime, time, timedelta
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -150,6 +151,15 @@ class ListaMantenimientosTests(TestCase):
         self.assertEqual(len(response.context["mantenimientos"]), 1)
         self.assertContains(response, "Cliente Pasto")
         self.assertNotContains(response, "Cliente Cali")
+
+    def test_actividad_autenticada_renueva_la_sesion(self):
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
+
+        response = self.client.post(reverse("renovar_sesion"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        self.assertGreater(response.json()["vence_en_segundos"], 0)
 
     def test_ordena_por_fecha_del_servicio_del_mas_nuevo_al_mas_antiguo(self):
         zona = timezone.get_current_timezone()

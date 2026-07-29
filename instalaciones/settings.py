@@ -131,3 +131,5 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 SESSION_COOKIE_AGE = 3600
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
+# Renueva la hora de vencimiento cuando el usuario realiza una petición.
+SESSION_SAVE_EVERY_REQUEST = True
