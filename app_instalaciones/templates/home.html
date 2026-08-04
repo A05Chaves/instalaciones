@@ -6,6 +6,24 @@ App_Sesur
 
 {% block content %}
 
+<style>
+    .home-module-card .card { transition: transform .2s ease, box-shadow .2s ease; }
+    .home-module-card .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .75rem 1.5rem rgba(15, 23, 42, .12) !important;
+    }
+    .home-module-card .card-body > .mb-3 { min-height: 78px; }
+    .home-module-card .card-body > p.text-muted {
+        min-height: 72px;
+        margin-bottom: 1.25rem;
+    }
+    .home-module-card .btn { margin-top: auto; }
+    @media (max-width: 767.98px) {
+        .home-module-card .card-body > .mb-3,
+        .home-module-card .card-body > p.text-muted { min-height: auto; }
+    }
+</style>
+
 <div class="mb-5">
     <div class="card border-0 shadow-lg overflow-hidden">
 
@@ -40,7 +58,7 @@ App_Sesur
 
     {% if user.is_staff or user.is_superuser or es_coordinador %}
 
-    <div class="col-12 col-md-6 col-xl-4">
+    <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
 
             <div class="card-body d-flex flex-column">
@@ -96,7 +114,7 @@ App_Sesur
 
     {% endif %}
 
-    <div class="col-12 col-md-6 col-xl-4">
+    <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
 
             <div class="card-body d-flex flex-column">
@@ -128,7 +146,7 @@ App_Sesur
 
     {% if es_superusuario or es_administrador or es_coordinador %}
 
-    <div class="col-12 col-md-6 col-xl-4">
+    <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
 
             <div class="card-body d-flex flex-column">
@@ -152,6 +170,36 @@ App_Sesur
                    class="btn btn-warning w-100">
                     <i class="fas fa-tools me-1"></i>
                     Ver Mantenimientos
+                </a>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xxl-3 home-module-card">
+        <div class="card h-100 border-0 shadow-sm">
+
+            <div class="card-body d-flex flex-column">
+
+                <div class="mb-3">
+                    <span class="badge bg-info text-dark mb-2">
+                        Gestión comercial
+                    </span>
+
+                    <h4 class="fw-bold">
+                        Proyectos comerciales
+                    </h4>
+                </div>
+
+                <p class="text-muted flex-grow-1">
+                    Visitas comerciales, levantamientos y listas de chequeo
+                    para alarmas, videovigilancia, accesos y edificios inteligentes.
+                </p>
+
+                <a href="{% url 'smartcheck_listar' %}"
+                   class="btn btn-info w-100">
+                    <i class="fas fa-clipboard-check me-1"></i>
+                    Ver proyectos comerciales
                 </a>
 
             </div>

@@ -511,6 +511,7 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
             "orden": data["codigo_acta"] or "",
             "problema_solucionado": data["problema_solucionado"],
             "cotizacion": data["cotizacion"],
+            "novedad": data.get("novedad", ""),
             "observacion": data["observacion"],
             "pendiente": data["pendiente"],
             "omt": data["omt"],

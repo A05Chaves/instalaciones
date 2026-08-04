@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'sesur/css/smartcheck.css' %}">
+
+<div class="smartcheck-hero p-4 mb-4">
+    <h1 class="h3 mb-1">{{ titulo }}</h1>
+    <p class="mb-0">Seleccione los sistemas y diligencie únicamente las secciones necesarias.</p>
+</div>
+
+<form method="post" id="smartcheck-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="accordion" id="smartcheckAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#datos-generales">1. Información general</button>
+            </h2>
+            <div id="datos-generales" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for field in form %}
+                            {% if field.name == "nombre" or field.name == "cliente" or field.name == "contacto" or field.name == "telefono" or field.name == "ciudad" or field.name == "direccion" or field.name == "georreferencia" or field.name == "ejecutivo" or field.name == "tecnico" or field.name == "fecha_visita" or field.name == "estado" or field.name == "descripcion_necesidad" or field.name == "observaciones" %}
+                            <div class="{% if field.name == 'descripcion_necesidad' or field.name == 'observaciones' %}col-12{% else %}col-md-6{% endif %}">
+                                <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {{ field }}
+                                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#seleccion-sistemas">2. Sistemas que se van a ofertar</button>
+            </h2>
+            <div id="seleccion-sistemas" class="accordion-collapse collapse show">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for checkbox in form.sistemas %}
+                        <div class="col-md-6 col-xl-3">
+                            <label class="system-card d-block" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.tag }}
+                                <strong class="ms-2">{{ checkbox.choice_label }}</strong>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.sistemas.errors %}<div class="text-danger small mt-2">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item system-section" data-system="COMMON">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#edificacion">3. Características de la edificación</button>
+            </h2>
+            <div id="edificacion" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for field in form %}
+                        {% if field.name == "pisos" or field.name == "largo" or field.name == "ancho" or field.name == "altura_piso" %}
+                        <div class="col-md-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item system-section" data-system="CCTV">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#sistema-cctv">4. Videovigilancia</button>
+            </h2>
+            <div id="sistema-cctv" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for field in form %}
+                        {% if field.name == "tipo_cctv" or field.name == "camaras_internas" or field.name == "camaras_exteriores" or field.name == "camaras_parqueadero" or field.name == "dias_grabacion" %}
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item system-section" data-system="ALARMA">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#sistema-alarma">5. Sistema de alarma</button>
+            </h2>
+            <div id="sistema-alarma" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    {{ form.areas_alarma_json }}
+                    {{ form.dispositivos_alarma_json }}
+                    {{ form.modulos_alarma_json }}
+
+                    <h3 class="h6 fw-bold">Áreas y puntos vulnerables</h3>
+                    <p class="small text-muted">Agregue cada habitación o área que requiere cobertura.</p>
+                    <div id="areas-alarma"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="agregar-area">
+                        <i class="fas fa-plus me-1"></i> Agregar área
+                    </button>
+
+                    <h3 class="h6 fw-bold">Sensores y dispositivos por zona</h3>
+                    <p class="small text-muted">
+                        Cada sensor de movimiento, contacto magnético o botón de pánico utiliza una zona.
+                    </p>
+                    <div class="alert alert-info py-2">
+                        Zonas calculadas: <strong id="zonas-calculadas">0</strong> ·
+                        Panel mínimo recomendado: <strong id="panel-recomendado">8 zonas</strong>
+                    </div>
+                    <div id="dispositivos-alarma"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="agregar-dispositivo">
+                        <i class="fas fa-plus me-1"></i> Agregar sensor o dispositivo
+                    </button>
+
+                    <h3 class="h6 fw-bold">Panel, energía y comunicación</h3>
+                    <div class="row g-3">
+                        {% for field in form %}
+                        {% if field.name == "panel_alarma" or field.name == "capacidad_panel" or field.name == "bateria_alarma" or field.name == "transformador_alarma" or field.name == "panel_piso" or field.name == "panel_area" or field.name == "sirenas" or field.name == "comunicacion_alarma" or field.name == "central_monitoreo" or field.name == "reserva_cable" or field.name == "porcentaje_canaleta" %}
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        <div class="col-md-4">
+                            <div class="form-check mt-4">
+                                {{ form.conexion_monitoreo }}
+                                <label class="form-check-label" for="{{ form.conexion_monitoreo.id_for_label }}">
+                                    {{ form.conexion_monitoreo.label }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="h6 fw-bold mt-4">Cálculo estimado de cable y canalización</h3>
+                    <p class="small text-muted">
+                        Se calcula con las dimensiones del área asignada a cada dispositivo cableado.
+                        Puede ajustar la reserva y el porcentaje del recorrido que requiere canaleta.
+                    </p>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <tbody>
+                                <tr>
+                                    <th>Cable 2x22</th><td><span id="material-cable-2x22">0</span> m</td>
+                                    <th>Cable 4x22</th><td><span id="material-cable-4x22">0</span> m</td>
+                                    <th>Cable de sirena</th><td><span id="material-cable-sirena">0</span> m</td>
+                                </tr>
+                                <tr>
+                                    <th>Cable UTP</th><td><span id="material-cable-utp">0</span> m</td>
+                                    <th>Total cable</th><td><strong><span id="material-cable-total">0</span> m</strong></td>
+                                    <th>Canaleta</th><td><span id="material-canaleta-metros">0</span> m / <span id="material-canaleta-tramos">0</span> tramos de 2 m</td>
+                                </tr>
+                                <tr>
+                                    <th>Uniones</th><td id="material-uniones">0</td>
+                                    <th>Curvas</th><td id="material-curvas">0</td>
+                                    <th>Terminales / fijaciones</th><td><span id="material-terminales">0</span> / <span id="material-fijaciones">0</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="h6 fw-bold mt-4">Equipos o módulos adicionales</h3>
+                    <div id="modulos-alarma"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="agregar-modulo">
+                        <i class="fas fa-plus me-1"></i> Agregar equipo o módulo
+                    </button>
+                    {% for error in form.areas_alarma_json.errors %}
+                    <div class="text-danger small mt-2">{{ error }}</div>
+                    {% endfor %}
+                    {% for error in form.dispositivos_alarma_json.errors %}
+                    <div class="text-danger small mt-2">{{ error }}</div>
+                    {% endfor %}
+                    {% for error in form.modulos_alarma_json.errors %}
+                    <div class="text-danger small mt-2">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item system-section" data-system="ACCESO">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#sistema-acceso">6. Control de acceso</button>
+            </h2>
+            <div id="sistema-acceso" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for field in form %}
+                        {% if field.name == "puertas_controladas" or field.name == "puertas_dobles" or field.name == "lectores" or field.name == "tipo_credencial" %}
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item system-section" data-system="INTELIGENTE">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#sistema-inteligente">7. Edificio inteligente</button>
+            </h2>
+            <div id="sistema-inteligente" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                    <div class="row g-3">
+                        {% for field in form %}
+                        {% if field.name == "automatizacion_iluminacion" or field.name == "control_energia" or field.name == "citofonia" or field.name == "integracion_ascensores" or field.name == "plataforma_central" %}
+                        <div class="col-md-4">
+                            <div class="form-check mt-3">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="acciones-formulario" class="position-sticky bottom-0 bg-white border-top p-3 mt-4 text-end shadow">
+        <a href="{% if proyecto %}{% url 'smartcheck_detalle' proyecto.pk %}{% else %}{% url 'smartcheck_listar' %}{% endif %}"
+           class="btn btn-outline-secondary">Cancelar</a>
+        <button class="btn btn-primary" type="button" id="btn-vista-preliminar">
+            <i class="fas fa-eye me-1"></i> Vista preliminar
+        </button>
+    </div>
+
+    <section id="vista-preliminar" class="card shadow border-0 mt-4 d-none">
+        <div class="card-header bg-dark text-white">
+            <strong>Vista preliminar del levantamiento</strong>
+        </div>
+        <div class="card-body" id="contenido-vista-preliminar"></div>
+        <div class="card-footer text-end">
+            <button class="btn btn-outline-secondary" type="button" id="btn-volver-editar">
+                <i class="fas fa-arrow-left me-1"></i> Volver a editar
+            </button>
+            <button class="btn btn-success" type="submit">
+                <i class="fas fa-check me-1"></i> Confirmar, guardar y salir
+            </button>
+        </div>
+    </section>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ sensores_catalogo|json_script:"sensores-catalogo" }}
+{{ cables_catalogo|json_script:"cables-catalogo" }}
+{{ equipos_catalogo|json_script:"equipos-catalogo" }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const checks = Array.from(document.querySelectorAll("input[name='sistemas']"));
+    const actualizarSecciones = () => {
+        const seleccionados = new Set(checks.filter(c => c.checked).map(c => c.value));
+        document.querySelectorAll(".system-section").forEach(section => {
+            const sistema = section.dataset.system;
+            section.classList.toggle("d-none", sistema !== "COMMON" && !seleccionados.has(sistema));
+        });
+    };
+    checks.forEach(check => check.addEventListener("change", actualizarSecciones));
+    actualizarSecciones();
+
+    const leerJson = id => {
+        try { return JSON.parse(document.getElementById(id).value || "[]"); }
+        catch (_) { return []; }
+    };
+    const escapar = valor => String(valor || "")
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    const areas = document.getElementById("areas-alarma");
+    const dispositivos = document.getElementById("dispositivos-alarma");
+    const modulos = document.getElementById("modulos-alarma");
+    let datosAreas = leerJson("id_areas_alarma_json");
+    let datosDispositivos = leerJson("id_dispositivos_alarma_json");
+    let datosModulos = leerJson("id_modulos_alarma_json");
+    let materialesAlarma = {};
+    const sensoresCatalogo = JSON.parse(document.getElementById("sensores-catalogo")?.textContent || "[]");
+    const cablesCatalogo = JSON.parse(document.getElementById("cables-catalogo")?.textContent || "[]");
+    const equiposCatalogo = JSON.parse(document.getElementById("equipos-catalogo")?.textContent || "[]");
+
+    const tiposZona = new Set(["MOVIMIENTO", "MAGNETICO", "PANICO", "VIDRIO", "HUMO", "INUNDACION", "OTRO_ZONA"]);
+    const sincronizarAlarmas = () => {
+        const leerFilas = contenedor => Array.from(contenedor.querySelectorAll("[data-row]")).map(fila => {
+            const dato = {};
+            fila.querySelectorAll("[data-field]").forEach(input => dato[input.dataset.field] = input.value);
+            return dato;
+        });
+        datosAreas = leerFilas(areas);
+        dispositivos.querySelectorAll("select[data-field='area']").forEach(select => {
+            const seleccionado = select.value;
+            select.innerHTML = '<option value="">Seleccione un área vulnerable</option>' + datosAreas.map(area =>
+                `<option value="${escapar(area.nombre)}">Piso ${escapar(area.piso || 1)} · ${escapar(area.nombre)} — ${escapar(area.descripcion || "Sin descripción")}</option>`
+            ).join("");
+            select.value = seleccionado;
+            const area = datosAreas.find(item => item.nombre === select.value);
+            const ayuda = select.closest("[data-row]")?.querySelector("[data-area-descripcion]");
+            if (ayuda) ayuda.textContent = area ? `Punto vulnerable: ${area.descripcion || "Sin descripción"}` : "Seleccione un área registrada arriba.";
+        });
+        datosDispositivos = leerFilas(dispositivos);
+        datosModulos = leerFilas(modulos);
+        document.getElementById("id_areas_alarma_json").value = JSON.stringify(datosAreas);
+        document.getElementById("id_dispositivos_alarma_json").value = JSON.stringify(datosDispositivos);
+        document.getElementById("id_modulos_alarma_json").value = JSON.stringify(datosModulos);
+        const zonas = datosDispositivos.filter(d => tiposZona.has(d.tipo)).length;
+        const capacidades = [8, 16, 32, 64, 128, 256];
+        const recomendada = capacidades.find(c => c >= zonas) || Math.max(256, zonas);
+        document.getElementById("zonas-calculadas").textContent = zonas;
+        document.getElementById("panel-recomendado").textContent = `${recomendada} zonas`;
+        const capacidad = document.getElementById("id_capacidad_panel");
+        if (capacidad && (!capacidad.value || Number(capacidad.value) < zonas)) capacidad.value = recomendada;
+
+        const areasPorNombre = new Map(datosAreas.map(area => [
+            String(area.nombre || "").trim().toLowerCase(), area
+        ]));
+        const distancia = dispositivo => {
+            const area = areasPorNombre.get(String(dispositivo.area || "").trim().toLowerCase()) || {};
+            const largo = Number(area.largo) || 0;
+            const ancho = Number(area.ancho) || 0;
+            const alto = Number(area.alto) || 0;
+            const pisoArea = Number(area.piso) || 1;
+            const pisoPanel = Number(document.getElementById("id_panel_piso")?.value) || 1;
+            const alturaPiso = Number(document.getElementById("id_altura_piso")?.value) || alto || 3;
+            return Math.max(5, Math.hypot(largo, ancho) + Math.abs(pisoArea - pisoPanel) * alturaPiso + 3);
+        };
+        let cable2x22 = 0;
+        let cable4x22 = 0;
+        datosDispositivos.forEach(dispositivo => {
+            if (dispositivo.conexion === "INALAMBRICO") return;
+            if (String(dispositivo.cable_nombre || "").toUpperCase().includes("2X22") || ["MAGNETICO", "PANICO"].includes(dispositivo.tipo)) cable2x22 += distancia(dispositivo);
+            else cable4x22 += distancia(dispositivo);
+        });
+        const reserva = (Number(document.getElementById("id_reserva_cable")?.value) || 0) / 100;
+        const porcentajeCanaleta = (Number(document.getElementById("id_porcentaje_canaleta")?.value) || 0) / 100;
+        const factor = 1 + reserva;
+        cable2x22 *= factor;
+        cable4x22 *= factor;
+        const sirenas = Number(document.getElementById("id_sirenas")?.value) || 0;
+        const cableSirena = sirenas * 10 * factor;
+        const comunicacion = document.getElementById("id_comunicacion_alarma")?.value;
+        const cableUtp = ["IP", "IP_CELULAR"].includes(comunicacion) ? 10 * factor : 0;
+        const total = cable2x22 + cable4x22 + cableSirena + cableUtp;
+        const canaletaMetros = total * porcentajeCanaleta;
+        const tramos = Math.ceil(canaletaMetros / 2);
+        materialesAlarma = {
+            cable2x22: Math.ceil(cable2x22),
+            cable4x22: Math.ceil(cable4x22),
+            cableSirena: Math.ceil(cableSirena),
+            cableUtp: Math.ceil(cableUtp),
+            total: Math.ceil(total),
+            canaletaMetros: Math.ceil(canaletaMetros),
+            tramos,
+            uniones: Math.max(0, tramos - 1),
+            curvas: tramos ? Math.ceil(tramos / 5) : 0,
+            terminales: datosDispositivos.length + sirenas,
+            fijaciones: tramos * 4
+        };
+        const valoresMaterial = {
+            "material-cable-2x22": materialesAlarma.cable2x22,
+            "material-cable-4x22": materialesAlarma.cable4x22,
+            "material-cable-sirena": materialesAlarma.cableSirena,
+            "material-cable-utp": materialesAlarma.cableUtp,
+            "material-cable-total": materialesAlarma.total,
+            "material-canaleta-metros": materialesAlarma.canaletaMetros,
+            "material-canaleta-tramos": materialesAlarma.tramos,
+            "material-uniones": materialesAlarma.uniones,
+            "material-curvas": materialesAlarma.curvas,
+            "material-terminales": materialesAlarma.terminales,
+            "material-fijaciones": materialesAlarma.fijaciones
+        };
+        Object.entries(valoresMaterial).forEach(([id, valor]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) elemento.textContent = valor;
+        });
+    };
+    const enlazarFila = fila => {
+        fila.querySelectorAll("input,select,textarea").forEach(control => {
+            control.addEventListener("input", sincronizarAlarmas);
+            control.addEventListener("change", sincronizarAlarmas);
+        });
+        fila.querySelector("[data-remove]").addEventListener("click", () => {
+            fila.remove(); sincronizarAlarmas();
+        });
+    };
+    const agregarArea = (dato = {}) => {
+        const fila = document.createElement("div");
+        fila.className = "border rounded p-3 mb-2 bg-light";
+        fila.dataset.row = "area";
+        fila.innerHTML = `<div class="row g-2">
+          <div class="col-md-3"><input class="form-control form-control-sm" data-field="nombre" value="${escapar(dato.nombre)}" placeholder="Nombre del área vulnerable"></div>
+          <div class="col-md-1"><input class="form-control form-control-sm" type="number" min="1" data-field="piso" value="${escapar(dato.piso || 1)}" placeholder="Piso"></div>
+          <div class="col-md-2"><input class="form-control form-control-sm" type="number" min="0" step="0.01" data-field="largo" value="${escapar(dato.largo)}" placeholder="Largo (m)"></div>
+          <div class="col-md-2"><input class="form-control form-control-sm" type="number" min="0" step="0.01" data-field="ancho" value="${escapar(dato.ancho)}" placeholder="Ancho (m)"></div>
+          <div class="col-md-2"><input class="form-control form-control-sm" type="number" min="0" step="0.01" data-field="alto" value="${escapar(dato.alto)}" placeholder="Alto (m)"></div>
+          <div class="col-md-1"><select class="form-select form-select-sm" data-field="nivel_riesgo">
+            <option value="">Riesgo</option><option value="BAJO">Bajo</option><option value="MEDIO">Medio</option><option value="ALTO">Alto</option>
+          </select></div>
+          <div class="col-md-11"><input class="form-control form-control-sm" data-field="descripcion" value="${escapar(dato.descripcion)}" placeholder="Puntos vulnerables y descripción"></div>
+          <div class="col-md-1"><button class="btn btn-sm btn-outline-danger w-100" type="button" data-remove><i class="fas fa-trash"></i></button></div>
+        </div>`;
+        fila.querySelector("[data-field='nivel_riesgo']").value = dato.nivel_riesgo || "";
+        areas.appendChild(fila); enlazarFila(fila);
+    };
+    const agregarDispositivo = (dato = {}) => {
+        const fila = document.createElement("div");
+        fila.className = "border rounded p-3 mb-2";
+        fila.dataset.row = "dispositivo";
+        fila.innerHTML = `<div class="row g-2">
+          <div class="col-md-3"><select class="form-select form-select-sm" data-field="tipo">
+            <option value="">Tipo de dispositivo</option><option value="MOVIMIENTO">Sensor de movimiento</option>
+            <option value="MAGNETICO">Contacto magnético</option><option value="PANICO">Botón de pánico</option>
+            <option value="VIDRIO">Ruptura de vidrio</option><option value="HUMO">Detector de humo</option>
+            <option value="INUNDACION">Detector de inundación</option><option value="OTRO_ZONA">Otro dispositivo de zona</option>
+            ${sensoresCatalogo.map(sensor => `<option value="CAT-${sensor.id}">${escapar(sensor.nombre)}${sensor.referencia ? ` · ${escapar(sensor.referencia)}` : ""}</option>`).join("")}
+          </select></div>
+          <div class="col-md-4"><select class="form-select form-select-sm" data-field="area"><option value="">Seleccione un área vulnerable</option>${datosAreas.map(area => `<option value="${escapar(area.nombre)}">Piso ${escapar(area.piso || 1)} · ${escapar(area.nombre)} — ${escapar(area.descripcion || "Sin descripción")}</option>`).join("")}</select><div class="form-text" data-area-descripcion></div></div>
+          <div class="col-md-3"><input class="form-control form-control-sm" data-field="ubicacion" value="${escapar(dato.ubicacion)}" placeholder="Ubicación exacta"></div>
+          <div class="col-md-2"><select class="form-select form-select-sm" data-field="conexion"><option value="">Conexión</option><option value="CABLEADO">Cableado</option><option value="INALAMBRICO">Inalámbrico</option></select></div>
+          <div class="col-md-4"><select class="form-select form-select-sm" data-field="cable_producto"><option value="">Cable por definir</option>${cablesCatalogo.map(cable => `<option data-nombre="${escapar(cable.nombre)}" value="${cable.id}">${escapar(cable.nombre)}${cable.referencia ? ` · ${escapar(cable.referencia)}` : ""}</option>`).join("")}</select></div>
+          <div class="col-md-7"><input class="form-control form-control-sm" data-field="descripcion" value="${escapar(dato.descripcion)}" placeholder="Detalle específico del sensor"></div>
+          <input type="hidden" data-field="cable_nombre" value="${escapar(dato.cable_nombre)}">
+          <div class="col-md-1"><button class="btn btn-sm btn-outline-danger w-100" type="button" data-remove><i class="fas fa-trash"></i></button></div>
+        </div>`;
+        fila.querySelector("[data-field='tipo']").value = dato.tipo || "";
+        fila.querySelector("[data-field='area']").value = dato.area || "";
+        fila.querySelector("[data-field='conexion']").value = dato.conexion || "";
+        fila.querySelector("[data-field='cable_producto']").value = dato.cable_producto || "";
+        fila.querySelector("[data-field='cable_producto']").addEventListener("change", event => {
+            fila.querySelector("[data-field='cable_nombre']").value = event.target.selectedOptions[0]?.dataset.nombre || "";
+        });
+        dispositivos.appendChild(fila); enlazarFila(fila);
+    };
+    const agregarModulo = (dato = {}) => {
+        const fila = document.createElement("div");
+        fila.className = "border rounded p-3 mb-2";
+        fila.dataset.row = "modulo";
+        fila.innerHTML = `<div class="row g-2">
+          <div class="col-md-4"><select class="form-select form-select-sm" data-field="producto_id"><option value="">Seleccione equipo configurado</option>${equiposCatalogo.map(equipo => `<option data-nombre="${escapar(equipo.nombre)}" data-referencia="${escapar(equipo.referencia)}" data-precio="${escapar(equipo.precio)}" value="${equipo.id}">${escapar(equipo.nombre)}${equipo.referencia ? ` · ${escapar(equipo.referencia)}` : ""}</option>`).join("")}</select></div>
+          <input type="hidden" data-field="equipo" value="${escapar(dato.equipo)}">
+          <input type="hidden" data-field="referencia" value="${escapar(dato.referencia)}">
+          <input type="hidden" data-field="precio" value="${escapar(dato.precio)}">
+          <div class="col-md-2"><input class="form-control form-control-sm" type="number" min="0" data-field="cantidad" value="${escapar(dato.cantidad)}" placeholder="Cantidad"></div>
+          <div class="col-md-2"><input class="form-control form-control-sm" data-field="ubicacion" value="${escapar(dato.ubicacion)}" placeholder="Ubicación"></div>
+          <div class="col-md-3"><input class="form-control form-control-sm" data-field="descripcion" value="${escapar(dato.descripcion)}" placeholder="Descripción"></div>
+          <div class="col-md-1"><button class="btn btn-sm btn-outline-danger w-100" type="button" data-remove><i class="fas fa-trash"></i></button></div>
+        </div>`;
+        fila.querySelector("[data-field='producto_id']").value = dato.producto_id || "";
+        fila.querySelector("[data-field='producto_id']").addEventListener("change", event => {
+            const opcion = event.target.selectedOptions[0];
+            fila.querySelector("[data-field='equipo']").value = opcion?.dataset.nombre || "";
+            fila.querySelector("[data-field='referencia']").value = opcion?.dataset.referencia || "";
+            fila.querySelector("[data-field='precio']").value = opcion?.dataset.precio || "0";
+        });
+        modulos.appendChild(fila); enlazarFila(fila);
+    };
+    datosAreas.forEach(agregarArea);
+    datosDispositivos.forEach(agregarDispositivo);
+    datosModulos.forEach(agregarModulo);
+    document.getElementById("agregar-area").addEventListener("click", () => agregarArea());
+    document.getElementById("agregar-dispositivo").addEventListener("click", () => agregarDispositivo());
+    document.getElementById("agregar-modulo").addEventListener("click", () => agregarModulo());
+    ["id_reserva_cable", "id_porcentaje_canaleta", "id_sirenas", "id_comunicacion_alarma", "id_panel_piso", "id_altura_piso"].forEach(id => {
+        const control = document.getElementById(id);
+        if (control) {
+            control.addEventListener("input", sincronizarAlarmas);
+            control.addEventListener("change", sincronizarAlarmas);
+        }
+    });
+    sincronizarAlarmas();
+
+    const preview = document.getElementById("vista-preliminar");
+    const contenidoPreview = document.getElementById("contenido-vista-preliminar");
+    const agregarTexto = (titulo, lineas) => {
+        const bloque = document.createElement("section");
+        bloque.className = "mb-4";
+        const encabezado = document.createElement("h3");
+        encabezado.className = "h5 border-bottom pb-2";
+        encabezado.textContent = titulo;
+        bloque.appendChild(encabezado);
+        lineas.forEach(linea => {
+            const p = document.createElement("p"); p.className = "mb-1"; p.textContent = linea; bloque.appendChild(p);
+        });
+        contenidoPreview.appendChild(bloque);
+    };
+    document.getElementById("btn-vista-preliminar").addEventListener("click", () => {
+        sincronizarAlarmas();
+        contenidoPreview.innerHTML = "";
+        const valor = id => document.getElementById(id)?.value || "—";
+        agregarTexto("Proyecto comercial", [
+            `Proyecto: ${valor("id_nombre")}`, `Cliente: ${valor("id_cliente")}`,
+            `Dirección: ${valor("id_direccion")}`, `Necesidad: ${valor("id_descripcion_necesidad")}`
+        ]);
+        if (checks.some(c => c.checked && c.value === "ALARMA")) {
+            agregarTexto("Áreas y puntos vulnerables", datosAreas.map((a, i) =>
+                `${i + 1}. Piso ${a.piso || 1} · ${a.nombre || "Área"} · ${a.largo || 0} × ${a.ancho || 0} m · riesgo ${a.nivel_riesgo || "sin definir"} · ${a.descripcion || ""}`
+            ));
+            agregarTexto("Sensores y dispositivos", datosDispositivos.map((d, i) =>
+                `${i + 1}. ${d.tipo || "Dispositivo"} · ${d.area || "sin área"} · ${d.ubicacion || "sin ubicación"} · ${d.conexion || ""}`
+            ));
+            agregarTexto("Panel, energía y comunicación", [
+                `Zonas utilizadas: ${document.getElementById("zonas-calculadas").textContent}`,
+                `Panel: ${valor("id_panel_alarma")} · capacidad ${valor("id_capacidad_panel")} zonas`,
+                `Ubicación del panel: piso ${valor("id_panel_piso")} · ${valor("id_panel_area")}`,
+                `Batería: ${valor("id_bateria_alarma")}`, `Transformador: ${valor("id_transformador_alarma")}`,
+                `Sirenas: ${valor("id_sirenas")}`, `Comunicador: ${valor("id_comunicacion_alarma")}`,
+                `Central de monitoreo: ${document.getElementById("id_conexion_monitoreo").checked ? valor("id_central_monitoreo") : "No requerida"}`
+            ]);
+            agregarTexto("Cableado y canalización estimada", [
+                `Cable 2x22: ${materialesAlarma.cable2x22} m · Cable 4x22: ${materialesAlarma.cable4x22} m`,
+                `Cable de sirena: ${materialesAlarma.cableSirena} m · Cable UTP: ${materialesAlarma.cableUtp} m`,
+                `Total de cable: ${materialesAlarma.total} m`,
+                `Canaleta: ${materialesAlarma.canaletaMetros} m (${materialesAlarma.tramos} tramos de 2 m)`,
+                `Accesorios: ${materialesAlarma.uniones} uniones · ${materialesAlarma.curvas} curvas · ${materialesAlarma.terminales} terminales · ${materialesAlarma.fijaciones} fijaciones`
+            ]);
+            if (datosModulos.length) agregarTexto("Equipos o módulos adicionales", datosModulos.map((m, i) =>
+                `${i + 1}. ${m.equipo || "Equipo"} · cantidad ${m.cantidad || 1} · ${m.ubicacion || ""} · ${m.descripcion || ""}`
+            ));
+        }
+        document.getElementById("smartcheckAccordion").classList.add("d-none");
+        document.getElementById("acciones-formulario").classList.add("d-none");
+        preview.classList.remove("d-none");
+        preview.scrollIntoView({behavior: "smooth", block: "start"});
+    });
+    document.getElementById("btn-volver-editar").addEventListener("click", () => {
+        preview.classList.add("d-none");
+        document.getElementById("smartcheckAccordion").classList.remove("d-none");
+        document.getElementById("acciones-formulario").classList.remove("d-none");
+    });
+});
+</script>
+{% endblock %}

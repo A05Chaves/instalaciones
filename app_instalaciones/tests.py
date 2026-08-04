@@ -1,15 +1,22 @@
 from datetime import datetime, time, timedelta
+from decimal import Decimal
+from io import BytesIO
+import json
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
 from django.conf import settings
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
+from openpyxl import Workbook, load_workbook
 
 from app_instalaciones.models import (
     Ciudad, CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
-    NotificacionTecnico, Tecnico,
+    NotificacionTecnico, Tecnico, ItemChecklistSmartCheck,
+    ItemKitProyectoComercial, KitProyectoComercial,
+    ProductoProyectoComercial, ProyectoSmartCheck, RegistroAuditoria,
 )
 from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
@@ -19,6 +26,7 @@ from app_instalaciones.utils.importar_mantenimientos_pdf import (
     preparar_resultados_para_session,
     restaurar_resultados_desde_session,
 )
+from app_instalaciones.utils.importar_mantenimientos_excel import analizar_excel_mantenimientos
 
 
 class EstadoFacturacionTests(TestCase):
@@ -819,3 +827,329 @@ class ImportacionMantenimientosPdfTests(TestCase):
             timezone.localtime(mantenimiento.fecha_creacion_servicio).date(),
             timezone.localdate(),
         )
+
+
+class ImportacionMantenimientosExcelTests(TestCase):
+    def crear_excel(self, encabezados, fila):
+        libro = Workbook()
+        hoja = libro.active
+        hoja.append(encabezados)
+        hoja.append(fila)
+        archivo = BytesIO()
+        libro.save(archivo)
+        archivo.seek(0)
+        return archivo
+
+    def test_analiza_excel_con_la_plantilla_exportada(self):
+        archivo = self.crear_excel(
+            [
+                "Número ticket", "Estado ticket", "Fecha registro", "Código",
+                "Cliente", "Ciudad", "Dirección", "Tipo servicio", "Tipo falla",
+                "Técnico", "Hora entrada", "Hora salida", "Duración", "Orden",
+                "Realizado", "Novedad", "Observación", "Pendiente",
+            ],
+            [
+                "EXCEL-100", "ASIGNADA", datetime(2026, 7, 20, 6, 4, 33), "3911",
+                "CLIENTE EXCEL", "PASTO", "CALLE 1", "Mantenimiento correctivo",
+                "F. Comunicación", "TECNICO EXCEL", "08:00", "09:30", "01:30:00",
+                "OT-100", datetime(2026, 7, 21), "SERVICIO LISTO", "PRUEBAS", "",
+            ],
+        )
+
+        resultados = analizar_excel_mantenimientos(archivo)
+        data = resultados[0]["data"]
+
+        self.assertEqual(len(resultados), 1)
+        self.assertTrue(resultados[0]["importable"])
+        self.assertEqual(data["numero_ticket"], "EXCEL-100")
+        self.assertEqual(data["fecha_creacion_servicio"], datetime(2026, 7, 20, 6, 4, 33))
+        self.assertEqual(data["tipo_falla"], "F.COMUNICACION")
+        self.assertEqual(data["horas"], Decimal("1.5"))
+        self.assertEqual(data["codigo_acta"], "OT-100")
+
+    def test_excel_marca_ticket_repetido_como_no_importable(self):
+        Mantenimiento.objects.create(
+            numero_ticket="DUP-1", codigo="1", cliente="CLIENTE", direccion="CALLE"
+        )
+        archivo = self.crear_excel(
+            ["Número ticket", "Código", "Cliente"],
+            ["DUP-1", "1", "CLIENTE"],
+        )
+
+        resultado = analizar_excel_mantenimientos(archivo)[0]
+
+        self.assertFalse(resultado["importable"])
+        self.assertIn("Ticket ya existe en la base de datos.", resultado["advertencias"])
+
+    def test_exportacion_incluye_ticket_y_estado_para_reimportar(self):
+        usuario = User.objects.create_superuser("exportador_excel", "e@example.com", "clave")
+        self.client.force_login(usuario)
+        Mantenimiento.objects.create(
+            numero_ticket="EXP-1", estado_ticket="ASIGNADA", codigo="1",
+            cliente="CLIENTE", direccion="CALLE", creado_por=usuario,
+        )
+
+        respuesta = self.client.get(reverse("exportar_mantenimientos"))
+        libro = load_workbook(BytesIO(respuesta.content), read_only=True, data_only=True)
+        encabezados = [celda.value for celda in next(libro.active.iter_rows())]
+        libro.close()
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(encabezados[:2], ["Número ticket", "Estado ticket"])
+
+    def test_formulario_recibe_excel_con_nombre_de_campo_compatible(self):
+        usuario = User.objects.create_superuser("importador_excel", "i@example.com", "clave")
+        self.client.force_login(usuario)
+        contenido = self.crear_excel(
+            ["Número ticket", "Código", "Cliente"],
+            ["POST-1", "10", "CLIENTE POST"],
+        ).getvalue()
+        archivo = SimpleUploadedFile(
+            "mantenimientos.xlsx", contenido,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        respuesta = self.client.post(
+            reverse("importar_mantenimientos_pdf"),
+            {"archivo_pdf": archivo},
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "POST-1")
+        self.assertContains(respuesta, "Vista previa de importación")
+
+
+class SmartCheckTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_superuser(
+            "super_smartcheck", "smart@example.com", "Clave-12345"
+        )
+        self.client.force_login(self.usuario)
+
+    def test_menu_muestra_acceso_a_smartcheck(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertContains(response, "Proyectos comerciales")
+        self.assertContains(response, reverse("smartcheck_listar"))
+        self.assertContains(response, "Ver proyectos comerciales")
+
+    def test_crea_proyecto_y_genera_checklist_por_sistemas(self):
+        response = self.client.post(reverse("smartcheck_crear"), {
+            "nombre": "Edificio Central",
+            "cliente": "Cliente Smart",
+            "estado": "VISITA_PROGRAMADA",
+            "sistemas": ["CCTV", "ALARMA"],
+            "pisos": "3",
+            "tipo_cctv": "IP",
+            "camaras_internas": "12",
+            "camaras_exteriores": "4",
+            "dias_grabacion": "30",
+            "panel_alarma": "Panel híbrido",
+            "capacidad_panel": "16",
+            "bateria_alarma": "Batería 12 V / 7 Ah",
+            "transformador_alarma": "Transformador 16.5 VAC",
+            "panel_piso": "1",
+            "panel_area": "Recepción",
+            "sirenas": "1",
+            "comunicacion_alarma": "IP_CELULAR",
+            "reserva_cable": "15",
+            "porcentaje_canaleta": "60",
+            "areas_alarma_json": json.dumps([{
+                "nombre": "Recepción", "piso": "2", "largo": "5", "ancho": "4",
+                "alto": "3", "nivel_riesgo": "ALTO",
+                "descripcion": "Acceso principal",
+            }]),
+            "dispositivos_alarma_json": json.dumps([
+                {"tipo": "MOVIMIENTO", "area": "Recepción", "ubicacion": "Esquina", "conexion": "CABLEADO", "descripcion": ""},
+                {"tipo": "MAGNETICO", "area": "Recepción", "ubicacion": "Puerta", "conexion": "CABLEADO", "descripcion": ""},
+                {"tipo": "PANICO", "area": "Recepción", "ubicacion": "Escritorio", "conexion": "INALAMBRICO", "descripcion": ""},
+            ]),
+            "modulos_alarma_json": "[]",
+        })
+
+        proyecto = ProyectoSmartCheck.objects.get()
+        self.assertRedirects(response, reverse("smartcheck_listar"))
+        self.assertTrue(proyecto.numero.startswith("SC-"))
+        self.assertEqual(proyecto.sistemas, ["CCTV", "ALARMA"])
+        self.assertEqual(proyecto.datos_tecnicos["camaras_internas"], 12)
+        self.assertTrue(
+            proyecto.items_checklist.filter(sistema="CCTV").exists()
+        )
+        self.assertFalse(
+            proyecto.items_checklist.filter(sistema="ALARMA").exists()
+        )
+        self.assertFalse(
+            proyecto.items_checklist.filter(sistema="ACCESO").exists()
+        )
+        self.assertEqual(proyecto.datos_tecnicos["zonas_calculadas"], 3)
+        self.assertEqual(
+            proyecto.datos_tecnicos["capacidad_recomendada"], 8
+        )
+        materiales = proyecto.datos_tecnicos["calculo_materiales_alarma"]
+        self.assertGreater(materiales["cable_total_m"], 0)
+        self.assertGreater(materiales["canaleta_tramos_2m"], 0)
+        self.assertGreaterEqual(materiales["cable_4x22_m"], 15)
+        detalle = self.client.get(
+            reverse("smartcheck_detalle", args=[proyecto.pk])
+        )
+        self.assertContains(detalle, "Levantamiento técnico")
+        self.assertContains(detalle, "RECEPCIÓN")
+        self.assertContains(detalle, "Botón de pánico")
+        self.assertContains(detalle, "Cableado y canalización estimada")
+        listado = self.client.get(
+            reverse("smartcheck_listar"), {"sistema": "CCTV"}
+        )
+        self.assertEqual(listado.status_code, 200)
+        self.assertContains(listado, "EDIFICIO CENTRAL")
+
+    def test_superusuario_configura_sensor_del_catalogo_comercial(self):
+        response = self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "guardar_producto", "producto_id": "", "categoria": "SENSOR",
+            "nombre": "Sensor doble tecnología", "referencia": "DT-100",
+            "marca": "Sesur", "precio": "125000", "unidad": "Unidad",
+            "activo": "on",
+        })
+        self.assertRedirects(response, reverse("configuracion_catalogo_comercial"))
+        sensor = ProductoProyectoComercial.objects.get()
+        self.assertEqual(sensor.categoria, "SENSOR")
+        self.assertEqual(sensor.nombre, "SENSOR DOBLE TECNOLOGÍA")
+        self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "guardar_producto", "producto_id": "", "categoria": "CABLE",
+            "nombre": "Cable 4x22", "referencia": "CB-422", "marca": "Sesur",
+            "precio": "2500", "unidad": "Metro", "activo": "on",
+        })
+        self.assertTrue(ProductoProyectoComercial.objects.filter(categoria="CABLE", unidad="METRO").exists())
+        for categoria, nombre, referencia in [
+            ("PANEL", "Panel híbrido 16 zonas", "PH-16"),
+            ("EQUIPO", "Fuente auxiliar", "FA-12"),
+        ]:
+            self.client.post(reverse("configuracion_catalogo_comercial"), {
+                "accion": "guardar_producto", "producto_id": "", "categoria": categoria,
+                "nombre": nombre, "referencia": referencia, "marca": "Sesur",
+                "precio": "350000", "unidad": "Unidad", "activo": "on",
+            })
+        formulario = self.client.get(reverse("smartcheck_crear"))
+        self.assertContains(formulario, "DT-100")
+        self.assertContains(formulario, "CB-422")
+        self.assertContains(formulario, "PH-16")
+        self.assertContains(formulario, "FA-12")
+
+    def test_actualiza_lista_de_chequeo_y_avance(self):
+        proyecto = ProyectoSmartCheck.objects.create(
+            nombre="Proyecto prueba",
+            cliente="Cliente",
+            sistemas=["CCTV"],
+            creado_por=self.usuario,
+        )
+        item = ItemChecklistSmartCheck.objects.create(
+            proyecto=proyecto,
+            sistema="CCTV",
+            item="Validar cobertura",
+        )
+
+        response = self.client.post(
+            reverse("smartcheck_guardar_checklist", args=[proyecto.pk]),
+            {
+                f"item_{item.pk}_estado": "CUMPLE",
+                f"item_{item.pk}_cantidad": "4",
+                f"item_{item.pk}_ubicacion": "Recepción",
+                f"item_{item.pk}_observacion": "Cobertura confirmada",
+            },
+        )
+
+        self.assertRedirects(
+            response, reverse("smartcheck_detalle", args=[proyecto.pk])
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.estado, "CUMPLE")
+        self.assertEqual(item.ubicacion, "Recepción")
+        self.assertEqual(proyecto.avance, 100)
+
+    def test_prepara_propuesta_final_desde_catalogo(self):
+        proyecto = ProyectoSmartCheck.objects.create(
+            nombre="Alarma sede principal", cliente="Cliente propuesta",
+            sistemas=["ALARMA"], creado_por=self.usuario,
+        )
+        producto = ProductoProyectoComercial.objects.create(
+            categoria="PANEL", nombre="Panel 24 zonas", referencia="P-24",
+            precio="1000000", unidad="Unidad",
+        )
+        response = self.client.post(reverse("smartcheck_propuesta", args=[proyecto.pk]), {
+            "nombre_propuesta": "Sistema de alarma principal",
+            "mano_obra": "200000", "descuento": "50000", "porcentaje_iva": "19",
+            "observaciones": "Incluye instalación y programación.",
+            "items_json": json.dumps([{
+                "producto_id": producto.pk, "cantidad": 1,
+                "valor_unitario": 1000000, "incluido_kit": False,
+            }]),
+        })
+        self.assertRedirects(response, reverse("smartcheck_propuesta", args=[proyecto.pk]))
+        proyecto.refresh_from_db()
+        self.assertEqual(proyecto.estado, "PROPUESTA_DISENO")
+        self.assertEqual(proyecto.cotizacion.items.count(), 1)
+        self.assertEqual(float(proyecto.cotizacion.total), 1368500)
+        detalle = self.client.get(reverse("smartcheck_detalle", args=[proyecto.pk]))
+        self.assertContains(detalle, "Resumen de propuesta")
+
+    def test_elimina_producto_y_kit_del_catalogo(self):
+        producto = ProductoProyectoComercial.objects.create(
+            categoria="SENSOR", nombre="Sensor temporal", precio="10000"
+        )
+        kit = KitProyectoComercial.objects.create(
+            nombre="Kit temporal", porcentaje_descuento="10"
+        )
+        item_kit = ItemKitProyectoComercial.objects.create(
+            kit=kit, producto=producto, cantidad=2
+        )
+        self.assertEqual(float(kit.valor_equipos), 20000)
+        self.assertEqual(float(kit.precio_total), 18000)
+        self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "actualizar_kit", "kit_id": kit.pk,
+            "porcentaje_descuento": "20",
+        })
+        kit.refresh_from_db()
+        self.assertEqual(float(kit.precio_total), 16000)
+        self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "quitar_item_kit", "kit_id": kit.pk,
+            "item_id": item_kit.pk,
+        })
+        self.assertFalse(ItemKitProyectoComercial.objects.filter(pk=item_kit.pk).exists())
+        ItemKitProyectoComercial.objects.create(kit=kit, producto=producto, cantidad=2)
+        response = self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "eliminar_producto", "producto_id": producto.pk,
+        })
+        self.assertRedirects(response, reverse("configuracion_catalogo_comercial"))
+        self.assertFalse(ProductoProyectoComercial.objects.filter(pk=producto.pk).exists())
+        self.assertFalse(ItemKitProyectoComercial.objects.filter(kit=kit).exists())
+        response = self.client.post(reverse("configuracion_catalogo_comercial"), {
+            "accion": "eliminar_kit", "kit_id": kit.pk,
+        })
+        self.assertRedirects(response, reverse("configuracion_catalogo_comercial"))
+        self.assertFalse(KitProyectoComercial.objects.filter(pk=kit.pk).exists())
+
+    def test_auditoria_registra_creacion_edicion_y_eliminacion(self):
+        url = reverse("configuracion_catalogo_comercial")
+        datos = {
+            "accion": "guardar_producto", "producto_id": "", "categoria": "EQUIPO",
+            "nombre": "Equipo auditable", "referencia": "AUD-1", "marca": "SESUR",
+            "precio": "10000", "unidad": "UNIDAD", "activo": "on",
+        }
+        self.client.post(url, datos)
+        producto = ProductoProyectoComercial.objects.get(referencia="AUD-1")
+        self.assertTrue(RegistroAuditoria.objects.filter(
+            usuario=self.usuario, accion="CREAR", objeto_id=str(producto.pk),
+            modelo__icontains="Producto",
+        ).exists())
+        datos.update({"producto_id": str(producto.pk), "precio": "12000"})
+        self.client.post(url, datos)
+        edicion = RegistroAuditoria.objects.filter(
+            usuario=self.usuario, accion="EDITAR", objeto_id=str(producto.pk),
+            modelo__icontains="Producto",
+        ).latest("fecha")
+        self.assertIn("precio", edicion.cambios)
+        self.client.post(url, {"accion": "eliminar_producto", "producto_id": producto.pk})
+        self.assertTrue(RegistroAuditoria.objects.filter(
+            usuario=self.usuario, accion="ELIMINAR", objeto_id=str(producto.pk),
+            modelo__icontains="Producto",
+        ).exists())
+        self.assertEqual(self.client.get(reverse("registro_movimientos")).status_code, 200)

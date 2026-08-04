@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Proyectos comerciales{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'sesur/css/smartcheck.css' %}">
+
+<div class="smartcheck-hero p-4 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+        <h1 class="h3 mb-1"><i class="fas fa-clipboard-check me-2"></i>Proyectos comerciales</h1>
+        <p class="mb-0">Visitas, levantamientos, propuestas y entregas de sistemas.</p>
+    </div>
+    <a href="{% url 'smartcheck_crear' %}" class="btn btn-light fw-semibold">
+        <i class="fas fa-plus me-1"></i> Nuevo proyecto
+    </a>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-4">
+            <div class="col-lg">
+                <input type="search" name="busqueda" value="{{ busqueda }}"
+                       class="form-control" placeholder="Proyecto, cliente, ciudad o dirección">
+            </div>
+            <div class="col-md-3">
+                <select name="sistema" class="form-select">
+                    <option value="">Todos los sistemas</option>
+                    {% for valor, texto in sistemas %}
+                    <option value="{{ valor }}" {% if sistema_filtro == valor %}selected{% endif %}>{{ texto }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for valor, texto in estados %}
+                    <option value="{{ valor }}" {% if estado_filtro == valor %}selected{% endif %}>{{ texto }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary">Filtrar</button>
+                <a href="{% url 'smartcheck_listar' %}" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Proyecto</th>
+                        <th>Cliente</th>
+                        <th>Sistemas</th>
+                        <th>Responsables</th>
+                        <th>Visita</th>
+                        <th>Estado</th>
+                        <th>Avance</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for proyecto in proyectos %}
+                    <tr>
+                        <td><strong>{{ proyecto.numero }}</strong><br><small>{{ proyecto.nombre }}</small></td>
+                        <td>{{ proyecto.cliente }}<br><small class="text-muted">{{ proyecto.ciudad }}</small></td>
+                        <td>{{ proyecto.sistemas_display|default:"Sin seleccionar" }}</td>
+                        <td>
+                            <small>Comercial: {{ proyecto.ejecutivo|default:"—" }}</small><br>
+                            <small>Técnico: {{ proyecto.tecnico|default:"—" }}</small>
+                        </td>
+                        <td>{{ proyecto.fecha_visita|date:"Y-m-d"|default:"—" }}</td>
+                        <td><span class="badge bg-primary">{{ proyecto.get_estado_display }}</span></td>
+                        <td>
+                            <div class="progress" role="progressbar" aria-label="Avance">
+                                <div class="progress-bar" style="width: {{ proyecto.avance }}%">{{ proyecto.avance }}%</div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'smartcheck_detalle' proyecto.pk %}" class="btn btn-sm btn-outline-primary">
+                                Abrir
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-5">No existen proyectos comerciales.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

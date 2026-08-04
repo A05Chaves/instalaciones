@@ -4,3 +4,6 @@ from django.apps import AppConfig
 class AppInstalacionesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'app_instalaciones'
+
+    def ready(self):
+        from . import signals  # noqa: F401

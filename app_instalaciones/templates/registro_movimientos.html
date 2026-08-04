@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block titulo %}Registro de movimientos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div><h2 class="fw-bold mb-1"><i class="fas fa-history text-primary me-2"></i>Registro de movimientos</h2><p class="text-muted mb-0">Altas, ediciones y eliminaciones realizadas en los módulos de la aplicación.</p></div>
+  <a class="btn btn-secondary" href="{% url 'configuracion_usuarios' %}"><i class="fas fa-arrow-left me-1"></i>Configuración</a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4"><div class="card-body"><form method="get" class="row g-2">
+  <div class="col-lg-3"><input class="form-control" name="busqueda" value="{{ filtros.busqueda|default:'' }}" placeholder="Registro, modelo, usuario o ruta"></div>
+  <div class="col-md-2"><select class="form-select" name="usuario"><option value="">Todos los usuarios</option>{% for usuario in usuarios_auditoria %}<option value="{{ usuario.pk }}" {% if filtros.usuario == usuario.pk|stringformat:'s' %}selected{% endif %}>{{ usuario.username }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="modulo"><option value="">Todos los módulos</option>{% for nombre in modulos_auditoria %}<option value="{{ nombre }}" {% if filtros.modulo == nombre %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><select class="form-select" name="accion"><option value="">Todas las acciones</option>{% for valor,texto in acciones_auditoria %}<option value="{{ valor }}" {% if filtros.accion == valor %}selected{% endif %}>{{ texto }}</option>{% endfor %}</select></div>
+  <div class="col-md"><input class="form-control" type="date" name="desde" value="{{ filtros.desde|default:'' }}" title="Desde"></div><div class="col-md"><input class="form-control" type="date" name="hasta" value="{{ filtros.hasta|default:'' }}" title="Hasta"></div>
+  <div class="col-auto"><button class="btn btn-primary">Filtrar</button> <a class="btn btn-outline-secondary" href="{% url 'registro_movimientos' %}">Limpiar</a></div>
+</form></div></div>
+
+<div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-dark"><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Módulo / registro</th><th>Cambios</th><th>Origen</th></tr></thead><tbody>
+{% for registro in pagina %}<tr><td class="text-nowrap">{{ registro.fecha|date:'Y-m-d H:i:s' }}</td><td>{% if registro.usuario %}<strong>{{ registro.usuario.username }}</strong>{% else %}<span class="text-muted">SISTEMA</span>{% endif %}</td><td><span class="badge {% if registro.accion == 'CREAR' %}bg-success{% elif registro.accion == 'EDITAR' %}bg-primary{% else %}bg-danger{% endif %}">{{ registro.get_accion_display }}</span></td><td><strong>{{ registro.modelo }}</strong><br><small>{{ registro.objeto }} · ID {{ registro.objeto_id }}</small></td><td><details><summary>{{ registro.cambios|length }} campo(s)</summary><div class="small mt-2" style="min-width:300px">{% for campo,valores in registro.cambios.items %}<div class="border-bottom py-1"><strong>{{ campo }}</strong><br><span class="text-danger">Antes: {{ valores.anterior|default_if_none:'—' }}</span><br><span class="text-success">Después: {{ valores.nuevo|default_if_none:'—' }}</span></div>{% endfor %}</div></details></td><td><small>{{ registro.ip|default:'—' }}<br>{{ registro.metodo }} {{ registro.ruta|default:'—' }}</small></td></tr>
+{% empty %}<tr><td colspan="6" class="text-center text-muted py-5">No hay movimientos con los filtros seleccionados.</td></tr>{% endfor %}</tbody></table></div>
+{% if pagina.paginator.num_pages > 1 %}<div class="card-footer d-flex justify-content-between"><span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span><div>{% if pagina.has_previous %}<a class="btn btn-sm btn-outline-primary" href="?{% if querystring %}{{ querystring }}&{% endif %}pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}{% if pagina.has_next %}<a class="btn btn-sm btn-outline-primary" href="?{% if querystring %}{{ querystring }}&{% endif %}pagina={{ pagina.next_page_number }}">Siguiente</a>{% endif %}</div></div>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block titulo %}Configuración de proyectos comerciales{% endblock %}
+{% block content %}
+<style>.catalogo-comercial input[type="text"],.catalogo-comercial textarea{text-transform:uppercase}</style>
+<div class="catalogo-comercial">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div><h2 class="fw-bold mb-1"><i class="fas fa-boxes text-info me-2"></i>Catálogo de proyectos comerciales</h2>
+  <p class="text-muted mb-0">Precios, referencias, sensores, módulos, equipos y kits para preparar propuestas.</p></div>
+  <a class="btn btn-secondary" href="{% url 'configuracion_usuarios' %}"><i class="fas fa-arrow-left me-1"></i>Configuración</a>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-info fw-bold">{% if producto_editar %}Editar {{ producto_editar }}{% else %}Agregar producto o tipo de sensor{% endif %}</div>
+  <div class="card-body">
+    <form method="post" class="row g-3">{% csrf_token %}<input type="hidden" name="accion" value="guardar_producto"><input type="hidden" name="producto_id" value="{{ producto_editar.pk|default:'' }}">
+      {% for field in form %}<div class="col-md-3"><label class="form-label">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}
+      <div class="col-12 text-end">{% if producto_editar %}<a class="btn btn-outline-secondary" href="{% url 'configuracion_catalogo_comercial' %}">Cancelar</a>{% endif %} <button class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar producto</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4"><div class="card-header bg-dark text-white fw-bold">Catálogo actual</div>
+  <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Categoría</th><th>Producto</th><th>Marca / referencia</th><th>Unidad</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody>
+  {% for producto in productos %}<tr><td>{{ producto.get_categoria_display }}</td><td>{{ producto.nombre }}</td><td>{{ producto.marca }} {{ producto.referencia }}</td><td>{{ producto.unidad }}</td><td>${{ producto.precio }}</td><td>{% if producto.activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td><td class="text-nowrap"><a class="btn btn-sm btn-outline-primary" href="?editar={{ producto.pk }}" title="Editar"><i class="fas fa-edit"></i></a> <form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este producto del catálogo y de los kits?');">{% csrf_token %}<input type="hidden" name="accion" value="eliminar_producto"><input type="hidden" name="producto_id" value="{{ producto.pk }}"><button class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button></form></td></tr>
+  {% empty %}<tr><td colspan="7" class="text-center text-muted">No hay productos configurados.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+<div class="card shadow-sm border-0"><div class="card-header bg-success text-white fw-bold">Kits de alarma</div><div class="card-body">
+  <form method="post" class="row g-2 mb-4">{% csrf_token %}<input type="hidden" name="accion" value="crear_kit"><div class="col-md-3"><input class="form-control" name="nombre_kit" required placeholder="NOMBRE DEL KIT"></div><div class="col-md-5"><input class="form-control" name="descripcion_kit" placeholder="DESCRIPCIÓN"></div><div class="col-md-2"><div class="input-group"><input class="form-control" type="number" min="0" max="100" step="0.01" name="porcentaje_descuento" value="0"><span class="input-group-text">% DCTO.</span></div></div><div class="col-md-2"><button class="btn btn-success w-100">Crear kit</button></div></form>
+  {% for kit in kits %}<div class="border rounded p-3 mb-3"><div class="d-flex justify-content-between align-items-start gap-2"><h3 class="h6 fw-bold mb-1">{{ kit.nombre }}</h3><div class="text-nowrap"><span class="me-2">Equipos: ${{ kit.valor_equipos }}</span><span class="badge bg-warning text-dark me-2">-{{ kit.porcentaje_descuento }}%</span><strong class="me-2">Kit: ${{ kit.precio_total }}</strong><form method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este kit y todos sus componentes?');">{% csrf_token %}<input type="hidden" name="accion" value="eliminar_kit"><input type="hidden" name="kit_id" value="{{ kit.pk }}"><button class="btn btn-sm btn-outline-danger" title="Eliminar kit"><i class="fas fa-trash"></i></button></form></div></div><p class="small text-muted">{{ kit.descripcion }}</p>
+    <ul class="list-group mb-3">{% for item in kit.items.all %}<li class="list-group-item d-flex justify-content-between align-items-center"><span>{{ item.cantidad }} × {{ item.producto }} — ${{ item.subtotal }}</span><form method="post" onsubmit="return confirm('¿Retirar este equipo del kit?');">{% csrf_token %}<input type="hidden" name="accion" value="quitar_item_kit"><input type="hidden" name="kit_id" value="{{ kit.pk }}"><input type="hidden" name="item_id" value="{{ item.pk }}"><button class="btn btn-sm btn-outline-danger" title="Retirar del kit"><i class="fas fa-times"></i></button></form></li>{% empty %}<li class="list-group-item text-muted">KIT SIN EQUIPOS.</li>{% endfor %}</ul>
+    <div class="row g-2 mb-2"><div class="col-lg-7"><form method="post" class="row g-2">{% csrf_token %}<input type="hidden" name="accion" value="agregar_item_kit"><input type="hidden" name="kit_id" value="{{ kit.pk }}"><div class="col-md-7"><label class="form-label small fw-semibold">Seleccionar equipo del catálogo</label><select class="form-select kit-product-select" name="producto_id" required><option value="">BUSCAR EQUIPO...</option>{% for producto in productos %}{% if producto.activo %}<option value="{{ producto.pk }}">{{ producto.get_categoria_display }} · {{ producto }} · ${{ producto.precio }}/{{ producto.unidad }}</option>{% endif %}{% endfor %}</select></div><div class="col-md-2"><label class="form-label small fw-semibold">Cantidad</label><input class="form-control" type="number" min="1" value="1" name="cantidad"></div><div class="col-md-3 d-flex align-items-end"><button class="btn btn-outline-success w-100">Agregar al kit</button></div></form></div>
+    <div class="col-lg-5"><form method="post" class="row g-2">{% csrf_token %}<input type="hidden" name="accion" value="actualizar_kit"><input type="hidden" name="kit_id" value="{{ kit.pk }}"><div class="col-7"><label class="form-label small fw-semibold">Descuento del kit</label><div class="input-group"><input class="form-control" type="number" min="0" max="100" step="0.01" name="porcentaje_descuento" value="{{ kit.porcentaje_descuento }}"><span class="input-group-text">%</span></div></div><div class="col-5 d-flex align-items-end"><button class="btn btn-outline-primary w-100">Actualizar valor</button></div></form></div></div>
+  </div>{% empty %}<p class="text-muted">Todavía no hay kits configurados.</p>{% endfor %}
+</div></div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>document.addEventListener("DOMContentLoaded",()=>{if(window.jQuery&&jQuery.fn.select2){jQuery(".kit-product-select").select2({width:"100%",placeholder:"BUSCAR EQUIPO DEL CATÁLOGO"});}});</script>{% endblock %}

@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
 {% block titulo %}
-Importar PDF de mantenimientos
+Importar mantenimientos
 {% endblock %}
 
 {% block content %}
 
 <div class="card shadow-sm border-0">
     <div class="card-header bg-primary text-white">
-        <strong>Importar mantenimientos desde PDF</strong>
+        <strong>Importar mantenimientos desde PDF o Excel</strong>
     </div>
 
     <div class="card-body">
@@ -16,8 +16,13 @@ Importar PDF de mantenimientos
             {% csrf_token %}
 
             <div class="mb-3">
-                <label class="form-label fw-semibold">Archivo PDF</label>
-                <input type="file" name="archivo_pdf" accept=".pdf" class="form-control" required>
+                <label class="form-label fw-semibold">Archivo PDF o Excel</label>
+                <input type="file" name="archivo_pdf" id="archivo-mantenimientos"
+                       accept=".pdf,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                       class="form-control" required>
+                <div class="form-text">
+                    Puede usar un PDF del servicio o un Excel con la misma estructura de la descarga de mantenimientos.
+                </div>
             </div>
 
             <div class="form-check mb-3">
@@ -25,7 +30,7 @@ Importar PDF de mantenimientos
                        name="actualizar_existentes" value="1"
                        id="actualizar-existentes" checked>
                 <label class="form-check-label" for="actualizar-existentes">
-                    Actualizar tickets que ya existen con la información corregida del PDF
+                    Actualizar tickets que ya existen con la información corregida del archivo
                 </label>
                 <div class="form-text">
                     No elimina registros ni reemplaza archivos adjuntos u órdenes agregadas manualmente.
@@ -33,7 +38,7 @@ Importar PDF de mantenimientos
             </div>
 
             <button type="submit" class="btn btn-success">
-                Analizar PDF
+                Analizar archivo
             </button>
 
             <a href="{% url 'listar_mantenimientos' %}" class="btn btn-secondary">

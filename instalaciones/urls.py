@@ -1,7 +1,7 @@
 
 from django.contrib import admin
 from django.urls import path
-from app_instalaciones.home_views import views, user_views
+from app_instalaciones.home_views import smartcheck_views, views, user_views
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.views import LogoutView
 
@@ -36,6 +36,20 @@ urlpatterns = [
 
     path('mantenimientos/', user_views.listar_mantenimientos,
          name='listar_mantenimientos'),
+    path('smartcheck/', smartcheck_views.listar_proyectos,
+         name='smartcheck_listar'),
+    path('smartcheck/nuevo/', smartcheck_views.crear_proyecto,
+         name='smartcheck_crear'),
+    path('smartcheck/<int:pk>/', smartcheck_views.detalle_proyecto,
+         name='smartcheck_detalle'),
+    path('smartcheck/<int:pk>/editar/', smartcheck_views.editar_proyecto,
+         name='smartcheck_editar'),
+    path('smartcheck/<int:pk>/checklist/', smartcheck_views.guardar_checklist,
+         name='smartcheck_guardar_checklist'),
+    path('smartcheck/<int:pk>/propuesta/', smartcheck_views.propuesta_final,
+         name='smartcheck_propuesta'),
+    path('configuracion/proyectos-comerciales/', smartcheck_views.configuracion_catalogo,
+         name='configuracion_catalogo_comercial'),
     path('tecnico/servicios/', user_views.portal_tecnico, name='portal_tecnico'),
     path('api/tecnico/servicios/', user_views.api_servicios_tecnico, name='api_servicios_tecnico'),
     path('api/tecnico/notificaciones/leidas/', user_views.leer_notificaciones_tecnico, name='leer_notificaciones_tecnico'),
@@ -70,6 +84,11 @@ urlpatterns = [
         'configuracion/usuarios/',
         user_views.configuracion_usuarios,
         name='configuracion_usuarios'
+    ),
+    path(
+        'configuracion/movimientos/',
+        user_views.registro_movimientos,
+        name='registro_movimientos'
     ),
     path(
         'mantenimientos/exportar/',

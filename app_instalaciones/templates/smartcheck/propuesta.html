@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block titulo %}Propuesta final {{ proyecto.numero }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'sesur/css/smartcheck.css' %}">{% endblock %}
+{% block content %}
+<div class="smartcheck-hero p-4 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+  <div><h1 class="h3 mb-1">Propuesta final</h1><p class="mb-0">{{ proyecto.numero }} · {{ proyecto.cliente }}</p></div>
+  <a class="btn btn-light" href="{% url 'smartcheck_detalle' proyecto.pk %}"><i class="fas fa-arrow-left me-1"></i>Volver al proyecto</a>
+</div>
+
+<form method="post" id="propuesta-form">{% csrf_token %}<input type="hidden" name="items_json" id="items-json">
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body"><div class="row g-3">
+    <div class="col-md-6"><label class="form-label fw-semibold">Razón social</label><input class="form-control" value="{{ proyecto.cliente }}" readonly></div>
+    <div class="col-md-6"><label class="form-label fw-semibold">Establecimiento / proyecto</label><input class="form-control" name="nombre_propuesta" value="{{ cotizacion.nombre_propuesta|default:proyecto.nombre }}"></div>
+    <div class="col-md-8"><label class="form-label fw-semibold">Kit configurado</label><select class="form-select" name="kit_id" id="kit-selector"><option value="">Sin kit</option>{% for kit in kits %}<option value="{{ kit.pk }}" {% if cotizacion.kit_id == kit.pk %}selected{% endif %}>{{ kit.nombre }} · ${{ kit.precio_total }}</option>{% endfor %}</select></div>
+    <div class="col-md-4 d-flex align-items-end"><button class="btn btn-outline-primary w-100" type="button" id="cargar-kit"><i class="fas fa-box-open me-1"></i>Cargar componentes del kit</button></div>
+  </div></div></div>
+
+  <div class="card border-0 shadow-sm mb-4"><div class="card-header bg-dark text-white d-flex justify-content-between align-items-center"><strong>Equipos, materiales y servicios</strong><button class="btn btn-sm btn-light" type="button" id="agregar-item"><i class="fas fa-plus me-1"></i>Agregar producto</button></div>
+    <div class="table-responsive"><table class="table table-bordered align-middle mb-0"><thead><tr><th style="min-width:180px">Referencia</th><th style="min-width:300px">Descripción</th><th>Cantidad</th><th>Valor unitario</th><th>Valor total</th><th>Incluido</th><th></th></tr></thead><tbody id="items-propuesta"></tbody></table></div>
+  </div>
+
+  <div class="row g-4"><div class="col-lg-7"><div class="card border-0 shadow-sm h-100"><div class="card-body"><label class="form-label fw-semibold">Observaciones y alcance</label><textarea class="form-control" rows="7" name="observaciones">{{ cotizacion.observaciones }}</textarea><p class="small text-muted mt-2 mb-0">Los valores quedan guardados como copia de la propuesta y no cambian al actualizar el catálogo.</p></div></div></div>
+    <div class="col-lg-5"><div class="card border-0 shadow-sm"><div class="card-body"><div class="row g-3">
+      <div class="col-6"><label class="form-label">Instalación</label><input class="form-control text-end recalcular" type="number" min="0" step="0.01" name="mano_obra" id="mano-obra" value="{{ cotizacion.mano_obra }}"></div>
+      <div class="col-6"><label class="form-label">Descuento</label><input class="form-control text-end recalcular" type="number" min="0" step="0.01" name="descuento" id="descuento" value="{{ cotizacion.descuento }}"></div>
+      <div class="col-6"><label class="form-label">IVA (%)</label><input class="form-control text-end recalcular" type="number" min="0" step="0.01" name="porcentaje_iva" id="iva" value="{{ cotizacion.porcentaje_iva }}"></div>
+    </div><hr><dl class="row mb-0"><dt class="col-7">Subtotal productos</dt><dd class="col-5 text-end" id="subtotal-productos">$0</dd><dt class="col-7">Subtotal</dt><dd class="col-5 text-end fw-bold" id="subtotal">$0</dd><dt class="col-7">IVA</dt><dd class="col-5 text-end" id="valor-iva">$0</dd><dt class="col-7 fs-5">VALOR TOTAL</dt><dd class="col-5 text-end fs-5 fw-bold" id="total">$0</dd></dl></div></div></div>
+  </div>
+  <div class="text-end mt-4"><button class="btn btn-success btn-lg"><i class="fas fa-save me-1"></i>Guardar propuesta final</button></div>
+</form>
+{% endblock %}
+{% block extra_js %}
+{{ productos_catalogo|json_script:"productos-propuesta" }}{{ kits_json|json_script:"kits-propuesta" }}{{ items_iniciales|json_script:"items-iniciales" }}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const productos = JSON.parse(document.getElementById("productos-propuesta").textContent || "[]");
+  const kits = JSON.parse(document.getElementById("kits-propuesta").textContent || "[]");
+  const cuerpo = document.getElementById("items-propuesta");
+  const dinero = valor => new Intl.NumberFormat("es-CO", {style:"currency", currency:"COP", maximumFractionDigits:0}).format(valor || 0);
+  const escapar = valor => String(valor ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  const opciones = productos.map(p => `<option value="${p.id}">${escapar(p.referencia || "Sin referencia")} · ${escapar(p.nombre)} · ${dinero(Number(p.precio))}/${escapar(p.unidad)}</option>`).join("");
+  const leer = () => Array.from(cuerpo.querySelectorAll("tr")).map(fila => ({
+    producto_id: fila.querySelector("[data-producto]").value,
+    cantidad: fila.querySelector("[data-cantidad]").value,
+    valor_unitario: fila.querySelector("[data-precio]").value,
+    incluido_kit: fila.querySelector("[data-incluido]").checked,
+  }));
+  const recalcular = () => {
+    let productosTotal = 0;
+    cuerpo.querySelectorAll("tr").forEach(fila => {
+      const total = (Number(fila.querySelector("[data-cantidad]").value)||0) * (Number(fila.querySelector("[data-precio]").value)||0);
+      const incluido = fila.querySelector("[data-incluido]").checked;
+      fila.querySelector("[data-total]").textContent = dinero(incluido ? 0 : total);
+      if (!incluido) productosTotal += total;
+    });
+    const subtotal = Math.max(0, productosTotal + (Number(document.getElementById("mano-obra").value)||0) - (Number(document.getElementById("descuento").value)||0));
+    const iva = subtotal * (Number(document.getElementById("iva").value)||0) / 100;
+    document.getElementById("subtotal-productos").textContent = dinero(productosTotal);
+    document.getElementById("subtotal").textContent = dinero(subtotal);
+    document.getElementById("valor-iva").textContent = dinero(iva);
+    document.getElementById("total").textContent = dinero(subtotal + iva);
+    document.getElementById("items-json").value = JSON.stringify(leer());
+  };
+  const agregar = (dato={}) => {
+    const fila = document.createElement("tr");
+    fila.innerHTML = `<td><select class="form-select form-select-sm" data-producto><option value="">Seleccione...</option>${opciones}</select></td><td data-descripcion>—</td><td><input class="form-control form-control-sm text-end" type="number" min="0" step="0.01" data-cantidad value="${escapar(dato.cantidad ?? 1)}"></td><td><input class="form-control form-control-sm text-end" type="number" min="0" step="0.01" data-precio value="${escapar(dato.valor_unitario ?? 0)}"></td><td class="text-end fw-semibold" data-total>$0</td><td class="text-center"><input class="form-check-input" type="checkbox" data-incluido ${dato.incluido_kit ? "checked" : ""}></td><td><button class="btn btn-sm btn-outline-danger" type="button" data-eliminar><i class="fas fa-trash"></i></button></td>`;
+    const selector = fila.querySelector("[data-producto]"); selector.value = dato.producto_id || "";
+    const actualizarProducto = () => { const p=productos.find(x=>String(x.id)===selector.value); fila.querySelector("[data-descripcion]").textContent=p?`${p.nombre}${p.marca?` · ${p.marca}`:""}`:"—"; if(p && !dato.valor_unitario) fila.querySelector("[data-precio]").value=p.precio; recalcular(); };
+    selector.addEventListener("change", actualizarProducto); fila.querySelectorAll("input").forEach(x=>x.addEventListener("input",recalcular)); fila.querySelector("[data-eliminar]").addEventListener("click",()=>{fila.remove();recalcular();}); cuerpo.appendChild(fila); actualizarProducto();
+  };
+  JSON.parse(document.getElementById("items-iniciales").textContent || "[]").forEach(agregar);
+  document.getElementById("agregar-item").addEventListener("click",()=>agregar());
+  document.getElementById("cargar-kit").addEventListener("click",()=>{ const kit=kits.find(k=>String(k.id)===document.getElementById("kit-selector").value); if(!kit)return; cuerpo.innerHTML=""; const totalKit=kit.items.reduce((s,i)=>s+Number(i.precio)*Number(i.cantidad),0); kit.items.forEach((i,index)=>agregar({producto_id:i.producto_id,cantidad:i.cantidad,valor_unitario:index===0?totalKit:i.precio,incluido_kit:index>0})); });
+  document.querySelectorAll(".recalcular").forEach(x=>x.addEventListener("input",recalcular));
+  document.getElementById("propuesta-form").addEventListener("submit",recalcular); recalcular();
+});
+</script>
+{% endblock %}

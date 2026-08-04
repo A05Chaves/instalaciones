@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}{{ proyecto.numero }} - Proyecto comercial{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'sesur/css/smartcheck.css' %}">
+
+<div class="smartcheck-hero p-4 mb-4">
+    <div class="d-flex flex-wrap justify-content-between gap-3">
+        <div>
+            <small>{{ proyecto.numero }}</small>
+            <h1 class="h3 mb-1">{{ proyecto.nombre }}</h1>
+            <p class="mb-0">{{ proyecto.cliente }} · {{ proyecto.sistemas_display }}</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-light text-dark mb-2">{{ proyecto.get_estado_display }}</span><br>
+            <a href="{% url 'smartcheck_editar' proyecto.pk %}" class="btn btn-light btn-sm">
+                <i class="fas fa-edit me-1"></i> Editar proyecto
+            </a>
+            <a href="{% url 'smartcheck_propuesta' proyecto.pk %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-file-invoice-dollar me-1"></i> Propuesta final
+            </a>
+        </div>
+        {% if cotizacion %}
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header fw-bold">Resumen de propuesta</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-7">Productos</dt><dd class="col-5 text-end">${{ cotizacion.subtotal_productos|floatformat:0 }}</dd>
+                    <dt class="col-7">Instalación</dt><dd class="col-5 text-end">${{ cotizacion.mano_obra|floatformat:0 }}</dd>
+                    <dt class="col-7">Descuento</dt><dd class="col-5 text-end">-${{ cotizacion.descuento|floatformat:0 }}</dd>
+                    <dt class="col-7">IVA</dt><dd class="col-5 text-end">${{ cotizacion.valor_iva|floatformat:0 }}</dd>
+                    <dt class="col-7">Total</dt><dd class="col-5 text-end fw-bold">${{ cotizacion.total|floatformat:0 }}</dd>
+                </dl>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-4">
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header fw-bold">Información del proyecto</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5">Cliente</dt><dd class="col-7">{{ proyecto.cliente }}</dd>
+                    <dt class="col-5">Contacto</dt><dd class="col-7">{{ proyecto.contacto|default:"—" }}</dd>
+                    <dt class="col-5">Ubicación</dt><dd class="col-7">{{ proyecto.ciudad }} {{ proyecto.direccion }}</dd>
+                    <dt class="col-5">Visita</dt><dd class="col-7">{{ proyecto.fecha_visita|date:"Y-m-d"|default:"—" }}</dd>
+                    <dt class="col-5">Ejecutivo</dt><dd class="col-7">{{ proyecto.ejecutivo|default:"—" }}</dd>
+                    <dt class="col-5">Técnico</dt><dd class="col-7">{{ proyecto.tecnico|default:"—" }}</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="card shadow-sm border-0">
+            <div class="card-header fw-bold">Avance de la lista</div>
+            <div class="card-body">
+                <div class="progress" style="height: 26px">
+                    <div class="progress-bar" style="width: {{ proyecto.avance }}%">{{ proyecto.avance }}%</div>
+                </div>
+                <p class="small text-muted mt-2 mb-0">El avance aumenta al revisar cada punto.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-8">
+        {% if "ALARMA" in proyecto.sistemas %}
+        <article class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white">
+                <strong>Levantamiento técnico – Sistema de alarma</strong>
+            </div>
+            <div class="card-body">
+                <h2 class="h5 border-bottom pb-2">Áreas y puntos vulnerables</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm">
+                        <thead><tr><th>#</th><th>Área</th><th>Piso</th><th>Dimensiones</th><th>Riesgo</th><th>Puntos vulnerables</th></tr></thead>
+                        <tbody>
+                        {% for area in areas_alarma %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ area.nombre|default:"Área" }}</td>
+                            <td>{{ area.piso|default:"1" }}</td>
+                            <td>{{ area.largo|default:"0" }} × {{ area.ancho|default:"0" }} × {{ area.alto|default:"0" }} m<br>
+                                <small>{{ area.area_m2 }} m²</small></td>
+                            <td>{{ area.nivel_riesgo|default:"—" }}</td>
+                            <td>{{ area.descripcion|default:"—" }}</td>
+                        </tr>
+                        {% empty %}<tr><td colspan="6">Sin áreas registradas.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2 class="h5 border-bottom pb-2">Sensores y dispositivos</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm">
+                        <thead><tr><th>#</th><th>Tipo</th><th>Área</th><th>Ubicación</th><th>Conexión</th></tr></thead>
+                        <tbody>
+                        {% for dispositivo in dispositivos_alarma %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ dispositivo.tipo_display }}</td>
+                            <td>{{ dispositivo.area|default:"—" }}</td>
+                            <td>{{ dispositivo.ubicacion|default:"—" }}</td>
+                            <td>{{ dispositivo.conexion|default:"—" }}</td>
+                        </tr>
+                        {% empty %}<tr><td colspan="5">Sin dispositivos registrados.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2 class="h5 border-bottom pb-2">Panel, energía y comunicación</h2>
+                <dl class="row">
+                    <dt class="col-sm-5">Zonas utilizadas</dt><dd class="col-sm-7">{{ datos_tecnicos.zonas_calculadas|default:"0" }}</dd>
+                    <dt class="col-sm-5">Capacidad recomendada</dt><dd class="col-sm-7">{{ datos_tecnicos.capacidad_recomendada|default:"8" }} zonas</dd>
+                    <dt class="col-sm-5">Panel propuesto</dt><dd class="col-sm-7">{{ datos_tecnicos.panel_alarma|default:"—" }}</dd>
+                    <dt class="col-sm-5">Ubicación central del panel</dt><dd class="col-sm-7">Piso {{ datos_tecnicos.panel_piso|default:"1" }} · {{ datos_tecnicos.panel_area|default:"Área central por definir" }}</dd>
+                    <dt class="col-sm-5">Capacidad seleccionada</dt><dd class="col-sm-7">{{ datos_tecnicos.capacidad_panel|default:"—" }}</dd>
+                    <dt class="col-sm-5">Batería</dt><dd class="col-sm-7">{{ datos_tecnicos.bateria_alarma|default:"—" }}</dd>
+                    <dt class="col-sm-5">Transformador</dt><dd class="col-sm-7">{{ datos_tecnicos.transformador_alarma|default:"—" }}</dd>
+                    <dt class="col-sm-5">Sirenas</dt><dd class="col-sm-7">{{ datos_tecnicos.sirenas|default:"0" }}</dd>
+                    <dt class="col-sm-5">Comunicador</dt><dd class="col-sm-7">{{ datos_tecnicos.comunicacion_alarma|default:"—" }}</dd>
+                    <dt class="col-sm-5">Central de monitoreo</dt><dd class="col-sm-7">{{ datos_tecnicos.central_monitoreo|default:"No definida" }}</dd>
+                </dl>
+
+                <h2 class="h5 border-bottom pb-2">Cableado y canalización estimada</h2>
+                {% with materiales=datos_tecnicos.calculo_materiales_alarma %}
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered">
+                        <tbody>
+                            <tr><th>Cable 2x22</th><td>{{ materiales.cable_2x22_m|default:"0" }} m</td><th>Cable 4x22</th><td>{{ materiales.cable_4x22_m|default:"0" }} m</td></tr>
+                            <tr><th>Cable de sirena</th><td>{{ materiales.cable_sirena_m|default:"0" }} m</td><th>Cable UTP</th><td>{{ materiales.cable_utp_m|default:"0" }} m</td></tr>
+                            <tr><th>Total de cable</th><td>{{ materiales.cable_total_m|default:"0" }} m</td><th>Canaleta</th><td>{{ materiales.canaleta_metros|default:"0" }} m ({{ materiales.canaleta_tramos_2m|default:"0" }} tramos de 2 m)</td></tr>
+                            <tr><th>Uniones / curvas</th><td>{{ materiales.uniones|default:"0" }} / {{ materiales.curvas|default:"0" }}</td><th>Terminales / fijaciones</th><td>{{ materiales.terminales|default:"0" }} / {{ materiales.fijaciones|default:"0" }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% if materiales.cables_productos %}
+                <div class="table-responsive mb-4"><table class="table table-sm table-bordered">
+                    <thead><tr><th>Cable seleccionado</th><th>Referencia</th><th>Metros</th><th>Precio por metro</th><th>Subtotal estimado</th></tr></thead>
+                    <tbody>{% for cable in materiales.cables_productos %}<tr><td>{{ cable.nombre }}</td><td>{{ cable.referencia|default:"—" }}</td><td>{{ cable.metros }}</td><td>${{ cable.precio_unitario }}</td><td>${{ cable.subtotal }}</td></tr>{% endfor %}</tbody>
+                </table></div>
+                {% endif %}
+                {% endwith %}
+
+                {% if modulos_alarma %}
+                <h2 class="h5 border-bottom pb-2">Equipos o módulos adicionales</h2>
+                <ul>
+                    {% for modulo in modulos_alarma %}
+                    <li><strong>{{ modulo.equipo }}</strong>{% if modulo.referencia %} · Ref. {{ modulo.referencia }}{% endif %} · {{ modulo.cantidad|default:"1" }} unidad(es) · ${{ modulo.precio|default:"0" }} c/u · subtotal ${{ modulo.subtotal|default:"0" }} · {{ modulo.ubicacion }} · {{ modulo.descripcion }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </article>
+        {% endif %}
+
+        {% if grupos_checklist %}
+        <form method="post" action="{% url 'smartcheck_guardar_checklist' proyecto.pk %}">
+            {% csrf_token %}
+            <div class="accordion" id="checklistAccordion">
+                {% for sistema, items in grupos_checklist %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#grupo-{{ forloop.counter }}">
+                            {{ sistema }}
+                        </button>
+                    </h2>
+                    <div id="grupo-{{ forloop.counter }}"
+                         class="accordion-collapse collapse {% if forloop.first %}show{% endif %}">
+                        <div class="accordion-body">
+                            {% for item in items %}
+                            <div class="checklist-row">
+                                <strong class="d-block mb-2">{{ item.item }}</strong>
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <select class="form-select form-select-sm" name="item_{{ item.pk }}_estado">
+                                            {% for valor, texto in estados_item %}
+                                            <option value="{{ valor }}" {% if item.estado == valor %}selected{% endif %}>{{ texto }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input class="form-control form-control-sm" type="number" min="0" step="0.01"
+                                               name="item_{{ item.pk }}_cantidad" value="{{ item.cantidad|default_if_none:'' }}"
+                                               placeholder="Cantidad">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input class="form-control form-control-sm"
+                                               name="item_{{ item.pk }}_ubicacion" value="{{ item.ubicacion }}"
+                                               placeholder="Ubicación">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input class="form-control form-control-sm"
+                                               name="item_{{ item.pk }}_observacion" value="{{ item.observacion }}"
+                                               placeholder="Observación">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-end mt-3">
+                <button class="btn btn-primary"><i class="fas fa-save me-1"></i> Guardar lista de chequeo</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

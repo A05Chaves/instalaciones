@@ -13,6 +13,7 @@ from django.forms.models import model_to_dict
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
 from django.db.models.functions import Coalesce
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -29,6 +30,7 @@ from app_instalaciones.models.cuadroInstalaciones import (
     NotificacionTecnico,
 )
 from app_instalaciones.models.forms import MantenimientoForm
+from app_instalaciones.models.auditoria import RegistroAuditoria
 
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
     analizar_pdf_mantenimientos,
@@ -36,6 +38,7 @@ from app_instalaciones.utils.importar_mantenimientos_pdf import (
     preparar_resultados_para_session,
     restaurar_resultados_desde_session,
 )
+from app_instalaciones.utils.importar_mantenimientos_excel import analizar_excel_mantenimientos
 
 # VISTAS PARA LA GESTIÓN DE USUARIOS
 
@@ -114,9 +117,7 @@ def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
     )
     if nuevo and not mantenimiento.fecha_programada:
         mantenimiento.fecha_programada = timezone.localdate()
-        Mantenimiento.objects.filter(pk=mantenimiento.pk).update(
-            fecha_programada=mantenimiento.fecha_programada
-        )
+        mantenimiento.save(update_fields=["fecha_programada"])
     referencia = mantenimiento.numero_ticket or mantenimiento.codigo
     if anterior:
         NotificacionTecnico.objects.create(
@@ -674,10 +675,13 @@ def api_servicios_tecnico(request):
 
     if request.method == "GET":
         hoy = timezone.localdate()
-        Mantenimiento.objects.filter(
+        sin_programar = Mantenimiento.objects.filter(
             tecnico=tecnico,
             fecha_programada__isnull=True,
-        ).update(fecha_programada=hoy)
+        )
+        for mantenimiento in sin_programar:
+            mantenimiento.fecha_programada = hoy
+            mantenimiento.save(update_fields=["fecha_programada"])
         servicios = Mantenimiento.objects.filter(tecnico=tecnico).filter(
             ~Q(estado_operativo="FINALIZADO") | Q(realizado=hoy)
         ).order_by("fecha_programada", "cliente")
@@ -790,7 +794,9 @@ def leer_notificaciones_tecnico(request):
     tecnico = _tecnico_del_usuario(request.user)
     if not tecnico:
         return JsonResponse({"ok": False}, status=403)
-    tecnico.notificaciones.filter(leida=False).update(leida=True)
+    for notificacion in tecnico.notificaciones.filter(leida=False):
+        notificacion.leida = True
+        notificacion.save(update_fields=["leida"])
     return JsonResponse({"ok": True})
 
 
@@ -1232,7 +1238,9 @@ def configuracion_usuarios(request):
                 if tecnico.usuario and tecnico.usuario != usuario:
                     messages.error(request, "Ese técnico ya está vinculado a otro usuario.")
                     return redirect('configuracion_usuarios')
-            Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)).update(usuario=None)
+            for tecnico_anterior in Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)):
+                tecnico_anterior.usuario = None
+                tecnico_anterior.save(update_fields=["usuario"])
             if tecnico:
                 tecnico.usuario = usuario
                 tecnico.save(update_fields=["usuario"])
@@ -1257,6 +1265,53 @@ def configuracion_usuarios(request):
     })
 
 
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_superuser, login_url='home')
+def registro_movimientos(request):
+    registros = RegistroAuditoria.objects.select_related('usuario')
+    usuario_id = (request.GET.get('usuario') or '').strip()
+    accion = (request.GET.get('accion') or '').strip()
+    modulo = (request.GET.get('modulo') or '').strip()
+    busqueda = (request.GET.get('busqueda') or '').strip()
+    fecha_desde = parse_date(request.GET.get('desde') or '')
+    fecha_hasta = parse_date(request.GET.get('hasta') or '')
+
+    if usuario_id.isdigit():
+        registros = registros.filter(usuario_id=usuario_id)
+    if accion in dict(RegistroAuditoria.ACCIONES):
+        registros = registros.filter(accion=accion)
+    if modulo:
+        registros = registros.filter(modulo=modulo)
+    if busqueda:
+        registros = registros.filter(
+            Q(objeto__icontains=busqueda)
+            | Q(objeto_id__icontains=busqueda)
+            | Q(modelo__icontains=busqueda)
+            | Q(ruta__icontains=busqueda)
+            | Q(usuario__username__icontains=busqueda)
+        )
+    if fecha_desde:
+        registros = registros.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        registros = registros.filter(fecha__date__lte=fecha_hasta)
+
+    pagina = Paginator(registros, 50).get_page(request.GET.get('pagina'))
+    parametros = request.GET.copy()
+    parametros.pop('pagina', None)
+    return render(request, 'registro_movimientos.html', {
+        'pagina': pagina,
+        'usuarios_auditoria': User.objects.filter(
+            movimientos_aplicacion__isnull=False
+        ).distinct().order_by('username'),
+        'modulos_auditoria': RegistroAuditoria.objects.order_by().values_list(
+            'modulo', flat=True
+        ).distinct(),
+        'acciones_auditoria': RegistroAuditoria.ACCIONES,
+        'filtros': request.GET,
+        'querystring': parametros.urlencode(),
+    })
+
+
 # VISTA DE EXPORTAR MANTENIMIENTOS
 
 @login_required(login_url='login')
@@ -1267,6 +1322,8 @@ def exportar_mantenimientos(request):
     ws.title = "Mantenimientos"
 
     encabezados = [
+        "Número ticket",
+        "Estado ticket",
         "Fecha registro",
         "Código",
         "Cliente",
@@ -1295,6 +1352,8 @@ def exportar_mantenimientos(request):
 
     for m in mantenimientos:
         ws.append([
+            m.numero_ticket or "",
+            m.estado_ticket or "",
             timezone.localtime(m.fecha_visible).strftime(
                 "%Y-%m-%d %H:%M") if m.fecha_visible else "",
             m.codigo or "",
@@ -1329,19 +1388,30 @@ def exportar_mantenimientos(request):
 def importar_mantenimientos_pdf(request):
 
     if request.method == "POST":
-        archivo_pdf = request.FILES.get("archivo_pdf")
+        archivo = (
+            request.FILES.get("archivo_pdf")
+            or request.FILES.get("archivo")
+            or next(iter(request.FILES.values()), None)
+        )
 
-        if not archivo_pdf:
-            messages.error(request, "Debe seleccionar un archivo PDF.")
+        if not archivo:
+            messages.error(request, "Debe seleccionar un archivo PDF o Excel.")
+            return redirect("importar_mantenimientos_pdf")
+
+        extension = archivo.name.lower().rsplit(".", 1)[-1] if "." in archivo.name else ""
+        if extension not in {"pdf", "xlsx"}:
+            messages.error(request, "Formato no permitido. Seleccione un archivo PDF o Excel (.xlsx).")
             return redirect("importar_mantenimientos_pdf")
 
         actualizar_existentes = (
             request.POST.get("actualizar_existentes") == "1"
         )
-        resultados = analizar_pdf_mantenimientos(
-            archivo_pdf,
-            actualizar_existentes=actualizar_existentes,
-        )
+        try:
+            analizador = analizar_pdf_mantenimientos if extension == "pdf" else analizar_excel_mantenimientos
+            resultados = analizador(archivo, actualizar_existentes=actualizar_existentes)
+        except (ValueError, OSError) as error:
+            messages.error(request, f"No fue posible leer el archivo: {error}")
+            return redirect("importar_mantenimientos_pdf")
 
         request.session["preview_mantenimientos_pdf"] = preparar_resultados_para_session(
             resultados)
@@ -1359,6 +1429,7 @@ def importar_mantenimientos_pdf(request):
                 "total": total,
                 "importables": importables,
                 "advertencias": advertencias,
+                "formato_origen": extension.upper(),
             }
         )
 
