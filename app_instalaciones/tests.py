@@ -961,18 +961,20 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.assertEqual(respuesta.context["pendientes_prioritarios"], 1)
         self.assertEqual(respuesta.context["pendientes_otros"], 1)
         self.assertEqual(respuesta.context["promedio_grupo_horas"], 12.0)
-        self.assertEqual(respuesta.context["efectividad_grupo"], 100.0)
+        self.assertEqual(respuesta.context["efectividad_grupo"], 25.0)
         self.assertEqual(indicador["promedio_horas"], 12.0)
-        self.assertEqual(indicador["efectividad"], 100.0)
+        self.assertEqual(indicador["efectividad"], 25.0)
 
         dashboard = self.client.get(reverse("dashboard_instalaciones"))
         self.assertEqual(dashboard.context["promedio_grupo_horas"], 12.0)
-        self.assertEqual(dashboard.context["efectividad_grupo"], 100.0)
+        self.assertEqual(dashboard.context["efectividad_grupo"], 33.3)
+        self.assertEqual(dashboard.context["cumplimiento_prioritarios"], 50.0)
+        self.assertEqual(dashboard.context["cumplimiento_otros"], 0.0)
         fila_dashboard = dashboard.context["indicadores_por_tecnico"][0]
         self.assertEqual(fila_dashboard["asignados"], 3)
         self.assertEqual(fila_dashboard["pendientes"], 2)
         self.assertEqual(fila_dashboard["realizados"], 1)
-        self.assertContains(dashboard, "Cumplimiento de atención por técnico")
+        self.assertContains(dashboard, "Resumen operativo por técnico")
         self.assertContains(dashboard, "TECNICO INDICADOR")
         self.assertContains(dashboard, 'id="indicadores-mantenimiento-dashboard"')
 
@@ -991,6 +993,22 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.assertEqual(fila["pendientes"], 1)
         self.assertEqual(dashboard.context["ocupacion_desde"], hoy.isoformat())
         self.assertEqual(dashboard.context["ocupacion_hasta"], hoy.isoformat())
+
+    def test_dashboard_filtra_indicadores_de_mantenimiento_por_ciudad(self):
+        hoy = timezone.localdate()
+        self.crear_mantenimiento("PASTO-1", "CCTV", hoy, ciudad="PASTO")
+        self.crear_mantenimiento("CALI-1", "CCTV", hoy, ciudad="CALI")
+
+        dashboard = self.client.get(reverse("dashboard_instalaciones"), {
+            "indicador_desde": hoy.isoformat(),
+            "indicador_hasta": hoy.isoformat(),
+            "ciudad": "PASTO",
+        })
+
+        self.assertEqual(dashboard.context["servicios_programados"], 1)
+        self.assertEqual(dashboard.context["pendientes_fecha"], 1)
+        self.assertIn("PASTO", dashboard.context["ciudades"])
+        self.assertIn("CALI", dashboard.context["ciudades"])
 
     def test_boton_prioritario_filtra_solo_pendientes_prioritarios_a_la_fecha(self):
         hoy = timezone.localdate()

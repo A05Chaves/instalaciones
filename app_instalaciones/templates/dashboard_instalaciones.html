@@ -119,44 +119,42 @@ Dashboard Instalaciones
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6 col-xl-3">
+    <div class="row g-3 mb-3 row-cols-1 row-cols-md-2 row-cols-xl-4">
+        <div class="col">
             <div class="card border-danger shadow-sm h-100">
                 <div class="card-body text-center">
-                    <small class="text-muted">Prioritarios pendientes</small>
-                    <h2 class="fw-bold text-danger mb-0">{{ pendientes_prioritarios }}</h2>
-                    <small class="text-danger">{{ vencidos_prioritarios }} fuera de 24 h</small>
+                    <small class="text-muted">Prioritarios en menos de 24 h</small>
+                    <h2 class="fw-bold text-danger mb-0">{% if cumplimiento_prioritarios != None %}{{ cumplimiento_prioritarios }}%{% else %}---{% endif %}</h2>
+                    <small>{{ cumplidos_prioritarios }} de {{ programados_prioritarios }} programados</small>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+        <div class="col">
             <div class="card border-warning shadow-sm h-100">
                 <div class="card-body text-center">
-                    <small class="text-muted">Otros pendientes</small>
-                    <h2 class="fw-bold text-warning mb-0">{{ pendientes_otros }}</h2>
-                    <small class="text-warning-emphasis">{{ vencidos_otros }} fuera de 48 h</small>
+                    <small class="text-muted">No prioritarios en menos de 48 h</small>
+                    <h2 class="fw-bold text-warning mb-0">{% if cumplimiento_otros != None %}{{ cumplimiento_otros }}%{% else %}---{% endif %}</h2>
+                    <small>{{ cumplidos_otros }} de {{ programados_otros }} programados</small>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+        <div class="col">
             <div class="card border-primary shadow-sm h-100">
                 <div class="card-body text-center">
-                    <small class="text-muted">Promedio total del grupo</small>
-                    <h2 class="fw-bold text-primary mb-0">
-                        {% if promedio_grupo_horas != None %}{{ promedio_grupo_horas }} h{% else %}---{% endif %}
-                    </h2>
-                    <small class="text-muted">Tiempo hasta la atención</small>
+                    <small class="text-muted">Servicios sin realizar</small>
+                    <h2 class="fw-bold text-primary mb-0">{{ pendientes_fecha }}</h2>
+                    <small>{{ pendientes_prioritarios }} prioritarios · {{ pendientes_otros }} restantes</small>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+        <div class="col">
             <div class="card border-success shadow-sm h-100">
                 <div class="card-body text-center">
-                    <small class="text-muted">Efectividad total del grupo</small>
+                    <small class="text-muted">Servicios realizados</small>
                     <h2 class="fw-bold text-success mb-0">
                         {% if efectividad_grupo != None %}{{ efectividad_grupo }}%{% else %}---{% endif %}
                     </h2>
-                    <small class="text-muted">Atendidos dentro de la meta</small>
+                    <small>{{ servicios_realizados }} de {{ servicios_programados }} programados</small>
                 </div>
             </div>
         </div>
@@ -171,7 +169,7 @@ Dashboard Instalaciones
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-dark text-white">
-            <i class="fas fa-users me-2"></i>Cumplimiento de atención por técnico
+            <i class="fas fa-users me-2"></i>Resumen operativo por técnico
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0">
@@ -182,7 +180,6 @@ Dashboard Instalaciones
                         <th class="text-center">Pendientes</th>
                         <th class="text-center">Realizados</th>
                         <th class="text-center">Promedio atención</th>
-                        <th class="text-center">Dentro de la meta</th>
                         <th class="text-center">Efectividad</th>
                     </tr>
                 </thead>
@@ -194,17 +191,16 @@ Dashboard Instalaciones
                         <td class="text-center text-warning-emphasis fw-bold">{{ indicador.pendientes }}</td>
                         <td class="text-center text-success fw-bold">{{ indicador.realizados }}</td>
                         <td class="text-center">{% if indicador.promedio_horas != None %}{{ indicador.promedio_horas }} h{% else %}---{% endif %}</td>
-                        <td class="text-center text-success fw-bold">{{ indicador.cumplidos }}</td>
                         <td class="text-center fw-bold">{% if indicador.efectividad != None %}{{ indicador.efectividad }}%{% else %}---{% endif %}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="text-center text-muted py-3">Todavía no hay servicios programados para medir.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-3">Todavía no hay servicios programados para medir.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         <div class="card-footer small text-muted">
-            Meta prioritaria: menos de 24 horas para comunicación, corriente y activación. Meta general: menos de 48 horas.
+            La efectividad por técnico corresponde a realizados ÷ asignados. El cumplimiento de 24/48 horas se presenta globalmente arriba.
         </div>
     </div>
 

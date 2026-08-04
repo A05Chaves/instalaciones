@@ -244,7 +244,7 @@ def renovar_sesion(request):
 FALLAS_PRIORITARIAS_MANTENIMIENTO = {"F.COMUNICACION", "F.CORRIENTE", "ACTIVACION"}
 
 
-def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
+def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciudades=None):
     """Calcula una única fuente para alertas, promedios y efectividad."""
     hoy = timezone.localdate()
     ahora = timezone.now()
@@ -255,10 +255,15 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
         consulta_servicios = consulta_servicios.filter(
             fecha_programada__range=(fecha_desde, fecha_hasta)
         )
+    if ciudades:
+        consulta_servicios = consulta_servicios.filter(ciudad__in=ciudades)
     servicios = list(consulta_servicios)
     resumen_tecnicos = {}
     tiempos_grupo = []
     cumplidos_grupo = 0
+    realizados_grupo = 0
+    programados_prioritarios = programados_otros = 0
+    cumplidos_prioritarios = cumplidos_otros = 0
     pendientes_prioritarios = pendientes_otros = 0
     vencidos_prioritarios = vencidos_otros = 0
 
@@ -287,6 +292,10 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
 
     for servicio in servicios:
         prioritario = servicio.tipo_falla in FALLAS_PRIORITARIAS_MANTENIMIENTO
+        if prioritario:
+            programados_prioritarios += 1
+        else:
+            programados_otros += 1
         meta_horas = 24 if prioritario else 48
         tecnico_habilitado = bool(
             servicio.tecnico and servicio.tecnico.incluir_indicadores
@@ -303,6 +312,8 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
         inicio_medicion = fecha_programacion(servicio)
         atendido = fecha_atencion(servicio)
         finalizado = servicio.estado_operativo == "FINALIZADO" or bool(servicio.realizado)
+        if finalizado:
+            realizados_grupo += 1
         if finalizado and fila:
             fila["realizados"] += 1
 
@@ -318,15 +329,21 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
                 if fila:
                     fila["otros_pendientes"] += 1
                 vencidos_otros += int(horas_pendiente > meta_horas)
-        elif finalizado and atendido and fila:
+        elif finalizado and atendido:
             if timezone.is_naive(atendido):
                 atendido = timezone.make_aware(atendido, timezone.get_current_timezone())
             horas_atencion = max(0, (atendido - inicio_medicion).total_seconds() / 3600)
-            fila["tiempos"].append(horas_atencion)
             tiempos_grupo.append(horas_atencion)
+            if fila:
+                fila["tiempos"].append(horas_atencion)
             if horas_atencion <= meta_horas:
-                fila["cumplidos"] += 1
                 cumplidos_grupo += 1
+                if fila:
+                    fila["cumplidos"] += 1
+                if prioritario:
+                    cumplidos_prioritarios += 1
+                else:
+                    cumplidos_otros += 1
 
     indicadores_por_tecnico = []
     for fila in resumen_tecnicos.values():
@@ -335,7 +352,9 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
         fila["promedio_horas"] = round(sum(tiempos) / total_atendidos, 1) if tiempos else None
         fila["atendidos"] = total_atendidos
         fila["pendientes"] = fila["prioritarios_pendientes"] + fila["otros_pendientes"]
-        fila["efectividad"] = round(fila["cumplidos"] * 100 / total_atendidos, 1) if total_atendidos else None
+        fila["efectividad"] = round(
+            fila["realizados"] * 100 / fila["asignados"], 1
+        ) if fila["asignados"] else None
         if total_atendidos or fila["prioritarios_pendientes"] or fila["otros_pendientes"]:
             indicadores_por_tecnico.append(fila)
     indicadores_por_tecnico.sort(key=lambda item: item["tecnico"])
@@ -350,7 +369,19 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
             estado_operativo="FINALIZADO"
         ).filter(fecha_programada__isnull=True).count(),
         "promedio_grupo_horas": round(sum(tiempos_grupo) / len(tiempos_grupo), 1) if tiempos_grupo else None,
-        "efectividad_grupo": round(cumplidos_grupo * 100 / len(tiempos_grupo), 1) if tiempos_grupo else None,
+        "servicios_programados": len(servicios),
+        "servicios_realizados": realizados_grupo,
+        "efectividad_grupo": round(realizados_grupo * 100 / len(servicios), 1) if servicios else None,
+        "programados_prioritarios": programados_prioritarios,
+        "cumplidos_prioritarios": cumplidos_prioritarios,
+        "cumplimiento_prioritarios": round(
+            cumplidos_prioritarios * 100 / programados_prioritarios, 1
+        ) if programados_prioritarios else None,
+        "programados_otros": programados_otros,
+        "cumplidos_otros": cumplidos_otros,
+        "cumplimiento_otros": round(
+            cumplidos_otros * 100 / programados_otros, 1
+        ) if programados_otros else None,
         "indicadores_por_tecnico": indicadores_por_tecnico,
     }
 
@@ -1372,7 +1403,7 @@ def dashboard_instalaciones(request):
     if total_cierre > 0:
         promedio_cierre_total = round(suma_cierre / total_cierre, 2)
 
-    ciudades = (
+    ciudades_instalaciones = (
         CuadroInsta.objects
         .exclude(ciudad__isnull=True)
         .exclude(ciudad="")
@@ -1380,6 +1411,11 @@ def dashboard_instalaciones(request):
         .distinct()
         .order_by('ciudad')
     )
+    ciudades_mantenimientos = (
+        Mantenimiento.objects.exclude(ciudad__isnull=True).exclude(ciudad="")
+        .values_list("ciudad", flat=True).distinct()
+    )
+    ciudades = sorted(set(ciudades_instalaciones) | set(ciudades_mantenimientos))
 
     contexto = {
         'mes': mes,
@@ -1428,7 +1464,7 @@ def dashboard_instalaciones(request):
 
     if contexto['puede_ver_indicadores_mantenimiento']:
         contexto.update(indicadores_atencion_mantenimientos(
-            indicador_desde, indicador_hasta
+            indicador_desde, indicador_hasta, ciudades_seleccionadas
         ))
         contexto.update(indicadores_ocupacion_tecnicos(
             indicador_desde, indicador_hasta
