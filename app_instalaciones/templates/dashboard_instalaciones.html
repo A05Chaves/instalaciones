@@ -90,7 +90,7 @@ Dashboard Instalaciones
     <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
         <div>
             <h3 id="titulo-indicadores-mantenimiento" class="fw-bold mb-1">
-                <i class="fas fa-stopwatch text-danger me-2"></i>Efectividad de mantenimientos
+                <i class="fas fa-stopwatch text-danger me-2"></i>Cumplimiento de atención
             </h3>
             <p class="text-muted mb-0">
                 Medición histórica desde la fecha programada hasta el inicio de la atención.
@@ -151,7 +151,7 @@ Dashboard Instalaciones
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-dark text-white">
-            <i class="fas fa-users me-2"></i>Efectividad por técnico
+            <i class="fas fa-users me-2"></i>Cumplimiento de atención por técnico
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0">
@@ -190,33 +190,53 @@ Dashboard Instalaciones
 
     <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mt-5 mb-3">
         <div>
-            <h3 class="fw-bold mb-1"><i class="fas fa-user-clock text-primary me-2"></i>Ocupación mensual de técnicos</h3>
-            <p class="text-muted mb-0">Horas reales de servicios frente a las horas laborales configuradas.</p>
+            <h3 class="fw-bold mb-1"><i class="fas fa-user-clock text-primary me-2"></i>Efectividad por horas trabajadas</h3>
+            <p class="text-muted mb-0">Horas acumuladas en órdenes ÷ horas laborales esperadas del período × 100.</p>
         </div>
         <a href="{% url 'configuracion_horarios_tecnicos' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-cog me-1"></i>Configurar horarios
         </a>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form method="get" class="row g-2 align-items-end">
+                {% if mes %}<input type="hidden" name="mes" value="{{ mes }}">{% endif %}
+                {% for ciudad in ciudades_seleccionadas %}<input type="hidden" name="ciudad" value="{{ ciudad }}">{% endfor %}
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Indicador desde</label>
+                    <input type="date" name="indicador_desde" value="{{ ocupacion_desde }}" class="form-control" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Indicador hasta</label>
+                    <input type="date" name="indicador_hasta" value="{{ ocupacion_hasta }}" class="form-control" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <button class="btn btn-primary w-100"><i class="fas fa-calculator me-1"></i>Calcular efectividad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Mes evaluado</small><h3 class="fw-bold mb-0">{{ ocupacion_mes }}</h3></div></div></div>
+        <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Período evaluado</small><h5 class="fw-bold mb-0">{{ ocupacion_periodo }}</h5></div></div></div>
         <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Horas realizadas</small><h3 class="fw-bold text-primary mb-0">{{ ocupacion_total_horas }} h</h3></div></div></div>
         <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Horas esperadas</small><h3 class="fw-bold mb-0">{{ ocupacion_total_esperadas }} h</h3></div></div></div>
-        <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Ocupación total</small><h3 class="fw-bold text-success mb-0">{% if ocupacion_total_porcentaje != None %}{{ ocupacion_total_porcentaje }}%{% else %}---{% endif %}</h3></div></div></div>
+        <div class="col-12 col-md-3"><div class="card shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Efectividad total</small><h3 class="fw-bold text-success mb-0">{% if ocupacion_total_porcentaje != None %}{{ ocupacion_total_porcentaje }}%{% else %}---{% endif %}</h3></div></div></div>
     </div>
 
     <div class="alert alert-info py-2">
         <i class="fas fa-calendar-alt me-1"></i>
         Rotaciones de sábados: <strong>{{ ocupacion_rotaciones_mes }}</strong> ·
         <span>{{ ocupacion_tecnicos_disponibles }}</span> ·
-        Días no laborables del mes: <strong>{{ ocupacion_festivos_mes }}</strong>
+        Días no laborables del período: <strong>{{ ocupacion_festivos_mes }}</strong>
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-primary text-white"><i class="fas fa-chart-bar me-2"></i>Horas y ocupación por técnico</div>
+        <div class="card-header bg-primary text-white"><i class="fas fa-chart-bar me-2"></i>Horas y efectividad por técnico</div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0">
-                <thead class="table-light"><tr><th>Técnico</th><th class="text-center">Servicios</th><th class="text-center">Horas realizadas</th><th class="text-center">Horas esperadas</th><th class="text-center">Diferencia</th><th class="text-center">Ocupación</th></tr></thead>
+                <thead class="table-light"><tr><th>Técnico</th><th class="text-center">Servicios</th><th class="text-center">Horas realizadas</th><th class="text-center">Horas esperadas</th><th class="text-center">Diferencia</th><th class="text-center">Efectividad</th></tr></thead>
                 <tbody>
                 {% for fila in ocupacion_tecnicos %}
                 <tr>

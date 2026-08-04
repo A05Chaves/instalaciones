@@ -1,7 +1,6 @@
 import json
 import re
-import calendar
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth import authenticate
@@ -368,22 +367,27 @@ def asegurar_horarios_tecnicos():
         )
 
 
-def indicadores_ocupacion_tecnicos(fecha_mes=None):
+def indicadores_ocupacion_tecnicos(fecha_desde=None, fecha_hasta=None):
     asegurar_horarios_tecnicos()
-    referencia = fecha_mes.date() if isinstance(fecha_mes, datetime) else (fecha_mes or timezone.localdate())
-    primer_dia = referencia.replace(day=1)
-    ultimo_dia = date(
-        referencia.year, referencia.month,
-        calendar.monthrange(referencia.year, referencia.month)[1],
-    )
+    hoy = timezone.localdate()
+    if isinstance(fecha_desde, datetime):
+        fecha_desde = fecha_desde.date()
+    if isinstance(fecha_hasta, datetime):
+        fecha_hasta = fecha_hasta.date()
+    if fecha_desde is None:
+        fecha_desde = hoy.replace(day=1)
+    if fecha_hasta is None:
+        fecha_hasta = hoy
+    if fecha_desde > fecha_hasta:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
     jornadas = {(j.tipo, j.dia_semana): j for j in JornadaLaboralTecnico.objects.filter(activo=True)}
     festivos = set(DiaNoLaboralTecnico.objects.filter(
-        fecha__range=(primer_dia, ultimo_dia)
+        fecha__range=(fecha_desde, fecha_hasta)
     ).values_list("fecha", flat=True))
     rotaciones = {
         rotacion.fecha_sabado: rotacion
         for rotacion in RotacionTecnicoDisponible.objects.filter(
-            fecha_sabado__range=(primer_dia, ultimo_dia)
+            fecha_sabado__range=(fecha_desde, fecha_hasta)
         ).select_related("tecnico")
     }
 
@@ -393,9 +397,10 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
     ).order_by("nombre"))
     for tecnico in tecnicos:
         total = 0
-        for numero_dia in range(1, ultimo_dia.day + 1):
-            fecha = date(referencia.year, referencia.month, numero_dia)
+        fecha = fecha_desde
+        while fecha <= fecha_hasta:
             if fecha in festivos:
+                fecha += timedelta(days=1)
                 continue
             rotacion_dia = rotaciones.get(fecha)
             tipo = "DISPONIBLE" if (
@@ -404,6 +409,7 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
             jornada = jornadas.get((tipo, fecha.weekday()))
             if jornada:
                 total += jornada.horas_dia
+            fecha += timedelta(days=1)
         horas_esperadas[tecnico.id] = round(total, 2)
 
     horas_reales = {tecnico.id: 0 for tecnico in tecnicos}
@@ -422,7 +428,7 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
         if timezone.is_naive(fin):
             fin = timezone.make_aware(fin, timezone.get_current_timezone())
         inicio_local = timezone.localtime(inicio)
-        if inicio_local.year != referencia.year or inicio_local.month != referencia.month:
+        if not (fecha_desde <= inicio_local.date() <= fecha_hasta):
             continue
         duracion = (fin - inicio).total_seconds() / 3600
         if duracion <= 0:
@@ -452,8 +458,9 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
     total_reales = round(sum(horas_reales.values()), 2)
     total_esperadas = round(sum(horas_esperadas.values()), 2)
     return {
-        "ocupacion_mes": primer_dia.strftime("%Y-%m"),
-        "ocupacion_mes_nombre": primer_dia.strftime("%Y-%m"),
+        "ocupacion_desde": fecha_desde.isoformat(),
+        "ocupacion_hasta": fecha_hasta.isoformat(),
+        "ocupacion_periodo": f"{fecha_desde.isoformat()} a {fecha_hasta.isoformat()}",
         "ocupacion_tecnicos": filas,
         "ocupacion_total_horas": total_reales,
         "ocupacion_total_esperadas": total_esperadas,
@@ -1115,6 +1122,14 @@ def dashboard_instalaciones(request):
     mes = request.GET.get('mes')
     ciudades_seleccionadas = request.GET.getlist('ciudad')
     fecha_corte = timezone.localdate()
+    indicador_desde = parse_date(request.GET.get("indicador_desde") or "")
+    indicador_hasta = parse_date(request.GET.get("indicador_hasta") or "")
+    if not indicador_desde:
+        indicador_desde = fecha_corte.replace(day=1)
+    if not indicador_hasta:
+        indicador_hasta = fecha_corte
+    if indicador_desde > indicador_hasta:
+        indicador_desde, indicador_hasta = indicador_hasta, indicador_desde
     fecha_mes = None
 
     qs = CuadroInsta.objects.all()
@@ -1403,7 +1418,9 @@ def dashboard_instalaciones(request):
 
     if contexto['puede_ver_indicadores_mantenimiento']:
         contexto.update(indicadores_atencion_mantenimientos())
-        contexto.update(indicadores_ocupacion_tecnicos(fecha_mes or timezone.localdate()))
+        contexto.update(indicadores_ocupacion_tecnicos(
+            indicador_desde, indicador_hasta
+        ))
 
     return render(request, 'dashboard_instalaciones.html', contexto)
 

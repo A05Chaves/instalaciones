@@ -968,7 +968,7 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         dashboard = self.client.get(reverse("dashboard_instalaciones"))
         self.assertEqual(dashboard.context["promedio_grupo_horas"], 12.0)
         self.assertEqual(dashboard.context["efectividad_grupo"], 100.0)
-        self.assertContains(dashboard, "Efectividad por técnico")
+        self.assertContains(dashboard, "Cumplimiento de atención por técnico")
         self.assertContains(dashboard, "TECNICO INDICADOR")
         self.assertContains(dashboard, 'id="indicadores-mantenimiento-dashboard"')
 
@@ -1007,7 +1007,7 @@ class OcupacionMensualTecnicosTests(TestCase):
             fecha_sabado=date(2026, 8, 1), tecnico=self.tecnico_1
         )
 
-        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1), date(2026, 8, 31))
         filas = {fila["tecnico"]: fila for fila in resultado["ocupacion_tecnicos"]}
 
         self.assertEqual(horas_base, 42)
@@ -1025,7 +1025,7 @@ class OcupacionMensualTecnicosTests(TestCase):
             fecha_sabado=date(2026, 8, 8), tecnico=self.tecnico_2
         )
 
-        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1), date(2026, 8, 31))
         filas = {fila["tecnico"]: fila for fila in resultado["ocupacion_tecnicos"]}
 
         self.assertEqual(resultado["ocupacion_rotaciones_mes"], 2)
@@ -1034,7 +1034,7 @@ class OcupacionMensualTecnicosTests(TestCase):
 
     def test_festivo_descuenta_horas_y_servicio_suma_tiempo_real(self):
         mes = date(2026, 8, 1)
-        sin_festivo = indicadores_ocupacion_tecnicos(mes)
+        sin_festivo = indicadores_ocupacion_tecnicos(mes, date(2026, 8, 31))
         esperado_inicial = sin_festivo["ocupacion_tecnicos"][0]["horas_esperadas"]
         DiaNoLaboralTecnico.objects.create(fecha=date(2026, 8, 3), nombre="FESTIVO")
         inicio = timezone.make_aware(datetime(2026, 8, 4, 8), timezone.get_current_timezone())
@@ -1045,7 +1045,7 @@ class OcupacionMensualTecnicosTests(TestCase):
             creado_por=self.usuario,
         )
 
-        resultado = indicadores_ocupacion_tecnicos(mes)
+        resultado = indicadores_ocupacion_tecnicos(mes, date(2026, 8, 31))
         fila = next(item for item in resultado["ocupacion_tecnicos"] if item["tecnico"] == "TECNICO UNO")
 
         self.assertEqual(fila["horas_esperadas"], esperado_inicial - 8.5)
@@ -1063,7 +1063,7 @@ class OcupacionMensualTecnicosTests(TestCase):
         )
         self.tecnico_1.refresh_from_db()
         self.tecnico_2.refresh_from_db()
-        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1), date(2026, 8, 31))
 
         self.assertRedirects(response, reverse("configuracion_horarios_tecnicos"))
         self.assertTrue(self.tecnico_1.incluir_indicadores)
@@ -1072,6 +1072,29 @@ class OcupacionMensualTecnicosTests(TestCase):
             [fila["tecnico"] for fila in resultado["ocupacion_tecnicos"]],
             ["TECNICO UNO"],
         )
+
+    def test_efectividad_es_horas_realizadas_divididas_por_horas_esperadas(self):
+        inicio = timezone.make_aware(
+            datetime(2026, 8, 3, 7, 15), timezone.get_current_timezone()
+        )
+        Mantenimiento.objects.create(
+            numero_ticket="EFECTIVIDAD-476", codigo="1", cliente="CLIENTE",
+            direccion="CALLE", tecnico=self.tecnico_1,
+            estado_operativo="FINALIZADO", inicio_tecnico=inicio,
+            fin_tecnico=inicio + timedelta(hours=20), creado_por=self.usuario,
+        )
+
+        resultado = indicadores_ocupacion_tecnicos(
+            date(2026, 8, 3), date(2026, 8, 8)
+        )
+        fila = next(
+            item for item in resultado["ocupacion_tecnicos"]
+            if item["tecnico"] == "TECNICO UNO"
+        )
+
+        self.assertEqual(fila["horas_reales"], 20)
+        self.assertEqual(fila["horas_esperadas"], 42)
+        self.assertEqual(fila["ocupacion"], 47.6)
 
 
 class ImportacionMantenimientosExcelTests(TestCase):
