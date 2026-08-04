@@ -582,6 +582,38 @@ class PortalTecnicoTests(TestCase):
         segundo.refresh_from_db()
         self.assertEqual(segundo.estado_operativo, "PENDIENTE")
 
+    def test_tecnico_puede_soltar_servicio_iniciado_por_error(self):
+        inicio = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+        soltar = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "PENDIENTE", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(inicio.status_code, 200)
+        self.assertEqual(soltar.status_code, 200)
+        self.servicio.refresh_from_db()
+        self.assertEqual(self.servicio.estado_operativo, "PENDIENTE")
+        self.assertIsNone(self.servicio.inicio_tecnico)
+        self.assertIsNone(self.servicio.fin_tecnico)
+        self.assertIsNone(self.servicio.hora_entrada)
+        self.assertIsNone(self.servicio.hora_salida)
+        self.assertIsNone(self.servicio.horas)
+        self.assertIsNone(self.servicio.realizado)
+
+    def test_no_permite_soltar_servicio_que_no_esta_en_ejecucion(self):
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "PENDIENTE", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+
     def test_finalizar_exige_novedad(self):
         self.client.post(
             reverse("api_servicios_tecnico"),

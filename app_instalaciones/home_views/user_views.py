@@ -993,6 +993,11 @@ def api_servicios_tecnico(request):
             {"ok": False, "error": "Debes registrar la novedad antes de finalizar."},
             status=400,
         )
+    if estado == "PENDIENTE" and estado_anterior != "EN_PROCESO":
+        return JsonResponse(
+            {"ok": False, "error": "Solo se puede soltar un servicio que esté en ejecución."},
+            status=409,
+        )
     if estado == "EN_PROCESO" and Mantenimiento.objects.filter(
         tecnico=tecnico,
         estado_operativo="EN_PROCESO",
@@ -1018,6 +1023,13 @@ def api_servicios_tecnico(request):
             microsecond=0
         )
         mantenimiento.fin_tecnico = None
+        mantenimiento.hora_salida = None
+        mantenimiento.horas = None
+        mantenimiento.realizado = None
+    if estado == "PENDIENTE":
+        mantenimiento.inicio_tecnico = None
+        mantenimiento.fin_tecnico = None
+        mantenimiento.hora_entrada = None
         mantenimiento.hora_salida = None
         mantenimiento.horas = None
         mantenimiento.realizado = None

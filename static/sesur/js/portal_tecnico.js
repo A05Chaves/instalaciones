@@ -115,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             const novedad = nodo.querySelector(".novedad"); novedad.value = servicio.novedad || "";
             const iniciar = nodo.querySelector(".iniciar");
+            const soltar = nodo.querySelector(".soltar");
             const finalizar = nodo.querySelector(".finalizar");
             const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
             const ejecucionDistinta = servicioEnEjecucion && servicioEnEjecucion.id !== servicio.id;
@@ -125,6 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
             iniciar.title = !navigator.onLine && ejecucionDistinta && servicio.estado === "PENDIENTE"
                 ? "Finaliza el servicio en ejecución antes de iniciar otro."
                 : "";
+            soltar.classList.toggle("oculto", servicio.estado !== "EN_PROCESO");
+            soltar.disabled = servicio.estado !== "EN_PROCESO" || bloqueado;
             const actualizarFinalizar = () => {
                 finalizar.disabled = servicio.estado !== "EN_PROCESO" || !novedad.value.trim();
                 finalizar.title = servicio.estado === "EN_PROCESO" && !novedad.value.trim()
@@ -134,6 +137,11 @@ document.addEventListener("DOMContentLoaded", () => {
             actualizarFinalizar();
             novedad.addEventListener("input", actualizarFinalizar);
             iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
+            soltar.addEventListener("click", () => {
+                if (window.confirm("¿Soltar este servicio? Volverá a pendiente y se eliminará la hora de inicio registrada.")) {
+                    cambiarEstado(servicio, "PENDIENTE", novedad.value);
+                }
+            });
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
             lista.appendChild(nodo);
         });
@@ -170,8 +178,13 @@ document.addEventListener("DOMContentLoaded", () => {
         };
         const estadoAnterior = servicio.estado;
         const realizadoAnterior = servicio.realizado;
+        const inicioAnterior = servicio.inicio;
+        const finAnterior = servicio.fin;
         servicio.estado = estado; servicio.novedad = novedad;
         if (estado === "FINALIZADO") servicio.realizado = hoy();
+        if (estado === "PENDIENTE") {
+            servicio.inicio = ""; servicio.fin = ""; servicio.realizado = "";
+        }
         await guardar("datos", "servicios", servicios); render();
         try {
             if (!navigator.onLine) throw new Error("offline");
@@ -191,13 +204,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 servicio.estado = estadoAnterior;
                 servicio.realizado = realizadoAnterior;
+                servicio.inicio = inicioAnterior;
+                servicio.fin = finAnterior;
                 render();
                 mensaje(error.error || "El servidor no aceptó el cambio.");
                 return;
             }
             if (!respuesta.ok || respuesta.redirected) throw new Error("servidor");
             const data = await respuesta.json();
-            Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios);
+            Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios); render();
             mensaje("Servicio actualizado.");
         } catch (_) {
             payload.registrado_offline = true;
