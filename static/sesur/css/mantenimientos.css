@@ -6,6 +6,37 @@
     transition: transform .2s ease;
 }
 
+.indicador-alerta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 .35rem .8rem rgba(15, 23, 42, .12);
+}
+
+.indicador-alerta-cabecera {
+    min-width: 165px;
+    font-weight: 700;
+    box-shadow: 0 .25rem .6rem rgba(15, 23, 42, .15);
+}
+
+@keyframes alertaPrioritaria {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .55); }
+    50% { box-shadow: 0 0 0 .55rem rgba(220, 53, 69, 0); }
+}
+
+.indicador-alerta-parpadeo {
+    animation: alertaPrioritaria 1.4s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .indicador-alerta-parpadeo { animation: none; }
+}
+
+.tabla-indicadores-tecnico th {
+    white-space: nowrap;
+}
+
 [data-bs-target="#panel-nuevo-mantenimiento"][aria-expanded="true"] .acordeon-indicador {
     transform: rotate(180deg);
 }

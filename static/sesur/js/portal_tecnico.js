@@ -70,10 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function render() {
         let visibles = servicios;
-        if (filtro === "HOY") visibles = servicios.filter(s =>
-            s.fecha_programada === hoy() ||
-            (s.estado === "FINALIZADO" && s.realizado === hoy())
-        );
+        if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
         if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
         if (filtro === "EJECUCION") visibles = servicios.filter(s => s.estado === "EN_PROCESO");
         if (terminoBusqueda) {
@@ -120,9 +117,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const iniciar = nodo.querySelector(".iniciar");
             const finalizar = nodo.querySelector(".finalizar");
             const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
+            const ejecucionDistinta = servicioEnEjecucion && servicioEnEjecucion.id !== servicio.id;
             novedad.disabled = bloqueado;
-            iniciar.disabled = servicio.estado !== "PENDIENTE" || Boolean(servicioEnEjecucion);
-            iniciar.title = servicioEnEjecucion && servicio.estado === "PENDIENTE"
+            iniciar.disabled = bloqueado || servicio.estado !== "PENDIENTE" || (
+                !navigator.onLine && Boolean(ejecucionDistinta)
+            );
+            iniciar.title = !navigator.onLine && ejecucionDistinta && servicio.estado === "PENDIENTE"
                 ? "Finaliza el servicio en ejecución antes de iniciar otro."
                 : "";
             const actualizarFinalizar = () => {
@@ -181,9 +181,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 return sincronizar();
             }
             if (respuesta.status === 400 || respuesta.status === 409) {
+                const error = await respuesta.json().catch(() => ({}));
+                if (error.retirar) {
+                    servicios = servicios.filter(item => item.id !== servicio.id);
+                    await guardar("datos", "servicios", servicios);
+                    render();
+                    mensaje(error.error || "El servicio fue cerrado y se retiró del dispositivo.");
+                    return sincronizar();
+                }
                 servicio.estado = estadoAnterior;
                 servicio.realizado = realizadoAnterior;
-                const error = await respuesta.json().catch(() => ({}));
                 render();
                 mensaje(error.error || "El servidor no aceptó el cambio.");
                 return;
@@ -248,9 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("online", sincronizar); window.addEventListener("offline", actualizarRed);
     (async () => {
         servicios = await leer("datos", "servicios") || [];
-        servicios = servicios.filter(s =>
-            s.estado !== "FINALIZADO" || s.realizado === hoy()
-        );
+        servicios = servicios.filter(s => s.estado !== "FINALIZADO" && !s.bloqueado);
         await guardar("datos", "servicios", servicios);
         render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
         if ("serviceWorker" in navigator) navigator.serviceWorker.register(cfg.serviceWorker);

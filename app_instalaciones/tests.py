@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO
 import json
@@ -13,12 +13,14 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from app_instalaciones.models import (
-    Ciudad, CuadroInsta, HistorialAsignacionMantenimiento, Mantenimiento,
-    NotificacionTecnico, Tecnico, ItemChecklistSmartCheck,
+    Ciudad, CuadroInsta, DiaNoLaboralTecnico, HistorialAsignacionMantenimiento,
+    JornadaLaboralTecnico, Mantenimiento, NotificacionTecnico,
+    RotacionTecnicoDisponible, Tecnico, ItemChecklistSmartCheck,
     ItemKitProyectoComercial, KitProyectoComercial,
     ProductoProyectoComercial, ProyectoSmartCheck, RegistroAuditoria,
 )
 from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
+from app_instalaciones.home_views.user_views import indicadores_ocupacion_tecnicos
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
     analizar_pdf_mantenimientos,
     extraer_mantenimiento_desde_texto,
@@ -409,7 +411,7 @@ class PortalTecnicoTests(TestCase):
         codigos = [item["codigo"] for item in response.json()["servicios"]]
         self.assertEqual(codigos, ["MOV-001"])
 
-    def test_api_oculta_realizados_de_dias_anteriores(self):
+    def test_api_oculta_todos_los_servicios_realizados(self):
         ayer = timezone.localdate() - timedelta(days=1)
         Mantenimiento.objects.create(
             codigo="REALIZADO-AYER",
@@ -433,8 +435,47 @@ class PortalTecnicoTests(TestCase):
         response = self.client.get(reverse("api_servicios_tecnico"))
         codigos = [item["codigo"] for item in response.json()["servicios"]]
 
-        self.assertIn("REALIZADO-HOY", codigos)
+        self.assertNotIn("REALIZADO-HOY", codigos)
         self.assertNotIn("REALIZADO-AYER", codigos)
+
+    def test_api_oculta_servicio_cerrado_con_orden_aunque_estado_siga_pendiente(self):
+        self.servicio.orden = "OT-CERRADA"
+        self.servicio.save(update_fields=["orden"])
+
+        response = self.client.get(reverse("api_servicios_tecnico"))
+        codigos = [item["codigo"] for item in response.json()["servicios"]]
+
+        self.assertNotIn("MOV-001", codigos)
+
+    def test_orden_cerrada_devuelve_instruccion_de_retirar_del_movil(self):
+        self.servicio.orden = "OT-CERRADA"
+        self.servicio.save(update_fields=["orden"])
+
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % self.servicio.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(response.json()["retirar"])
+
+    def test_servicio_en_proceso_cerrado_no_bloquea_iniciar_otro(self):
+        self.servicio.estado_operativo = "EN_PROCESO"
+        self.servicio.orden = "OT-CERRADA"
+        self.servicio.save(update_fields=["estado_operativo", "orden"])
+        segundo = Mantenimiento.objects.create(
+            codigo="MOV-LIBRE", cliente="Libre", direccion="Calle",
+            tecnico=self.tecnico, fecha_programada=timezone.localdate(),
+        )
+
+        response = self.client.post(
+            reverse("api_servicios_tecnico"),
+            data='{"id": %d, "estado": "EN_PROCESO", "novedad": ""}' % segundo.pk,
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
 
     def test_tecnico_puede_iniciar_servicio_asignado(self):
         response = self.client.post(
@@ -625,6 +666,19 @@ class PortalTecnicoTests(TestCase):
         self.assertContains(response, "Estado móvil")
         self.assertContains(response, "En proceso")
         self.assertContains(response, "En sitio")
+
+    def test_tabla_administrativa_edita_ciudad_con_selector(self):
+        Ciudad.objects.create(nombre="Pasto")
+        Ciudad.objects.create(nombre="Cali")
+        administrador = User.objects.create_superuser(
+            "admin_ciudad_selector", "ciudades@example.com", "clave"
+        )
+        self.client.force_login(administrador)
+
+        response = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertContains(response, 'class="edit-mode form-select form-select-sm d-none" name="ciudad"')
+        self.assertContains(response, '<option value="Cali">Cali</option>', html=True)
 
     def test_tecnico_no_puede_actualizar_servicio_ajeno(self):
         ajeno = Mantenimiento.objects.get(codigo="AJENO-001")
@@ -827,6 +881,137 @@ class ImportacionMantenimientosPdfTests(TestCase):
             timezone.localtime(mantenimiento.fecha_creacion_servicio).date(),
             timezone.localdate(),
         )
+
+
+class IndicadoresAtencionMantenimientosTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_superuser(
+            "indicadores_mantenimiento", "indicadores@example.com", "clave"
+        )
+        self.client.force_login(self.usuario)
+        self.tecnico = Tecnico.objects.create(nombre="TECNICO INDICADOR")
+
+    def crear_mantenimiento(self, ticket, falla, fecha_programada, **campos):
+        return Mantenimiento.objects.create(
+            numero_ticket=ticket, codigo=ticket, cliente="CLIENTE",
+            direccion="CALLE", tipo_falla=falla, fecha_programada=fecha_programada,
+            tecnico=self.tecnico, creado_por=self.usuario, **campos,
+        )
+
+    def test_calcula_pendientes_promedio_y_efectividad_por_tecnico(self):
+        hoy = timezone.localdate()
+        ayer = hoy - timedelta(days=1)
+        inicio_programacion = timezone.make_aware(
+            datetime.combine(ayer, datetime.min.time()), timezone.get_current_timezone()
+        )
+        self.crear_mantenimiento("PRI-1", "F.COMUNICACION", hoy)
+        self.crear_mantenimiento("NOR-1", "CCTV", hoy)
+        self.crear_mantenimiento(
+            "FIN-1", "ACTIVACION", ayer, estado_operativo="FINALIZADO",
+            realizado=ayer, inicio_tecnico=inicio_programacion + timedelta(hours=12),
+        )
+        self.crear_mantenimiento(
+            "FUT-1", "F.CORRIENTE", hoy + timedelta(days=1)
+        )
+
+        respuesta = self.client.get(reverse("listar_mantenimientos"))
+        indicador = respuesta.context["indicadores_por_tecnico"][0]
+
+        self.assertEqual(respuesta.context["pendientes_fecha"], 2)
+        self.assertEqual(respuesta.context["pendientes_prioritarios"], 1)
+        self.assertEqual(respuesta.context["pendientes_otros"], 1)
+        self.assertEqual(respuesta.context["promedio_grupo_horas"], 12.0)
+        self.assertEqual(respuesta.context["efectividad_grupo"], 100.0)
+        self.assertEqual(indicador["promedio_horas"], 12.0)
+        self.assertEqual(indicador["efectividad"], 100.0)
+
+        dashboard = self.client.get(reverse("dashboard_instalaciones"))
+        self.assertEqual(dashboard.context["promedio_grupo_horas"], 12.0)
+        self.assertEqual(dashboard.context["efectividad_grupo"], 100.0)
+        self.assertContains(dashboard, "Efectividad por técnico")
+        self.assertContains(dashboard, "TECNICO INDICADOR")
+        self.assertContains(dashboard, 'id="indicadores-mantenimiento-dashboard"')
+
+    def test_boton_prioritario_filtra_solo_pendientes_prioritarios_a_la_fecha(self):
+        hoy = timezone.localdate()
+        self.crear_mantenimiento("PRI-2", "F.CORRIENTE", hoy)
+        self.crear_mantenimiento("NOR-2", "CCTV", hoy)
+        self.crear_mantenimiento("FUT-2", "ACTIVACION", hoy + timedelta(days=1))
+
+        respuesta = self.client.get(
+            reverse("listar_mantenimientos"), {"alerta": "prioritarios"}
+        )
+
+        self.assertEqual(list(respuesta.context["mantenimientos"]), [
+            Mantenimiento.objects.get(numero_ticket="PRI-2")
+        ])
+        self.assertEqual(respuesta.context["alerta_filtro"], "prioritarios")
+
+
+class OcupacionMensualTecnicosTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_superuser(
+            "config_horarios", "horarios@example.com", "clave"
+        )
+        self.client.force_login(self.usuario)
+        self.tecnico_1 = Tecnico.objects.create(nombre="TECNICO UNO")
+        self.tecnico_2 = Tecnico.objects.create(nombre="TECNICO DOS")
+
+    def test_horario_base_suma_42_horas_y_disponible_reemplaza_sabado(self):
+        self.client.get(reverse("configuracion_horarios_tecnicos"))
+        horas_base = sum(
+            jornada.horas_dia
+            for jornada in JornadaLaboralTecnico.objects.filter(tipo="BASE", activo=True)
+        )
+        RotacionTecnicoDisponible.objects.create(
+            fecha_sabado=date(2026, 8, 1), tecnico=self.tecnico_1
+        )
+
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+        filas = {fila["tecnico"]: fila for fila in resultado["ocupacion_tecnicos"]}
+
+        self.assertEqual(horas_base, 42)
+        self.assertTrue(filas["TECNICO UNO"]["es_disponible"])
+        self.assertEqual(
+            filas["TECNICO UNO"]["horas_esperadas"],
+            filas["TECNICO DOS"]["horas_esperadas"],
+        )
+
+    def test_permite_un_tecnico_diferente_por_cada_sabado(self):
+        RotacionTecnicoDisponible.objects.create(
+            fecha_sabado=date(2026, 8, 1), tecnico=self.tecnico_1
+        )
+        RotacionTecnicoDisponible.objects.create(
+            fecha_sabado=date(2026, 8, 8), tecnico=self.tecnico_2
+        )
+
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+        filas = {fila["tecnico"]: fila for fila in resultado["ocupacion_tecnicos"]}
+
+        self.assertEqual(resultado["ocupacion_rotaciones_mes"], 2)
+        self.assertEqual(filas["TECNICO UNO"]["sabados_disponible"], [date(2026, 8, 1)])
+        self.assertEqual(filas["TECNICO DOS"]["sabados_disponible"], [date(2026, 8, 8)])
+
+    def test_festivo_descuenta_horas_y_servicio_suma_tiempo_real(self):
+        mes = date(2026, 8, 1)
+        sin_festivo = indicadores_ocupacion_tecnicos(mes)
+        esperado_inicial = sin_festivo["ocupacion_tecnicos"][0]["horas_esperadas"]
+        DiaNoLaboralTecnico.objects.create(fecha=date(2026, 8, 3), nombre="FESTIVO")
+        inicio = timezone.make_aware(datetime(2026, 8, 4, 8), timezone.get_current_timezone())
+        Mantenimiento.objects.create(
+            numero_ticket="HORAS-1", codigo="1", cliente="CLIENTE", direccion="CALLE",
+            tecnico=self.tecnico_1, estado_operativo="FINALIZADO",
+            inicio_tecnico=inicio, fin_tecnico=inicio + timedelta(hours=2, minutes=30),
+            creado_por=self.usuario,
+        )
+
+        resultado = indicadores_ocupacion_tecnicos(mes)
+        fila = next(item for item in resultado["ocupacion_tecnicos"] if item["tecnico"] == "TECNICO UNO")
+
+        self.assertEqual(fila["horas_esperadas"], esperado_inicial - 8.5)
+        self.assertEqual(fila["horas_reales"], 2.5)
+        self.assertEqual(fila["servicios"], 1)
+        self.assertEqual(resultado["ocupacion_festivos_mes"], 1)
 
 
 class ImportacionMantenimientosExcelTests(TestCase):

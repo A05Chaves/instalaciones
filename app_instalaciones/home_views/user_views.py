@@ -1,6 +1,7 @@
 import json
 import re
-from datetime import datetime
+import calendar
+from datetime import date, datetime, time
 
 from django.contrib import messages
 from django.contrib.auth import authenticate
@@ -24,10 +25,14 @@ from openpyxl import Workbook
 
 from app_instalaciones.models.cuadroInstalaciones import (
     CuadroInsta,
+    Ciudad,
+    DiaNoLaboralTecnico,
     Mantenimiento,
+    JornadaLaboralTecnico,
     Tecnico,
     HistorialAsignacionMantenimiento,
     NotificacionTecnico,
+    RotacionTecnicoDisponible,
 )
 from app_instalaciones.models.forms import MantenimientoForm
 from app_instalaciones.models.auditoria import RegistroAuditoria
@@ -237,6 +242,221 @@ def renovar_sesion(request):
 
 # NUEVO ARREGLO LISTA DE MANTENIMIENTOS
 
+FALLAS_PRIORITARIAS_MANTENIMIENTO = {"F.COMUNICACION", "F.CORRIENTE", "ACTIVACION"}
+
+
+def indicadores_atencion_mantenimientos():
+    """Calcula una única fuente para alertas, promedios y efectividad."""
+    hoy = timezone.localdate()
+    ahora = timezone.now()
+    servicios = list(Mantenimiento.objects.select_related("tecnico").filter(
+        fecha_programada__isnull=False
+    ))
+    resumen_tecnicos = {}
+    tiempos_grupo = []
+    cumplidos_grupo = 0
+    pendientes_prioritarios = pendientes_otros = 0
+    vencidos_prioritarios = vencidos_otros = 0
+
+    def fecha_programacion(servicio):
+        return timezone.make_aware(
+            datetime.combine(servicio.fecha_programada, datetime.min.time()),
+            timezone.get_current_timezone(),
+        )
+
+    def fecha_atencion(servicio):
+        if servicio.inicio_tecnico:
+            return servicio.inicio_tecnico
+        if servicio.realizado and servicio.hora_entrada:
+            return timezone.make_aware(
+                datetime.combine(servicio.realizado, servicio.hora_entrada),
+                timezone.get_current_timezone(),
+            )
+        if servicio.fecha_inicio:
+            return servicio.fecha_inicio
+        if servicio.realizado:
+            return timezone.make_aware(
+                datetime.combine(servicio.realizado, datetime.min.time()),
+                timezone.get_current_timezone(),
+            )
+        return None
+
+    for servicio in servicios:
+        prioritario = servicio.tipo_falla in FALLAS_PRIORITARIAS_MANTENIMIENTO
+        meta_horas = 24 if prioritario else 48
+        tecnico_nombre = servicio.tecnico.nombre if servicio.tecnico else "SIN ASIGNAR"
+        fila = resumen_tecnicos.setdefault(tecnico_nombre, {
+            "tecnico": tecnico_nombre, "prioritarios_pendientes": 0,
+            "otros_pendientes": 0, "tiempos": [], "cumplidos": 0,
+        })
+        inicio_medicion = fecha_programacion(servicio)
+        atendido = fecha_atencion(servicio)
+        finalizado = servicio.estado_operativo == "FINALIZADO" or bool(servicio.realizado)
+
+        if not finalizado and servicio.fecha_programada <= hoy:
+            horas_pendiente = max(0, (ahora - inicio_medicion).total_seconds() / 3600)
+            if prioritario:
+                pendientes_prioritarios += 1
+                fila["prioritarios_pendientes"] += 1
+                vencidos_prioritarios += int(horas_pendiente > meta_horas)
+            else:
+                pendientes_otros += 1
+                fila["otros_pendientes"] += 1
+                vencidos_otros += int(horas_pendiente > meta_horas)
+        elif finalizado and atendido:
+            if timezone.is_naive(atendido):
+                atendido = timezone.make_aware(atendido, timezone.get_current_timezone())
+            horas_atencion = max(0, (atendido - inicio_medicion).total_seconds() / 3600)
+            fila["tiempos"].append(horas_atencion)
+            tiempos_grupo.append(horas_atencion)
+            if horas_atencion <= meta_horas:
+                fila["cumplidos"] += 1
+                cumplidos_grupo += 1
+
+    indicadores_por_tecnico = []
+    for fila in resumen_tecnicos.values():
+        tiempos = fila.pop("tiempos")
+        total_atendidos = len(tiempos)
+        fila["promedio_horas"] = round(sum(tiempos) / total_atendidos, 1) if tiempos else None
+        fila["atendidos"] = total_atendidos
+        fila["efectividad"] = round(fila["cumplidos"] * 100 / total_atendidos, 1) if total_atendidos else None
+        if total_atendidos or fila["prioritarios_pendientes"] or fila["otros_pendientes"]:
+            indicadores_por_tecnico.append(fila)
+    indicadores_por_tecnico.sort(key=lambda item: item["tecnico"])
+
+    return {
+        "pendientes_fecha": pendientes_prioritarios + pendientes_otros,
+        "pendientes_prioritarios": pendientes_prioritarios,
+        "pendientes_otros": pendientes_otros,
+        "vencidos_prioritarios": vencidos_prioritarios,
+        "vencidos_otros": vencidos_otros,
+        "pendientes_sin_programar": Mantenimiento.objects.exclude(
+            estado_operativo="FINALIZADO"
+        ).filter(fecha_programada__isnull=True).count(),
+        "promedio_grupo_horas": round(sum(tiempos_grupo) / len(tiempos_grupo), 1) if tiempos_grupo else None,
+        "efectividad_grupo": round(cumplidos_grupo * 100 / len(tiempos_grupo), 1) if tiempos_grupo else None,
+        "indicadores_por_tecnico": indicadores_por_tecnico,
+    }
+
+
+HORARIOS_TECNICOS_PREDETERMINADOS = {
+    ("BASE", 0): (time(7, 15), time(12), time(14, 15), time(18)),
+    ("BASE", 1): (time(7, 15), time(12), time(14, 15), time(18)),
+    ("BASE", 2): (time(7, 15), time(12), time(14, 15), time(18)),
+    ("BASE", 3): (time(7, 15), time(12), time(14, 15), time(18)),
+    ("BASE", 4): (time(8), time(12), None, None),
+    ("BASE", 5): (time(9), time(13), None, None),
+    ("DISPONIBLE", 5): (time(14, 30), time(18, 30), None, None),
+}
+
+
+def asegurar_horarios_tecnicos():
+    for (tipo, dia), horas in HORARIOS_TECNICOS_PREDETERMINADOS.items():
+        JornadaLaboralTecnico.objects.get_or_create(
+            tipo=tipo, dia_semana=dia,
+            defaults={
+                "entrada_1": horas[0], "salida_1": horas[1],
+                "entrada_2": horas[2], "salida_2": horas[3], "activo": True,
+            },
+        )
+
+
+def indicadores_ocupacion_tecnicos(fecha_mes=None):
+    asegurar_horarios_tecnicos()
+    referencia = fecha_mes.date() if isinstance(fecha_mes, datetime) else (fecha_mes or timezone.localdate())
+    primer_dia = referencia.replace(day=1)
+    ultimo_dia = date(
+        referencia.year, referencia.month,
+        calendar.monthrange(referencia.year, referencia.month)[1],
+    )
+    jornadas = {(j.tipo, j.dia_semana): j for j in JornadaLaboralTecnico.objects.filter(activo=True)}
+    festivos = set(DiaNoLaboralTecnico.objects.filter(
+        fecha__range=(primer_dia, ultimo_dia)
+    ).values_list("fecha", flat=True))
+    rotaciones = {
+        rotacion.fecha_sabado: rotacion
+        for rotacion in RotacionTecnicoDisponible.objects.filter(
+            fecha_sabado__range=(primer_dia, ultimo_dia)
+        ).select_related("tecnico")
+    }
+
+    horas_esperadas = {}
+    tecnicos = list(Tecnico.objects.all().order_by("nombre"))
+    for tecnico in tecnicos:
+        total = 0
+        for numero_dia in range(1, ultimo_dia.day + 1):
+            fecha = date(referencia.year, referencia.month, numero_dia)
+            if fecha in festivos:
+                continue
+            rotacion_dia = rotaciones.get(fecha)
+            tipo = "DISPONIBLE" if (
+                rotacion_dia and rotacion_dia.tecnico_id == tecnico.id
+            ) else "BASE"
+            jornada = jornadas.get((tipo, fecha.weekday()))
+            if jornada:
+                total += jornada.horas_dia
+        horas_esperadas[tecnico.id] = round(total, 2)
+
+    horas_reales = {tecnico.id: 0 for tecnico in tecnicos}
+    servicios_medidos = {tecnico.id: 0 for tecnico in tecnicos}
+    servicios = Mantenimiento.objects.select_related("tecnico").filter(
+        tecnico__isnull=False,
+        estado_operativo="FINALIZADO",
+    )
+    for servicio in servicios:
+        inicio = servicio.inicio_tecnico or servicio.fecha_inicio
+        fin = servicio.fin_tecnico or servicio.fecha_fin
+        if not inicio or not fin:
+            continue
+        if timezone.is_naive(inicio):
+            inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
+        if timezone.is_naive(fin):
+            fin = timezone.make_aware(fin, timezone.get_current_timezone())
+        inicio_local = timezone.localtime(inicio)
+        if inicio_local.year != referencia.year or inicio_local.month != referencia.month:
+            continue
+        duracion = (fin - inicio).total_seconds() / 3600
+        if duracion <= 0:
+            continue
+        horas_reales[servicio.tecnico_id] = horas_reales.get(servicio.tecnico_id, 0) + duracion
+        servicios_medidos[servicio.tecnico_id] = servicios_medidos.get(servicio.tecnico_id, 0) + 1
+
+    filas = []
+    for tecnico in tecnicos:
+        reales = round(horas_reales.get(tecnico.id, 0), 2)
+        esperadas = horas_esperadas.get(tecnico.id, 0)
+        sabados_disponible = sorted(
+            fecha for fecha, rotacion in rotaciones.items()
+            if rotacion.tecnico_id == tecnico.id
+        )
+        filas.append({
+            "tecnico": tecnico.nombre,
+            "es_disponible": bool(sabados_disponible),
+            "sabados_disponible": sabados_disponible,
+            "servicios": servicios_medidos.get(tecnico.id, 0),
+            "horas_reales": reales,
+            "horas_esperadas": esperadas,
+            "diferencia": round(reales - esperadas, 2),
+            "ocupacion": round(reales * 100 / esperadas, 1) if esperadas else None,
+        })
+
+    total_reales = round(sum(horas_reales.values()), 2)
+    total_esperadas = round(sum(horas_esperadas.values()), 2)
+    return {
+        "ocupacion_mes": primer_dia.strftime("%Y-%m"),
+        "ocupacion_mes_nombre": primer_dia.strftime("%Y-%m"),
+        "ocupacion_tecnicos": filas,
+        "ocupacion_total_horas": total_reales,
+        "ocupacion_total_esperadas": total_esperadas,
+        "ocupacion_total_porcentaje": round(total_reales * 100 / total_esperadas, 1) if total_esperadas else None,
+        "ocupacion_festivos_mes": len(festivos),
+        "ocupacion_rotaciones_mes": len(rotaciones),
+        "ocupacion_tecnicos_disponibles": ", ".join(
+            f"{fecha.strftime('%d/%m')}: {rotacion.tecnico.nombre}"
+            for fecha, rotacion in sorted(rotaciones.items())
+        ) or "Sin asignar",
+    }
+
 
 @login_required(login_url='login')
 @user_passes_test(puede_gestionar_mantenimientos, login_url='home')
@@ -284,6 +504,10 @@ def listar_mantenimientos(request):
     fecha_filtro_txt = (request.GET.get("fecha") or "").strip()
     fecha_filtro = parse_date(fecha_filtro_txt)
     estado_filtro = (request.GET.get("estado_movil") or "").strip().upper()
+    alerta_filtro = (request.GET.get("alerta") or "").strip().lower()
+
+    hoy = timezone.localdate()
+    indicadores_mantenimiento = indicadores_atencion_mantenimientos()
 
     mantenimientos = (
         Mantenimiento.objects
@@ -328,15 +552,32 @@ def listar_mantenimientos(request):
             estado_operativo=estado_filtro
         )
 
+    if alerta_filtro in {"prioritarios", "otros"}:
+        mantenimientos = mantenimientos.exclude(estado_operativo="FINALIZADO").filter(
+            fecha_programada__lte=hoy
+        )
+        if alerta_filtro == "prioritarios":
+            mantenimientos = mantenimientos.filter(
+                tipo_falla__in=FALLAS_PRIORITARIAS_MANTENIMIENTO
+            )
+        else:
+            mantenimientos = mantenimientos.exclude(
+                tipo_falla__in=FALLAS_PRIORITARIAS_MANTENIMIENTO
+            )
+
     tecnicos = Tecnico.objects.all().order_by("nombre")
+    ciudades_mantenimiento = Ciudad.objects.all().order_by("nombre")
 
     context = {
         "form": form,
         "mantenimientos": mantenimientos,
         "tecnicos": tecnicos,
+        "ciudades_mantenimiento": ciudades_mantenimiento,
         "busqueda": busqueda,
         "fecha_filtro": fecha_filtro_txt,
         "estado_filtro": estado_filtro,
+        "alerta_filtro": alerta_filtro,
+        **indicadores_mantenimiento,
     }
 
     return render(
@@ -678,12 +919,16 @@ def api_servicios_tecnico(request):
         sin_programar = Mantenimiento.objects.filter(
             tecnico=tecnico,
             fecha_programada__isnull=True,
+        ).exclude(estado_operativo="FINALIZADO").filter(
+            Q(orden__isnull=True) | Q(orden="")
         )
         for mantenimiento in sin_programar:
             mantenimiento.fecha_programada = hoy
             mantenimiento.save(update_fields=["fecha_programada"])
-        servicios = Mantenimiento.objects.filter(tecnico=tecnico).filter(
-            ~Q(estado_operativo="FINALIZADO") | Q(realizado=hoy)
+        servicios = Mantenimiento.objects.filter(tecnico=tecnico).exclude(
+            estado_operativo="FINALIZADO"
+        ).filter(
+            Q(orden__isnull=True) | Q(orden="")
         ).order_by("fecha_programada", "cliente")
         notificaciones = tecnico.notificaciones.filter(leida=False)[:30]
         return JsonResponse({
@@ -712,12 +957,12 @@ def api_servicios_tecnico(request):
     )
     if mantenimiento.orden:
         return JsonResponse(
-            {"ok": False, "error": "El servicio ya fue cerrado con una orden."},
+            {"ok": False, "error": "El servicio ya fue cerrado con una orden.", "retirar": True},
             status=409,
         )
     if mantenimiento.estado_operativo == "FINALIZADO":
         return JsonResponse(
-            {"ok": False, "error": "El servicio finalizado solo admite la orden del operador."},
+            {"ok": False, "error": "El servicio ya fue finalizado.", "retirar": True},
             status=409,
         )
     estado = data.get("estado")
@@ -751,7 +996,9 @@ def api_servicios_tecnico(request):
     if estado == "EN_PROCESO" and Mantenimiento.objects.filter(
         tecnico=tecnico,
         estado_operativo="EN_PROCESO",
-    ).exclude(pk=mantenimiento.pk).exists():
+    ).exclude(pk=mantenimiento.pk).filter(
+        Q(orden__isnull=True) | Q(orden="")
+    ).exists():
         return JsonResponse(
             {"ok": False, "error": "Debes finalizar el servicio en ejecución antes de iniciar otro."},
             status=409,
@@ -1113,7 +1360,12 @@ def dashboard_instalaciones(request):
         'pvg_ejecutados_rango': pvg_ejecutados_rango,
         'pendientes_ejecucion_rango': pendientes_ejecucion_rango,
         'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
+        'puede_ver_indicadores_mantenimiento': puede_gestionar_mantenimientos(request.user),
     }
+
+    if contexto['puede_ver_indicadores_mantenimiento']:
+        contexto.update(indicadores_atencion_mantenimientos())
+        contexto.update(indicadores_ocupacion_tecnicos(fecha_mes or timezone.localdate()))
 
     return render(request, 'dashboard_instalaciones.html', contexto)
 
@@ -1262,6 +1514,62 @@ def configuracion_usuarios(request):
         'grupos': grupos,
         'tecnicos': Tecnico.objects.select_related("usuario").order_by("nombre"),
         'formulario_creacion': formulario_creacion,
+    })
+
+
+@login_required(login_url='login')
+@user_passes_test(lambda u: u.is_superuser, login_url='home')
+def configuracion_horarios_tecnicos(request):
+    asegurar_horarios_tecnicos()
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        if accion == "guardar_horarios":
+            for jornada in JornadaLaboralTecnico.objects.all():
+                prefijo = f"{jornada.tipo}_{jornada.dia_semana}"
+                jornada.entrada_1 = parse_time(request.POST.get(f"{prefijo}_entrada_1") or "")
+                jornada.salida_1 = parse_time(request.POST.get(f"{prefijo}_salida_1") or "")
+                jornada.entrada_2 = parse_time(request.POST.get(f"{prefijo}_entrada_2") or "")
+                jornada.salida_2 = parse_time(request.POST.get(f"{prefijo}_salida_2") or "")
+                jornada.activo = request.POST.get(f"{prefijo}_activo") == "1"
+                jornada.save()
+            messages.success(request, "Horarios técnicos actualizados.")
+        elif accion == "agregar_festivo":
+            fecha = parse_date(request.POST.get("fecha") or "")
+            nombre = (request.POST.get("nombre") or "DÍA NO LABORAL").strip().upper()
+            if fecha:
+                DiaNoLaboralTecnico.objects.update_or_create(
+                    fecha=fecha, defaults={"nombre": nombre}
+                )
+                messages.success(request, "Día no laboral guardado.")
+            else:
+                messages.error(request, "Indique una fecha válida.")
+        elif accion == "eliminar_festivo":
+            DiaNoLaboralTecnico.objects.filter(pk=request.POST.get("festivo_id")).delete()
+            messages.success(request, "Día no laboral eliminado.")
+        elif accion == "guardar_rotacion":
+            fecha_sabado = parse_date(request.POST.get("fecha_sabado") or "")
+            tecnico_id = request.POST.get("tecnico")
+            if fecha_sabado and fecha_sabado.weekday() != 5:
+                messages.error(request, "La fecha de rotación debe ser un sábado.")
+            elif fecha_sabado and tecnico_id:
+                RotacionTecnicoDisponible.objects.update_or_create(
+                    fecha_sabado=fecha_sabado, defaults={"tecnico_id": tecnico_id}
+                )
+                messages.success(request, "Rotación del sábado guardada.")
+            else:
+                messages.error(request, "Seleccione un sábado y el técnico disponible.")
+        elif accion == "eliminar_rotacion":
+            RotacionTecnicoDisponible.objects.filter(pk=request.POST.get("rotacion_id")).delete()
+            messages.success(request, "Rotación eliminada.")
+        return redirect("configuracion_horarios_tecnicos")
+
+    return render(request, "configuracion_horarios_tecnicos.html", {
+        "jornadas_base": JornadaLaboralTecnico.objects.filter(tipo="BASE"),
+        "jornadas_disponible": JornadaLaboralTecnico.objects.filter(tipo="DISPONIBLE"),
+        "festivos": DiaNoLaboralTecnico.objects.all()[:30],
+        "rotaciones": RotacionTecnicoDisponible.objects.select_related("tecnico")[:24],
+        "tecnicos": Tecnico.objects.all().order_by("nombre"),
+        "fecha_actual": timezone.localdate().isoformat(),
     })
 
 

@@ -2,7 +2,8 @@
 
 from .cuadroInstalaciones import (
     Ciudad, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
-    Mantenimiento, NotificacionTecnico, Tecnico,
+    DiaNoLaboralTecnico, JornadaLaboralTecnico, Mantenimiento,
+    NotificacionTecnico, RotacionTecnicoDisponible, Tecnico,
 )
 from .smartcheck import (
     CotizacionProyectoComercial, ItemChecklistSmartCheck,

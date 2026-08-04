@@ -20,6 +20,64 @@ class Tecnico(models.Model):
     objects = models.Manager()  # ayuda a Pylint
 
 
+class JornadaLaboralTecnico(models.Model):
+    DIAS = [
+        (0, "Lunes"), (1, "Martes"), (2, "Miércoles"),
+        (3, "Jueves"), (4, "Viernes"), (5, "Sábado"), (6, "Domingo"),
+    ]
+    TIPOS = [("BASE", "Horario base"), ("DISPONIBLE", "Técnico disponible")]
+
+    tipo = models.CharField(max_length=15, choices=TIPOS, default="BASE")
+    dia_semana = models.PositiveSmallIntegerField(choices=DIAS)
+    entrada_1 = models.TimeField(null=True, blank=True)
+    salida_1 = models.TimeField(null=True, blank=True)
+    entrada_2 = models.TimeField(null=True, blank=True)
+    salida_2 = models.TimeField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["tipo", "dia_semana"], name="jornada_tecnica_tipo_dia_unica"
+        )]
+        ordering = ["tipo", "dia_semana"]
+
+    @property
+    def horas_dia(self):
+        minutos = 0
+        for entrada, salida in ((self.entrada_1, self.salida_1), (self.entrada_2, self.salida_2)):
+            if entrada and salida:
+                diferencia = (salida.hour * 60 + salida.minute) - (entrada.hour * 60 + entrada.minute)
+                minutos += max(0, diferencia)
+        return round(minutos / 60, 2)
+
+    @property
+    def clave_formulario(self):
+        return f"{self.tipo}_{self.dia_semana}"
+
+
+class DiaNoLaboralTecnico(models.Model):
+    fecha = models.DateField(unique=True)
+    nombre = models.CharField(max_length=120)
+
+    class Meta:
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.fecha} - {self.nombre}"
+
+
+class RotacionTecnicoDisponible(models.Model):
+    fecha_sabado = models.DateField(
+        unique=True, help_text="Sábado específico asignado al técnico disponible."
+    )
+    tecnico = models.ForeignKey(
+        Tecnico, on_delete=models.CASCADE, related_name="rotaciones_disponible"
+    )
+
+    class Meta:
+        ordering = ["-fecha_sabado"]
+
+
 class Ejecutivo(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
 

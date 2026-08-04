@@ -374,6 +374,9 @@ class MantenimientoForm(forms.ModelForm):
             'class': 'form-select form-select-sm',
 
         })
+        self.fields['ciudad'].widget.attrs.update({
+            'class': 'form-select form-select-sm',
+        })
         self.fields['fecha_programada'].widget = forms.DateInput(
             attrs={'class': 'form-control form-control-sm', 'type': 'date'}
         )

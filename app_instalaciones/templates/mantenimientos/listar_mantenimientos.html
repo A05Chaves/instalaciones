@@ -20,6 +20,18 @@ Mantenimientos - App_Sesur
         </p>
     </div>
 
+    <div class="d-flex gap-2 flex-wrap alertas-mantenimiento-cabecera">
+        <a href="?alerta=prioritarios"
+           class="btn btn-danger btn-sm indicador-alerta-cabecera{% if pendientes_prioritarios %} indicador-alerta-parpadeo{% endif %}">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            Prioritarios <span class="badge bg-white text-danger ms-1">{{ pendientes_prioritarios }}</span>
+        </a>
+        <a href="?alerta=otros" class="btn btn-warning btn-sm text-dark indicador-alerta-cabecera">
+            <i class="fas fa-clock me-1"></i>
+            Otros pendientes <span class="badge bg-dark ms-1">{{ pendientes_otros }}</span>
+        </a>
+    </div>
+
     <div class="d-flex gap-2">
         <a href="{% url 'importar_mantenimientos_pdf' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-file-import"></i> Importar PDF / Excel
@@ -38,6 +50,90 @@ Mantenimientos - App_Sesur
         </div>
     {% endfor %}
 {% endif %}
+
+{% comment %}Los resultados detallados se muestran únicamente en el Dashboard.{% endcomment %}
+{% comment %}
+<div class="card shadow-sm border-0 mb-4 indicador-atencion-card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong><i class="fas fa-stopwatch text-primary me-2"></i>Indicador de tiempo de atención</strong>
+            <div class="small text-muted">Desde la fecha programada hasta el inicio de la atención.</div>
+        </div>
+        <span class="badge bg-dark">Pendientes a la fecha: {{ pendientes_fecha }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="?alerta=prioritarios" class="btn btn-danger w-100 h-100 p-3 indicador-alerta{% if pendientes_prioritarios %} indicador-alerta-parpadeo{% endif %}">
+                    <span class="d-block fs-2 fw-bold">{{ pendientes_prioritarios }}</span>
+                    <span class="d-block fw-semibold">Prioritarios pendientes</span>
+                    <small>Meta &lt; 24 h · {{ vencidos_prioritarios }} vencidos</small>
+                </a>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <a href="?alerta=otros" class="btn btn-warning w-100 h-100 p-3 indicador-alerta text-dark">
+                    <span class="d-block fs-2 fw-bold">{{ pendientes_otros }}</span>
+                    <span class="d-block fw-semibold">Otros pendientes</span>
+                    <small>Meta &lt; 48 h · {{ vencidos_otros }} vencidos</small>
+                </a>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded h-100 p-3 text-center bg-light">
+                    <span class="d-block fs-2 fw-bold text-primary">{% if promedio_grupo_horas != None %}{{ promedio_grupo_horas }}{% else %}---{% endif %}</span>
+                    <span class="d-block fw-semibold">Promedio del grupo</span>
+                    <small class="text-muted">Horas hasta la atención</small>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="border rounded h-100 p-3 text-center bg-light">
+                    <span class="d-block fs-2 fw-bold text-success">{{ efectividad_grupo|default:"---" }}{% if efectividad_grupo != None %}%{% endif %}</span>
+                    <span class="d-block fw-semibold">Efectividad del grupo</span>
+                    <small class="text-muted">Atendidos dentro de la meta</small>
+                </div>
+            </div>
+        </div>
+
+        {% if pendientes_sin_programar %}
+            <div class="alert alert-secondary py-2 mb-3">
+                <i class="fas fa-calendar-times me-1"></i>
+                {{ pendientes_sin_programar }} servicio{{ pendientes_sin_programar|pluralize }} pendiente{{ pendientes_sin_programar|pluralize }} sin fecha programada; no entra{{ pendientes_sin_programar|pluralize:"n" }} en la medición.
+            </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0 tabla-indicadores-tecnico">
+                <thead class="table-light">
+                    <tr>
+                        <th>Técnico</th>
+                        <th class="text-center">Prioritarios pendientes</th>
+                        <th class="text-center">Otros pendientes</th>
+                        <th class="text-center">Servicios atendidos</th>
+                        <th class="text-center">Promedio de atención</th>
+                        <th class="text-center">Efectividad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for indicador in indicadores_por_tecnico %}
+                    <tr>
+                        <td class="fw-semibold">{{ indicador.tecnico }}</td>
+                        <td class="text-center text-danger fw-bold">{{ indicador.prioritarios_pendientes }}</td>
+                        <td class="text-center text-warning-emphasis fw-bold">{{ indicador.otros_pendientes }}</td>
+                        <td class="text-center">{{ indicador.atendidos }}</td>
+                        <td class="text-center">{% if indicador.promedio_horas != None %}{{ indicador.promedio_horas }} h{% else %}---{% endif %}</td>
+                        <td class="text-center">{% if indicador.efectividad != None %}{{ indicador.efectividad }}%{% else %}---{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">Todavía no hay servicios programados para medir.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="small text-muted mt-2">
+            Prioritarios: fallo de comunicación, falla de corriente y activación. Los demás servicios tienen meta de 48 horas.
+        </div>
+    </div>
+</div>
+{% endcomment %}
 
 <div class="card shadow-sm border-0 mb-4">
     <button class="card-header bg-primary text-white border-0 text-start d-flex justify-content-between align-items-center"
@@ -214,13 +310,15 @@ Mantenimientos - App_Sesur
                     <option value="FINALIZADO" {% if estado_filtro == "FINALIZADO" %}selected{% endif %}>Realizado</option>
                 </select>
                 <button class="btn btn-primary" type="submit">Buscar</button>
-                {% if busqueda or fecha_filtro or estado_filtro %}
+                {% if busqueda or fecha_filtro or estado_filtro or alerta_filtro %}
                     <a class="btn btn-outline-secondary" href="{% url 'listar_mantenimientos' %}">Limpiar</a>
                 {% endif %}
             </div>
-            {% if busqueda or fecha_filtro or estado_filtro %}
+            {% if busqueda or fecha_filtro or estado_filtro or alerta_filtro %}
                 <small class="text-muted d-block mt-2">
                     Resultados encontrados: {{ mantenimientos|length }}
+                    {% if alerta_filtro == "prioritarios" %} · Filtro: prioritarios pendientes{% endif %}
+                    {% if alerta_filtro == "otros" %} · Filtro: otros pendientes{% endif %}
                 </small>
             {% endif %}
         </form>
@@ -277,9 +375,17 @@ Mantenimientos - App_Sesur
 
                         <td>
                             <span class="view-mode">{{ m.ciudad }}</span>
-                            <input class="edit-mode form-control form-control-sm d-none"
-                                   name="ciudad"
-                                   value="{{ m.ciudad }}">
+                            <select class="edit-mode form-select form-select-sm d-none" name="ciudad">
+                                <option value="">Seleccione ciudad</option>
+                                {% if m.ciudad %}
+                                    <option value="{{ m.ciudad }}" selected>{{ m.ciudad }}</option>
+                                {% endif %}
+                                {% for ciudad in ciudades_mantenimiento %}
+                                    {% if ciudad.nombre != m.ciudad %}
+                                    <option value="{{ ciudad.nombre }}">{{ ciudad.nombre }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
                         </td>
 
                         <td class="col-direccion">

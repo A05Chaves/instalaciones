@@ -86,6 +86,11 @@ urlpatterns = [
         name='configuracion_usuarios'
     ),
     path(
+        'configuracion/horarios-tecnicos/',
+        user_views.configuracion_horarios_tecnicos,
+        name='configuracion_horarios_tecnicos'
+    ),
+    path(
         'configuracion/movimientos/',
         user_views.registro_movimientos,
         name='registro_movimientos'
