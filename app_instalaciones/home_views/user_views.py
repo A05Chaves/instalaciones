@@ -284,11 +284,16 @@ def indicadores_atencion_mantenimientos():
     for servicio in servicios:
         prioritario = servicio.tipo_falla in FALLAS_PRIORITARIAS_MANTENIMIENTO
         meta_horas = 24 if prioritario else 48
+        tecnico_habilitado = bool(
+            servicio.tecnico and servicio.tecnico.incluir_indicadores
+        )
         tecnico_nombre = servicio.tecnico.nombre if servicio.tecnico else "SIN ASIGNAR"
-        fila = resumen_tecnicos.setdefault(tecnico_nombre, {
-            "tecnico": tecnico_nombre, "prioritarios_pendientes": 0,
-            "otros_pendientes": 0, "tiempos": [], "cumplidos": 0,
-        })
+        fila = None
+        if tecnico_habilitado:
+            fila = resumen_tecnicos.setdefault(tecnico_nombre, {
+                "tecnico": tecnico_nombre, "prioritarios_pendientes": 0,
+                "otros_pendientes": 0, "tiempos": [], "cumplidos": 0,
+            })
         inicio_medicion = fecha_programacion(servicio)
         atendido = fecha_atencion(servicio)
         finalizado = servicio.estado_operativo == "FINALIZADO" or bool(servicio.realizado)
@@ -297,13 +302,15 @@ def indicadores_atencion_mantenimientos():
             horas_pendiente = max(0, (ahora - inicio_medicion).total_seconds() / 3600)
             if prioritario:
                 pendientes_prioritarios += 1
-                fila["prioritarios_pendientes"] += 1
+                if fila:
+                    fila["prioritarios_pendientes"] += 1
                 vencidos_prioritarios += int(horas_pendiente > meta_horas)
             else:
                 pendientes_otros += 1
-                fila["otros_pendientes"] += 1
+                if fila:
+                    fila["otros_pendientes"] += 1
                 vencidos_otros += int(horas_pendiente > meta_horas)
-        elif finalizado and atendido:
+        elif finalizado and atendido and fila:
             if timezone.is_naive(atendido):
                 atendido = timezone.make_aware(atendido, timezone.get_current_timezone())
             horas_atencion = max(0, (atendido - inicio_medicion).total_seconds() / 3600)
@@ -381,7 +388,9 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
     }
 
     horas_esperadas = {}
-    tecnicos = list(Tecnico.objects.all().order_by("nombre"))
+    tecnicos = list(Tecnico.objects.filter(
+        incluir_indicadores=True
+    ).order_by("nombre"))
     for tecnico in tecnicos:
         total = 0
         for numero_dia in range(1, ultimo_dia.day + 1):
@@ -400,7 +409,7 @@ def indicadores_ocupacion_tecnicos(fecha_mes=None):
     horas_reales = {tecnico.id: 0 for tecnico in tecnicos}
     servicios_medidos = {tecnico.id: 0 for tecnico in tecnicos}
     servicios = Mantenimiento.objects.select_related("tecnico").filter(
-        tecnico__isnull=False,
+        tecnico__in=tecnicos,
         estado_operativo="FINALIZADO",
     )
     for servicio in servicios:
@@ -1590,6 +1599,17 @@ def configuracion_horarios_tecnicos(request):
         elif accion == "eliminar_rotacion":
             RotacionTecnicoDisponible.objects.filter(pk=request.POST.get("rotacion_id")).delete()
             messages.success(request, "Rotación eliminada.")
+        elif accion == "guardar_tecnicos_indicadores":
+            seleccionados = {
+                int(valor) for valor in request.POST.getlist("tecnicos_indicadores")
+                if valor.isdigit()
+            }
+            for tecnico in Tecnico.objects.all():
+                habilitado = tecnico.pk in seleccionados
+                if tecnico.incluir_indicadores != habilitado:
+                    tecnico.incluir_indicadores = habilitado
+                    tecnico.save(update_fields=["incluir_indicadores"])
+            messages.success(request, "Técnicos de los indicadores actualizados.")
         return redirect("configuracion_horarios_tecnicos")
 
     return render(request, "configuracion_horarios_tecnicos.html", {

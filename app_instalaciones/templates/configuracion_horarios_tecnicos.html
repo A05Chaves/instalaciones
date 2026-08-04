@@ -14,6 +14,33 @@
 {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}{% endif %}
 
 <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-primary text-white"><strong>Técnicos incluidos en los indicadores</strong></div>
+    <div class="card-body">
+        <p class="text-muted">
+            Selecciona únicamente los técnicos que están actualmente en ruta. Los demás seguirán registrados, pero no aparecerán ni sumarán valores en los indicadores.
+        </p>
+        <form method="post">
+            {% csrf_token %}<input type="hidden" name="accion" value="guardar_tecnicos_indicadores">
+            <div class="row g-2 mb-3">
+                {% for tecnico in tecnicos %}
+                <div class="col-12 col-md-6 col-xl-4">
+                    <label class="border rounded p-2 w-100 d-flex align-items-center gap-2">
+                        <input class="form-check-input mt-0" type="checkbox"
+                               name="tecnicos_indicadores" value="{{ tecnico.id }}"
+                               {% if tecnico.incluir_indicadores %}checked{% endif %}>
+                        <span>{{ tecnico.nombre }}</span>
+                    </label>
+                </div>
+                {% empty %}
+                <div class="col-12 text-muted">No hay técnicos registrados.</div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar técnicos habilitados</button>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-dark text-white"><strong>Jornada semanal</strong></div>
     <div class="card-body">
         <form method="post">

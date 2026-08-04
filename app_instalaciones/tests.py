@@ -1053,6 +1053,26 @@ class OcupacionMensualTecnicosTests(TestCase):
         self.assertEqual(fila["servicios"], 1)
         self.assertEqual(resultado["ocupacion_festivos_mes"], 1)
 
+    def test_configuracion_excluye_tecnicos_de_los_indicadores(self):
+        response = self.client.post(
+            reverse("configuracion_horarios_tecnicos"),
+            {
+                "accion": "guardar_tecnicos_indicadores",
+                "tecnicos_indicadores": [str(self.tecnico_1.pk)],
+            },
+        )
+        self.tecnico_1.refresh_from_db()
+        self.tecnico_2.refresh_from_db()
+        resultado = indicadores_ocupacion_tecnicos(date(2026, 8, 1))
+
+        self.assertRedirects(response, reverse("configuracion_horarios_tecnicos"))
+        self.assertTrue(self.tecnico_1.incluir_indicadores)
+        self.assertFalse(self.tecnico_2.incluir_indicadores)
+        self.assertEqual(
+            [fila["tecnico"] for fila in resultado["ocupacion_tecnicos"]],
+            ["TECNICO UNO"],
+        )
+
 
 class ImportacionMantenimientosExcelTests(TestCase):
     def crear_excel(self, encabezados, fila):

@@ -14,6 +14,10 @@ class Tecnico(models.Model):
         related_name="perfil_tecnico",
         help_text="Usuario que ingresará al portal móvil.",
     )
+    incluir_indicadores = models.BooleanField(
+        default=True,
+        help_text="Incluye al técnico en los indicadores de atención y ocupación.",
+    )
 
     def __str__(self):
         return str(self.nombre or "Sin nombre")
