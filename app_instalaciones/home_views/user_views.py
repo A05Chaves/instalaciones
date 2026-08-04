@@ -899,6 +899,7 @@ def _serializar_servicio_tecnico(mantenimiento):
 
 
 @login_required(login_url="login")
+@never_cache
 def portal_tecnico(request):
     tecnico = _tecnico_del_usuario(request.user)
     if not tecnico:
@@ -1090,6 +1091,7 @@ def manifiesto_tecnico(request):
     }, content_type="application/manifest+json")
 
 
+@never_cache
 def service_worker_tecnico(request):
     contenido = render(request, "mantenimientos/service-worker.js", content_type="application/javascript")
     contenido["Service-Worker-Allowed"] = "/"

@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0d6efd">
     <title>Mis servicios - SESUR</title>
     <link rel="manifest" href="{% url 'manifiesto_tecnico' %}">
-    <link rel="stylesheet" href="{% static 'sesur/css/portal_tecnico.css' %}">
+    <link rel="stylesheet" href="{% static 'sesur/css/portal_tecnico.css' %}?v=15">
 </head>
 <body>
     <header class="cabecera">
@@ -82,7 +82,7 @@
                 </label>
                 <div class="acciones">
                     <button type="button" class="boton iniciar">Iniciar servicio</button>
-                    <button type="button" class="boton boton-alerta soltar oculto">Soltar servicio</button>
+                    <button type="button" class="boton boton-alerta soltar" hidden>Soltar servicio</button>
                     <button type="button" class="boton boton-exito finalizar">Finalizar servicio</button>
                 </div>
             </div>
@@ -100,7 +100,7 @@
             renovar: "{% url 'renovar_sesion' %}"
         };
     </script>
-    <script src="{% static 'sesur/js/session_activity.js' %}"></script>
-    <script src="{% static 'sesur/js/portal_tecnico.js' %}"></script>
+    <script src="{% static 'sesur/js/session_activity.js' %}?v=15"></script>
+    <script src="{% static 'sesur/js/portal_tecnico.js' %}?v=15"></script>
 </body>
 </html>

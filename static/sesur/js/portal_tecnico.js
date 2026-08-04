@@ -122,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
             novedad.disabled = bloqueado;
             iniciar.disabled = bloqueado || servicio.estado !== "PENDIENTE";
             iniciar.title = "";
-            soltar.classList.toggle("oculto", servicio.estado !== "EN_PROCESO");
+            soltar.hidden = servicio.estado !== "EN_PROCESO";
             soltar.disabled = servicio.estado !== "EN_PROCESO" || bloqueado;
             const actualizarFinalizar = () => {
                 finalizar.disabled = servicio.estado !== "EN_PROCESO" || !novedad.value.trim();
@@ -276,6 +276,8 @@ document.addEventListener("DOMContentLoaded", () => {
         servicios = servicios.filter(s => s.estado !== "FINALIZADO" && !s.bloqueado);
         await guardar("datos", "servicios", servicios);
         render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
-        if ("serviceWorker" in navigator) navigator.serviceWorker.register(cfg.serviceWorker);
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register(cfg.serviceWorker).then(registro => registro.update());
+        }
     })();
 });

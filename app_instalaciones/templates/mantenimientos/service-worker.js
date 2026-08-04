@@ -1,9 +1,9 @@
-const CACHE = "sesur-tecnico-v14";
+const CACHE = "sesur-tecnico-v15";
 const SHELL = [
   "{% url 'portal_tecnico' %}",
-  "/static/sesur/css/portal_tecnico.css",
-  "/static/sesur/js/session_activity.js",
-  "/static/sesur/js/portal_tecnico.js",
+  "/static/sesur/css/portal_tecnico.css?v=15",
+  "/static/sesur/js/session_activity.js?v=15",
+  "/static/sesur/js/portal_tecnico.js?v=15",
   "/static/sesur/img/logosesur.png"
 ];
 
