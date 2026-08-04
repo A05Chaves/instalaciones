@@ -1009,6 +1009,8 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.assertEqual(dashboard.context["pendientes_fecha"], 1)
         self.assertIn("PASTO", dashboard.context["ciudades"])
         self.assertIn("CALI", dashboard.context["ciudades"])
+        self.assertContains(dashboard, 'id="ciudades-indicadores"')
+        self.assertContains(dashboard, '<option value="PASTO" selected>PASTO</option>', html=True)
 
     def test_boton_prioritario_filtra_solo_pendientes_prioritarios_a_la_fecha(self):
         hoy = timezone.localdate()

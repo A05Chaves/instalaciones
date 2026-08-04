@@ -103,17 +103,24 @@ Dashboard Instalaciones
         <div class="card-body py-3">
             <form method="get" class="row g-2 align-items-end">
                 {% if mes %}<input type="hidden" name="mes" value="{{ mes }}">{% endif %}
-                {% for ciudad in ciudades_seleccionadas %}<input type="hidden" name="ciudad" value="{{ ciudad }}">{% endfor %}
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6 col-xl-3">
                     <label class="form-label fw-semibold">Indicadores desde</label>
                     <input type="date" name="indicador_desde" value="{{ ocupacion_desde }}" class="form-control" required>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6 col-xl-3">
                     <label class="form-label fw-semibold">Indicadores hasta</label>
                     <input type="date" name="indicador_hasta" value="{{ ocupacion_hasta }}" class="form-control" required>
                 </div>
-                <div class="col-12 col-md-4">
-                    <button class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i>Aplicar intervalo</button>
+                <div class="col-12 col-md-8 col-xl-4">
+                    <label class="form-label fw-semibold">Ciudad(es)</label>
+                    <select id="ciudades-indicadores" name="ciudad" class="form-select" multiple>
+                        {% for ciudad in ciudades %}
+                        <option value="{{ ciudad }}" {% if ciudad in ciudades_seleccionadas %}selected{% endif %}>{{ ciudad }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-xl-2">
+                    <button class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i>Aplicar filtros</button>
                 </div>
             </form>
         </div>
@@ -574,7 +581,7 @@ Dashboard Instalaciones
 {% block extra_js %}
 <script>
     $(document).ready(function () {
-        $('#ciudades').select2({
+        $('#ciudades, #ciudades-indicadores').select2({
             placeholder: 'Seleccione una o varias ciudades',
             width: '100%',
             closeOnSelect: false
