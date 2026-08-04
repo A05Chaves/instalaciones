@@ -968,9 +968,29 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         dashboard = self.client.get(reverse("dashboard_instalaciones"))
         self.assertEqual(dashboard.context["promedio_grupo_horas"], 12.0)
         self.assertEqual(dashboard.context["efectividad_grupo"], 100.0)
+        fila_dashboard = dashboard.context["indicadores_por_tecnico"][0]
+        self.assertEqual(fila_dashboard["asignados"], 3)
+        self.assertEqual(fila_dashboard["pendientes"], 2)
+        self.assertEqual(fila_dashboard["realizados"], 1)
         self.assertContains(dashboard, "Cumplimiento de atención por técnico")
         self.assertContains(dashboard, "TECNICO INDICADOR")
         self.assertContains(dashboard, 'id="indicadores-mantenimiento-dashboard"')
+
+    def test_dashboard_filtra_cumplimiento_por_intervalo_programado(self):
+        hoy = timezone.localdate()
+        self.crear_mantenimiento("DENTRO", "CCTV", hoy)
+        self.crear_mantenimiento("FUERA", "CCTV", hoy - timedelta(days=10))
+
+        dashboard = self.client.get(reverse("dashboard_instalaciones"), {
+            "indicador_desde": hoy.isoformat(),
+            "indicador_hasta": hoy.isoformat(),
+        })
+
+        fila = dashboard.context["indicadores_por_tecnico"][0]
+        self.assertEqual(fila["asignados"], 1)
+        self.assertEqual(fila["pendientes"], 1)
+        self.assertEqual(dashboard.context["ocupacion_desde"], hoy.isoformat())
+        self.assertEqual(dashboard.context["ocupacion_hasta"], hoy.isoformat())
 
     def test_boton_prioritario_filtra_solo_pendientes_prioritarios_a_la_fecha(self):
         hoy = timezone.localdate()

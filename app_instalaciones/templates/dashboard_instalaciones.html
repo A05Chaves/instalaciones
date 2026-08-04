@@ -99,6 +99,26 @@ Dashboard Instalaciones
         <span class="badge bg-dark">{{ pendientes_fecha }} pendientes a la fecha</span>
     </div>
 
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form method="get" class="row g-2 align-items-end">
+                {% if mes %}<input type="hidden" name="mes" value="{{ mes }}">{% endif %}
+                {% for ciudad in ciudades_seleccionadas %}<input type="hidden" name="ciudad" value="{{ ciudad }}">{% endfor %}
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Indicadores desde</label>
+                    <input type="date" name="indicador_desde" value="{{ ocupacion_desde }}" class="form-control" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold">Indicadores hasta</label>
+                    <input type="date" name="indicador_hasta" value="{{ ocupacion_hasta }}" class="form-control" required>
+                </div>
+                <div class="col-12 col-md-4">
+                    <button class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i>Aplicar intervalo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-3 mb-3">
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card border-danger shadow-sm h-100">
@@ -158,9 +178,9 @@ Dashboard Instalaciones
                 <thead class="table-light">
                     <tr>
                         <th>Técnico</th>
-                        <th class="text-center">Prioritarios pendientes</th>
-                        <th class="text-center">Otros pendientes</th>
-                        <th class="text-center">Atendidos medidos</th>
+                        <th class="text-center">Asignados</th>
+                        <th class="text-center">Pendientes</th>
+                        <th class="text-center">Realizados</th>
                         <th class="text-center">Promedio atención</th>
                         <th class="text-center">Dentro de la meta</th>
                         <th class="text-center">Efectividad</th>
@@ -170,9 +190,9 @@ Dashboard Instalaciones
                     {% for indicador in indicadores_por_tecnico %}
                     <tr>
                         <td class="fw-semibold">{{ indicador.tecnico }}</td>
-                        <td class="text-center text-danger fw-bold">{{ indicador.prioritarios_pendientes }}</td>
-                        <td class="text-center text-warning-emphasis fw-bold">{{ indicador.otros_pendientes }}</td>
-                        <td class="text-center">{{ indicador.atendidos }}</td>
+                        <td class="text-center fw-bold">{{ indicador.asignados }}</td>
+                        <td class="text-center text-warning-emphasis fw-bold">{{ indicador.pendientes }}</td>
+                        <td class="text-center text-success fw-bold">{{ indicador.realizados }}</td>
                         <td class="text-center">{% if indicador.promedio_horas != None %}{{ indicador.promedio_horas }} h{% else %}---{% endif %}</td>
                         <td class="text-center text-success fw-bold">{{ indicador.cumplidos }}</td>
                         <td class="text-center fw-bold">{% if indicador.efectividad != None %}{{ indicador.efectividad }}%{% else %}---{% endif %}</td>
@@ -196,26 +216,6 @@ Dashboard Instalaciones
         <a href="{% url 'configuracion_horarios_tecnicos' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-cog me-1"></i>Configurar horarios
         </a>
-    </div>
-
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body py-3">
-            <form method="get" class="row g-2 align-items-end">
-                {% if mes %}<input type="hidden" name="mes" value="{{ mes }}">{% endif %}
-                {% for ciudad in ciudades_seleccionadas %}<input type="hidden" name="ciudad" value="{{ ciudad }}">{% endfor %}
-                <div class="col-12 col-md-4">
-                    <label class="form-label fw-semibold">Indicador desde</label>
-                    <input type="date" name="indicador_desde" value="{{ ocupacion_desde }}" class="form-control" required>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label fw-semibold">Indicador hasta</label>
-                    <input type="date" name="indicador_hasta" value="{{ ocupacion_hasta }}" class="form-control" required>
-                </div>
-                <div class="col-12 col-md-4">
-                    <button class="btn btn-primary w-100"><i class="fas fa-calculator me-1"></i>Calcular efectividad</button>
-                </div>
-            </form>
-        </div>
     </div>
 
     <div class="row g-3 mb-3">

@@ -244,13 +244,18 @@ def renovar_sesion(request):
 FALLAS_PRIORITARIAS_MANTENIMIENTO = {"F.COMUNICACION", "F.CORRIENTE", "ACTIVACION"}
 
 
-def indicadores_atencion_mantenimientos():
+def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None):
     """Calcula una única fuente para alertas, promedios y efectividad."""
     hoy = timezone.localdate()
     ahora = timezone.now()
-    servicios = list(Mantenimiento.objects.select_related("tecnico").filter(
+    consulta_servicios = Mantenimiento.objects.select_related("tecnico").filter(
         fecha_programada__isnull=False
-    ))
+    )
+    if fecha_desde and fecha_hasta:
+        consulta_servicios = consulta_servicios.filter(
+            fecha_programada__range=(fecha_desde, fecha_hasta)
+        )
+    servicios = list(consulta_servicios)
     resumen_tecnicos = {}
     tiempos_grupo = []
     cumplidos_grupo = 0
@@ -292,10 +297,14 @@ def indicadores_atencion_mantenimientos():
             fila = resumen_tecnicos.setdefault(tecnico_nombre, {
                 "tecnico": tecnico_nombre, "prioritarios_pendientes": 0,
                 "otros_pendientes": 0, "tiempos": [], "cumplidos": 0,
+                "asignados": 0, "realizados": 0,
             })
+            fila["asignados"] += 1
         inicio_medicion = fecha_programacion(servicio)
         atendido = fecha_atencion(servicio)
         finalizado = servicio.estado_operativo == "FINALIZADO" or bool(servicio.realizado)
+        if finalizado and fila:
+            fila["realizados"] += 1
 
         if not finalizado and servicio.fecha_programada <= hoy:
             horas_pendiente = max(0, (ahora - inicio_medicion).total_seconds() / 3600)
@@ -325,6 +334,7 @@ def indicadores_atencion_mantenimientos():
         total_atendidos = len(tiempos)
         fila["promedio_horas"] = round(sum(tiempos) / total_atendidos, 1) if tiempos else None
         fila["atendidos"] = total_atendidos
+        fila["pendientes"] = fila["prioritarios_pendientes"] + fila["otros_pendientes"]
         fila["efectividad"] = round(fila["cumplidos"] * 100 / total_atendidos, 1) if total_atendidos else None
         if total_atendidos or fila["prioritarios_pendientes"] or fila["otros_pendientes"]:
             indicadores_por_tecnico.append(fila)
@@ -1417,7 +1427,9 @@ def dashboard_instalaciones(request):
     }
 
     if contexto['puede_ver_indicadores_mantenimiento']:
-        contexto.update(indicadores_atencion_mantenimientos())
+        contexto.update(indicadores_atencion_mantenimientos(
+            indicador_desde, indicador_hasta
+        ))
         contexto.update(indicadores_ocupacion_tecnicos(
             indicador_desde, indicador_hasta
         ))
