@@ -579,6 +579,8 @@ class PortalTecnicoTests(TestCase):
 
         self.assertEqual(primero.status_code, 200)
         self.assertEqual(intento_segundo.status_code, 409)
+        self.assertIn("Tienes otro servicio abierto", intento_segundo.json()["error"])
+        self.assertIn("finalizarlo o soltarlo", intento_segundo.json()["error"])
         segundo.refresh_from_db()
         self.assertEqual(segundo.estado_operativo, "PENDIENTE")
 
@@ -596,6 +598,8 @@ class PortalTecnicoTests(TestCase):
 
         self.assertEqual(inicio.status_code, 200)
         self.assertEqual(soltar.status_code, 200)
+        self.assertEqual(soltar.json()["servicio"]["inicio"], "")
+        self.assertEqual(soltar.json()["servicio"]["fin"], "")
         self.servicio.refresh_from_db()
         self.assertEqual(self.servicio.estado_operativo, "PENDIENTE")
         self.assertIsNone(self.servicio.inicio_tecnico)

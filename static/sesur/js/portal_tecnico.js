@@ -120,12 +120,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
             const ejecucionDistinta = servicioEnEjecucion && servicioEnEjecucion.id !== servicio.id;
             novedad.disabled = bloqueado;
-            iniciar.disabled = bloqueado || servicio.estado !== "PENDIENTE" || (
-                !navigator.onLine && Boolean(ejecucionDistinta)
-            );
-            iniciar.title = !navigator.onLine && ejecucionDistinta && servicio.estado === "PENDIENTE"
-                ? "Finaliza el servicio en ejecución antes de iniciar otro."
-                : "";
+            iniciar.disabled = bloqueado || servicio.estado !== "PENDIENTE";
+            iniciar.title = "";
             soltar.classList.toggle("oculto", servicio.estado !== "EN_PROCESO");
             soltar.disabled = servicio.estado !== "EN_PROCESO" || bloqueado;
             const actualizarFinalizar = () => {
@@ -136,7 +132,14 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             actualizarFinalizar();
             novedad.addEventListener("input", actualizarFinalizar);
-            iniciar.addEventListener("click", () => cambiarEstado(servicio, "EN_PROCESO", novedad.value));
+            iniciar.addEventListener("click", () => {
+                if (!navigator.onLine && ejecucionDistinta) {
+                    const referencia = servicioEnEjecucion.ticket || servicioEnEjecucion.codigo || servicioEnEjecucion.id;
+                    mensaje(`Tienes otro servicio abierto (${referencia}). Debes finalizarlo o soltarlo antes de iniciar otro.`);
+                    return;
+                }
+                cambiarEstado(servicio, "EN_PROCESO", novedad.value);
+            });
             soltar.addEventListener("click", () => {
                 if (window.confirm("¿Soltar este servicio? Volverá a pendiente y se eliminará la hora de inicio registrada.")) {
                     cambiarEstado(servicio, "PENDIENTE", novedad.value);

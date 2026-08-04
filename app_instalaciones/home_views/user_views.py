@@ -998,14 +998,29 @@ def api_servicios_tecnico(request):
             {"ok": False, "error": "Solo se puede soltar un servicio que esté en ejecución."},
             status=409,
         )
-    if estado == "EN_PROCESO" and Mantenimiento.objects.filter(
-        tecnico=tecnico,
-        estado_operativo="EN_PROCESO",
-    ).exclude(pk=mantenimiento.pk).filter(
-        Q(orden__isnull=True) | Q(orden="")
-    ).exists():
+    servicio_abierto = None
+    if estado == "EN_PROCESO":
+        servicio_abierto = Mantenimiento.objects.filter(
+            tecnico=tecnico,
+            estado_operativo="EN_PROCESO",
+        ).exclude(pk=mantenimiento.pk).filter(
+            Q(orden__isnull=True) | Q(orden="")
+        ).first()
+    if servicio_abierto:
+        referencia_abierta = (
+            servicio_abierto.numero_ticket
+            or servicio_abierto.codigo
+            or str(servicio_abierto.pk)
+        )
         return JsonResponse(
-            {"ok": False, "error": "Debes finalizar el servicio en ejecución antes de iniciar otro."},
+            {
+                "ok": False,
+                "error": (
+                    f"Tienes otro servicio abierto ({referencia_abierta}). "
+                    "Debes finalizarlo o soltarlo antes de iniciar otro."
+                ),
+                "servicio_abierto_id": servicio_abierto.pk,
+            },
             status=409,
         )
     mantenimiento.estado_operativo = estado
