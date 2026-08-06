@@ -1027,6 +1027,33 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         ])
         self.assertEqual(respuesta.context["alerta_filtro"], "prioritarios")
 
+    def test_fecha_realizado_aislada_no_oculta_un_servicio_pendiente(self):
+        hoy = timezone.localdate()
+        self.crear_mantenimiento(
+            "PRI-FECHA-AISLADA", "F.COMUNICACION", hoy,
+            estado_operativo="PENDIENTE", realizado=hoy,
+        )
+
+        respuesta = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertEqual(respuesta.context["pendientes_prioritarios"], 1)
+
+    def test_modal_y_accion_eliminar_funcionan_para_superadministrador(self):
+        mantenimiento = self.crear_mantenimiento(
+            "ELIMINAR-1", "CCTV", timezone.localdate()
+        )
+        listado = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertContains(listado, 'id="modalEliminarMantenimiento"')
+        self.assertContains(listado, 'id="formEliminarMantenimiento"')
+
+        respuesta = self.client.post(
+            reverse("mantenimiento_eliminar", args=[mantenimiento.pk])
+        )
+
+        self.assertRedirects(respuesta, reverse("listar_mantenimientos"))
+        self.assertFalse(Mantenimiento.objects.filter(pk=mantenimiento.pk).exists())
+
 
 class OcupacionMensualTecnicosTests(TestCase):
     def setUp(self):

@@ -642,6 +642,34 @@ Mantenimientos - App_Sesur
 
 </div>
 
+<div class="modal fade" id="modalEliminarMantenimiento" tabindex="-1"
+     aria-labelledby="tituloEliminarMantenimiento" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEliminarMantenimiento">
+                    <i class="fas fa-trash text-danger me-2"></i>Eliminar mantenimiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                ¿Confirma que desea eliminar el mantenimiento de
+                <strong id="textoClienteEliminar"></strong>?
+                <p class="small text-muted mb-0 mt-2">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" id="formEliminarMantenimiento">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}

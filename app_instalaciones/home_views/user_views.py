@@ -311,7 +311,9 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
             fila["asignados"] += 1
         inicio_medicion = fecha_programacion(servicio)
         atendido = fecha_atencion(servicio)
-        finalizado = servicio.estado_operativo == "FINALIZADO" or bool(servicio.realizado)
+        # El estado operativo es la fuente de verdad. Una fecha ``realizado``
+        # aislada no debe sacar un servicio pendiente de las alertas.
+        finalizado = servicio.estado_operativo == "FINALIZADO"
         if finalizado:
             realizados_grupo += 1
         if finalizado and fila:
