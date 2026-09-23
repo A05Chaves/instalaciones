@@ -7,25 +7,24 @@ Dashboard Instalaciones
 {% block content %}
 
 <style>
-    /* Mantiene los indicadores de mantenimiento al final del Dashboard. */
-    .main-container {
-        display: flex;
-        flex-direction: column;
-    }
-    #indicadores-mantenimiento-dashboard {
-        order: 100;
-        margin-top: 2rem;
-    }
+    .indicador-enlace { color: inherit; text-decoration: none; }
+    .indicador-enlace .card { transition: transform .15s ease, box-shadow .15s ease; }
+    .indicador-enlace:hover .card { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.14) !important; }
+    .fila-cumple { border-left: 5px solid #198754; }
+    .fila-incumple { border-left: 5px solid #dc3545; }
+    .fila-pendiente { border-left: 5px solid #ffc107; }
+    .detalle-indicador { display: none; scroll-margin-top: 1rem; }
+    .detalle-indicador:target { display: block; }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 class="fw-bold mb-1">
             <i class="fas fa-chart-line text-primary me-2"></i>
-            Dashboard de Instalaciones
+            Indicadores operativos
         </h2>
         <p class="text-muted mb-0">
-            Indicadores de instalación, almacén, facturación y cierre total.
+            Consulta separada por proceso y con detalle verificable.
         </p>
     </div>
 
@@ -35,9 +34,18 @@ Dashboard Instalaciones
     </a>
 </div>
 
+<nav class="nav nav-pills nav-fill gap-2 mb-4" aria-label="Procesos del dashboard">
+    <a class="nav-link {% if seccion == 'resumen' %}active{% endif %}" href="?seccion=resumen"><i class="fas fa-th-large me-1"></i>Resumen</a>
+    <a class="nav-link {% if seccion == 'instalaciones' %}active{% endif %}" href="?seccion=instalaciones"><i class="fas fa-tools me-1"></i>Instalaciones</a>
+    {% if puede_ver_indicadores_mantenimiento %}<a class="nav-link {% if seccion == 'mantenimientos' %}active{% endif %}" href="?seccion=mantenimientos"><i class="fas fa-wrench me-1"></i>Mantenimientos</a>{% endif %}
+    <a class="nav-link {% if seccion == 'almacen' %}active{% endif %}" href="?seccion=almacen"><i class="fas fa-box me-1"></i>Almacén</a>
+    <a class="nav-link {% if seccion == 'facturacion' %}active{% endif %}" href="?seccion=facturacion"><i class="fas fa-file-invoice-dollar me-1"></i>Facturación</a>
+</nav>
+
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end">
+            <input type="hidden" name="seccion" value="{{ seccion }}">
 
             <div class="col-12 col-md-4">
                 <label class="form-label fw-semibold">Mes de ingreso (cohorte)</label>
@@ -76,7 +84,7 @@ Dashboard Instalaciones
                     Filtrar
                 </button>
 
-                <a href="{% url 'dashboard_instalaciones' %}" class="btn btn-outline-danger">
+                <a href="{% url 'dashboard_instalaciones' %}?seccion={{ seccion }}" class="btn btn-outline-danger">
                     <i class="fas fa-times"></i>
                 </a>
             </div>
@@ -85,7 +93,7 @@ Dashboard Instalaciones
     </div>
 </div>
 
-{% if puede_ver_indicadores_mantenimiento %}
+{% if seccion == "mantenimientos" and puede_ver_indicadores_mantenimiento %}
 <section id="indicadores-mantenimiento-dashboard" class="mb-5" aria-labelledby="titulo-indicadores-mantenimiento">
     <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
         <div>
@@ -102,6 +110,7 @@ Dashboard Instalaciones
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-3">
             <form method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="seccion" value="mantenimientos">
                 {% if mes %}<input type="hidden" name="mes" value="{{ mes }}">{% endif %}
                 <div class="col-12 col-md-6 col-xl-3">
                     <label class="form-label fw-semibold">Indicadores desde</label>
@@ -128,34 +137,34 @@ Dashboard Instalaciones
 
     <div class="row g-3 mb-3 row-cols-1 row-cols-md-2 row-cols-xl-4">
         <div class="col">
-            <div class="card border-danger shadow-sm h-100">
+            <a class="indicador-enlace" href="#detalle-prioritarios"><div class="card border-danger shadow-sm h-100">
                 <div class="card-body text-center">
                     <small class="text-muted">Prioritarios en menos de 24 h</small>
                     <h2 class="fw-bold text-danger mb-0">{% if cumplimiento_prioritarios != None %}{{ cumplimiento_prioritarios }}%{% else %}---{% endif %}</h2>
                     <small>{{ cumplidos_prioritarios }} de {{ programados_prioritarios }} programados</small>
                 </div>
-            </div>
+            </div></a>
         </div>
         <div class="col">
-            <div class="card border-warning shadow-sm h-100">
+            <a class="indicador-enlace" href="#detalle-no-prioritarios"><div class="card border-warning shadow-sm h-100">
                 <div class="card-body text-center">
                     <small class="text-muted">No prioritarios en menos de 48 h</small>
                     <h2 class="fw-bold text-warning mb-0">{% if cumplimiento_otros != None %}{{ cumplimiento_otros }}%{% else %}---{% endif %}</h2>
                     <small>{{ cumplidos_otros }} de {{ programados_otros }} programados</small>
                 </div>
-            </div>
+            </div></a>
         </div>
         <div class="col">
-            <div class="card border-primary shadow-sm h-100">
+            <a class="indicador-enlace" href="#detalle-pendientes"><div class="card border-primary shadow-sm h-100">
                 <div class="card-body text-center">
                     <small class="text-muted">Servicios sin realizar</small>
                     <h2 class="fw-bold text-primary mb-0">{{ pendientes_fecha }}</h2>
                     <small>{{ pendientes_prioritarios }} prioritarios · {{ pendientes_otros }} restantes</small>
                 </div>
-            </div>
+            </div></a>
         </div>
         <div class="col">
-            <div class="card border-success shadow-sm h-100">
+            <a class="indicador-enlace" href="#detalle-realizados"><div class="card border-success shadow-sm h-100">
                 <div class="card-body text-center">
                     <small class="text-muted">Servicios realizados</small>
                     <h2 class="fw-bold text-success mb-0">
@@ -163,7 +172,7 @@ Dashboard Instalaciones
                     </h2>
                     <small>{{ servicios_realizados }} de {{ servicios_programados }} programados</small>
                 </div>
-            </div>
+            </div></a>
         </div>
     </div>
 
@@ -173,6 +182,13 @@ Dashboard Instalaciones
         {{ pendientes_sin_programar }} mantenimiento{{ pendientes_sin_programar|pluralize }} pendiente{{ pendientes_sin_programar|pluralize }} sin fecha programada no entra{{ pendientes_sin_programar|pluralize:"n" }} en la medición.
     </div>
     {% endif %}
+
+    <div class="mt-4">
+        {% include "dashboard/_detalle_mantenimientos.html" with id_detalle="detalle-prioritarios" titulo_detalle="Detalle de servicios prioritarios" clase_cabecera="bg-danger text-white" detalles=detalle_prioritarios %}
+        {% include "dashboard/_detalle_mantenimientos.html" with id_detalle="detalle-no-prioritarios" titulo_detalle="Detalle de servicios no prioritarios" clase_cabecera="bg-warning text-dark" detalles=detalle_otros %}
+        {% include "dashboard/_detalle_mantenimientos.html" with id_detalle="detalle-pendientes" titulo_detalle="Servicios pendientes" clase_cabecera="bg-primary text-white" detalles=detalle_pendientes %}
+        {% include "dashboard/_detalle_mantenimientos.html" with id_detalle="detalle-realizados" titulo_detalle="Servicios realizados" clase_cabecera="bg-success text-white" detalles=detalle_realizados %}
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-dark text-white">
@@ -258,49 +274,16 @@ Dashboard Instalaciones
 </section>
 {% endif %}
 
+{% if seccion == "resumen" %}
 <div class="row g-4 mb-4">
-
-    <div class="col-12 col-md-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <small class="text-muted">PVG ingresados en la cohorte</small>
-                <h2 class="fw-bold text-primary mb-0">{{ total_pvg }}</h2>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-md-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <small class="text-muted">Eficiencia en instalación</small>
-                <h2 class="fw-bold text-success mb-0">{{ eficiencia_instalacion }}%</h2>
-                <small class="text-muted">Meta ≤ 8 días</small>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-md-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <small class="text-muted">Cumplimiento almacén</small>
-                <h2 class="fw-bold text-info mb-0">{{ eficiencia_almacen }}%</h2>
-                <small class="text-muted">Meta ≤ 2 días</small>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-md-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body text-center">
-                <small class="text-muted">Cumplimiento facturación</small>
-                <h2 class="fw-bold text-warning mb-0">{{ eficiencia_facturacion }}%</h2>
-                <small class="text-muted">Meta ≤ 2 días</small>
-            </div>
-        </div>
-    </div>
-
+    <div class="col-12 col-md-6 col-xl"><a href="?seccion=instalaciones" class="indicador-enlace"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">PVG ingresados</small><h2 class="fw-bold text-primary mb-0">{{ total_pvg }}</h2><small>Ver instalaciones</small></div></div></a></div>
+    <div class="col-12 col-md-6 col-xl"><a href="?seccion=instalaciones" class="indicador-enlace"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Eficiencia instalación</small><h2 class="fw-bold text-success mb-0">{{ eficiencia_instalacion }}%</h2><small>Meta ≤ 8 días</small></div></div></a></div>
+    {% if puede_ver_indicadores_mantenimiento %}<div class="col-12 col-md-6 col-xl"><a href="?seccion=mantenimientos" class="indicador-enlace"><div class="card border-danger shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Mantenimientos pendientes</small><h2 class="fw-bold text-danger mb-0">{{ pendientes_fecha }}</h2><small>{{ pendientes_prioritarios }} prioritarios</small></div></div></a></div>{% endif %}
+    <div class="col-12 col-md-6 col-xl"><a href="?seccion=almacen" class="indicador-enlace"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Cumplimiento almacén</small><h2 class="fw-bold text-info mb-0">{{ eficiencia_almacen }}%</h2><small>Meta ≤ 2 días</small></div></div></a></div>
+    <div class="col-12 col-md-6 col-xl"><a href="?seccion=facturacion" class="indicador-enlace"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Cumplimiento facturación</small><h2 class="fw-bold text-warning mb-0">{{ eficiencia_facturacion }}%</h2><small>Meta ≤ 2 días</small></div></div></a></div>
 </div>
 
+{% if False %}
 <div class="row g-4 mb-4">
 
     <div class="col-12 col-md-6 col-xl">
@@ -575,6 +558,58 @@ Dashboard Instalaciones
     
 
 </div>
+
+{% endif %}
+{% endif %}
+
+{% if seccion == "instalaciones" %}
+<section>
+    <div class="d-flex justify-content-between align-items-center mb-3"><div><h3 class="fw-bold mb-1"><i class="fas fa-tools text-primary me-2"></i>Instalaciones</h3><p class="text-muted mb-0">Cumplimiento desde el ingreso hasta el inicio de instalación.</p></div></div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><a href="#detalle-instalaciones" class="indicador-enlace"><div class="card shadow-sm h-100"><div class="card-body text-center"><small>Total ingresados</small><h2>{{ total_pvg }}</h2></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-instalaciones" class="indicador-enlace"><div class="card border-success shadow-sm h-100"><div class="card-body text-center"><small>Cumplen ≤ 8 días</small><h2 class="text-success">{{ cumple_instalacion }}</h2><small>{{ eficiencia_instalacion }}%</small></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-instalaciones" class="indicador-enlace"><div class="card border-danger shadow-sm h-100"><div class="card-body text-center"><small>Fuera de meta</small><h2 class="text-danger">{{ fuera_instalacion }}</h2></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-instalaciones" class="indicador-enlace"><div class="card border-warning shadow-sm h-100"><div class="card-body text-center"><small>Pendientes</small><h2 class="text-warning">{{ pendiente_instalacion }}</h2></div></div></a></div>
+    </div>
+    <div id="detalle-instalaciones" class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white"><strong>Detalle del resultado de instalaciones</strong></div>
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>PVG / código</th><th>Ingreso</th><th>Inicio</th><th>Días</th><th>Cliente</th><th>Ciudad</th><th>Resultado</th></tr></thead><tbody>
+        {% for item in detalle_instalaciones %}<tr class="{% if not item.fecha_inicio %}fila-pendiente{% elif item.dias_instalacion <= 8 %}fila-cumple{% else %}fila-incumple{% endif %}"><td>{{ item.pvg|default:item.codigo|default:"—" }}</td><td>{{ item.fecha|date:"Y-m-d" }}</td><td>{{ item.fecha_inicio|date:"Y-m-d"|default:"—" }}</td><td>{{ item.dias_instalacion|default:"—" }}</td><td>{{ item.cliente }}</td><td>{{ item.ciudad|default:"—" }}</td><td>{% if item.estado|upper == "ANULADO" %}<span class="badge bg-secondary">Anulado</span>{% elif not item.fecha_inicio %}<span class="badge bg-warning text-dark">Pendiente</span>{% elif item.dias_instalacion <= 8 %}<span class="badge bg-success">Cumplió</span>{% else %}<span class="badge bg-danger">Fuera de meta</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay instalaciones para los filtros seleccionados.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+</section>
+{% endif %}
+
+{% if seccion == "almacen" %}
+<section>
+    <div class="mb-3"><h3 class="fw-bold mb-1"><i class="fas fa-box text-info me-2"></i>Almacén</h3><p class="text-muted mb-0">Tiempo desde la finalización de instalación hasta el alistamiento.</p></div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><a href="#detalle-almacen" class="indicador-enlace"><div class="card shadow-sm h-100"><div class="card-body text-center"><small>Total evaluados</small><h2>{{ total_almacen }}</h2></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-almacen" class="indicador-enlace"><div class="card border-success shadow-sm h-100"><div class="card-body text-center"><small>Cumplen ≤ 2 días</small><h2 class="text-success">{{ cumple_almacen }}</h2><small>{{ eficiencia_almacen }}%</small></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-almacen" class="indicador-enlace"><div class="card border-warning shadow-sm h-100"><div class="card-body text-center"><small>Pendientes</small><h2 class="text-warning">{{ pendientes_almacen }}</h2></div></div></a></div>
+        <div class="col-md-3"><a href="#detalle-almacen" class="indicador-enlace"><div class="card border-danger shadow-sm h-100"><div class="card-body text-center"><small>Pendientes vencidos</small><h2 class="text-danger">{{ vencidos_almacen }}</h2></div></div></a></div>
+    </div>
+    <div id="detalle-almacen" class="card shadow-sm border-0"><div class="card-header bg-info"><strong>Detalle del resultado de almacén</strong></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>PVG / código</th><th>Finalizó instalación</th><th>Alistado</th><th>Días</th><th>Cliente</th><th>Ciudad</th><th>Resultado</th></tr></thead><tbody>
+    {% for item in detalle_almacen %}<tr class="{% if not item.fecha_alistado %}fila-pendiente{% elif item.dias_para_alistar <= 2 %}fila-cumple{% else %}fila-incumple{% endif %}"><td>{{ item.pvg|default:item.codigo|default:"—" }}</td><td>{{ item.finaliza|date:"Y-m-d" }}</td><td>{{ item.fecha_alistado|date:"Y-m-d H:i"|default:"—" }}</td><td>{{ item.dias_para_alistar|default:"—" }}</td><td>{{ item.cliente }}</td><td>{{ item.ciudad|default:"—" }}</td><td>{% if not item.fecha_alistado %}<span class="badge bg-warning text-dark">Pendiente</span>{% elif item.dias_para_alistar <= 2 %}<span class="badge bg-success">Cumplió</span>{% else %}<span class="badge bg-danger">Fuera de meta</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay registros de almacén.</td></tr>{% endfor %}
+    </tbody></table></div></div>
+</section>
+{% endif %}
+
+{% if seccion == "facturacion" %}
+<section>
+    <div class="mb-3"><h3 class="fw-bold mb-1"><i class="fas fa-file-invoice-dollar text-success me-2"></i>Facturación</h3><p class="text-muted mb-0">Tiempo desde la aprobación de almacén hasta facturar o retener.</p></div>
+    <div class="row g-3 mb-4">
+        <div class="col-md"><a href="#detalle-facturacion" class="indicador-enlace"><div class="card shadow-sm h-100"><div class="card-body text-center"><small>Total evaluados</small><h2>{{ total_facturacion }}</h2></div></div></a></div>
+        <div class="col-md"><a href="#detalle-facturacion" class="indicador-enlace"><div class="card border-success shadow-sm h-100"><div class="card-body text-center"><small>Facturados</small><h2 class="text-success">{{ facturados }}</h2></div></div></a></div>
+        <div class="col-md"><a href="#detalle-facturacion" class="indicador-enlace"><div class="card border-danger shadow-sm h-100"><div class="card-body text-center"><small>Retenidos</small><h2 class="text-danger">{{ retenidos }}</h2></div></div></a></div>
+        <div class="col-md"><a href="#detalle-facturacion" class="indicador-enlace"><div class="card border-warning shadow-sm h-100"><div class="card-body text-center"><small>Pendientes</small><h2 class="text-warning">{{ pendientes_facturacion }}</h2></div></div></a></div>
+        <div class="col-md"><a href="#detalle-facturacion" class="indicador-enlace"><div class="card border-primary shadow-sm h-100"><div class="card-body text-center"><small>Cumplimiento ≤ 2 días</small><h2 class="text-primary">{{ eficiencia_facturacion }}%</h2></div></div></a></div>
+    </div>
+    <div id="detalle-facturacion" class="card shadow-sm border-0"><div class="card-header bg-success text-white"><strong>Detalle del resultado de facturación</strong></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>PVG / código</th><th>Alistado</th><th>Gestión facturación</th><th>Días</th><th>Cliente</th><th>Ciudad</th><th>Estado</th><th>Resultado</th></tr></thead><tbody>
+    {% for item in detalle_facturacion %}<tr class="{% if not item.fecha_facturacion %}fila-pendiente{% elif item.dias_para_facturar <= 2 %}fila-cumple{% else %}fila-incumple{% endif %}"><td>{{ item.pvg|default:item.codigo|default:"—" }}</td><td>{{ item.fecha_alistado|date:"Y-m-d H:i" }}</td><td>{{ item.fecha_facturacion|date:"Y-m-d H:i"|default:"—" }}</td><td>{{ item.dias_para_facturar|default:"—" }}</td><td>{{ item.cliente }}</td><td>{{ item.ciudad|default:"—" }}</td><td>{{ item.get_estado_facturacion_display }}</td><td>{% if not item.fecha_facturacion %}<span class="badge bg-warning text-dark">Pendiente</span>{% elif item.dias_para_facturar <= 2 %}<span class="badge bg-success">Cumplió</span>{% else %}<span class="badge bg-danger">Fuera de meta</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No hay registros de facturación.</td></tr>{% endfor %}
+    </tbody></table></div></div>
+</section>
+{% endif %}
 
 {% endblock %}
 

@@ -40,6 +40,21 @@ urlpatterns = [
          name='smartcheck_listar'),
     path('smartcheck/nuevo/', smartcheck_views.crear_proyecto,
          name='smartcheck_crear'),
+    path(
+        'smartcheck/visitas-comerciales/',
+        smartcheck_views.visitas_comerciales_fonel,
+        name='smartcheck_visitas',
+    ),
+    path(
+        'smartcheck/visitas-comerciales/<int:pk>/editar/',
+        smartcheck_views.visitas_comerciales_fonel,
+        name='smartcheck_visita_editar',
+    ),
+    path(
+        'smartcheck/visitas-comerciales/<int:pk>/forecast/',
+        smartcheck_views.pasar_visita_a_forecast,
+        name='smartcheck_visita_forecast',
+    ),
     path('smartcheck/<int:pk>/', smartcheck_views.detalle_proyecto,
          name='smartcheck_detalle'),
     path('smartcheck/<int:pk>/editar/', smartcheck_views.editar_proyecto,

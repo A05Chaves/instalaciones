@@ -86,6 +86,77 @@ class ProyectoSmartCheck(models.Model):
         return round((revisados / total) * 100)
 
 
+class VisitaComercialFonel(models.Model):
+    ETAPAS = [
+        ("PROSPECTO", "Prospecto"),
+        ("CONTACTADO", "Contactado"),
+        ("VISITA_PROGRAMADA", "Visita programada"),
+        ("VISITA_REALIZADA", "Visita realizada"),
+        ("PROPUESTA", "Propuesta en preparación"),
+        ("FORECAST", "Forecast"),
+        ("NEGOCIACION", "Negociación"),
+        ("GANADA", "Ganada"),
+        ("PERDIDA", "Perdida"),
+    ]
+    TIPOS_OPORTUNIDAD = ProyectoSmartCheck.SISTEMAS + [("OTRO", "Otro")]
+
+    cliente = models.CharField(max_length=150, db_index=True)
+    contacto = models.CharField(max_length=120, blank=True)
+    telefono = models.CharField(max_length=40, blank=True)
+    correo = models.EmailField(blank=True)
+    ciudad = models.CharField(max_length=80, blank=True, db_index=True)
+    direccion = models.CharField(max_length=180, blank=True)
+    ejecutivo = models.ForeignKey(
+        Ejecutivo, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="visitas_comerciales_fonel",
+    )
+    fecha_visita = models.DateField(db_index=True)
+    tipo_oportunidad = models.CharField(
+        max_length=20, choices=TIPOS_OPORTUNIDAD, default="ALARMA"
+    )
+    etapa = models.CharField(
+        max_length=30, choices=ETAPAS, default="VISITA_PROGRAMADA", db_index=True
+    )
+    necesidad = models.TextField(blank=True)
+    valor_estimado = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0
+    )
+    probabilidad = models.PositiveSmallIntegerField(default=10)
+    proxima_gestion = models.DateField(null=True, blank=True, db_index=True)
+    fecha_forecast = models.DateTimeField(null=True, blank=True, db_index=True)
+    pasado_forecast_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="visitas_comerciales_pasadas_forecast",
+    )
+    compromiso = models.TextField(blank=True)
+    observaciones = models.TextField(blank=True)
+    creado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name="visitas_comerciales_fonel_creadas",
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        ordering = ["-fecha_visita", "-pk"]
+        verbose_name = "Visita comercial Fonel"
+        verbose_name_plural = "Visitas comerciales Fonel"
+
+    def __str__(self):
+        return f"{self.cliente} - {self.fecha_visita}"
+
+    def save(self, *args, **kwargs):
+        self.probabilidad = min(max(int(self.probabilidad or 0), 0), 100)
+        for campo in [
+            "cliente", "contacto", "ciudad", "direccion", "necesidad",
+            "compromiso", "observaciones",
+        ]:
+            valor = getattr(self, campo, None)
+            if isinstance(valor, str):
+                setattr(self, campo, valor.upper())
+        super().save(*args, **kwargs)
+
+
 class ItemChecklistSmartCheck(models.Model):
     ESTADOS = [
         ("POR_REVISAR", "Por revisar"),

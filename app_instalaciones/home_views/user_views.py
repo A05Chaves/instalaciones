@@ -266,6 +266,10 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
     cumplidos_prioritarios = cumplidos_otros = 0
     pendientes_prioritarios = pendientes_otros = 0
     vencidos_prioritarios = vencidos_otros = 0
+    detalle_prioritarios = []
+    detalle_otros = []
+    detalle_pendientes = []
+    detalle_realizados = []
 
     def fecha_programacion(servicio):
         return timezone.make_aware(
@@ -319,6 +323,27 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
         if finalizado and fila:
             fila["realizados"] += 1
 
+        horas_atencion = None
+        if atendido:
+            if timezone.is_naive(atendido):
+                atendido = timezone.make_aware(atendido, timezone.get_current_timezone())
+            horas_atencion = max(0, (atendido - inicio_medicion).total_seconds() / 3600)
+
+        detalle = {
+            "servicio": servicio,
+            "prioritario": prioritario,
+            "meta_horas": meta_horas,
+            "atendido": atendido,
+            "horas_atencion": round(horas_atencion, 1) if horas_atencion is not None else None,
+            "cumple": bool(finalizado and horas_atencion is not None and horas_atencion <= meta_horas),
+            "finalizado": finalizado,
+        }
+        (detalle_prioritarios if prioritario else detalle_otros).append(detalle)
+        if finalizado:
+            detalle_realizados.append(detalle)
+        elif servicio.fecha_programada <= hoy:
+            detalle_pendientes.append(detalle)
+
         if not finalizado and servicio.fecha_programada <= hoy:
             horas_pendiente = max(0, (ahora - inicio_medicion).total_seconds() / 3600)
             if prioritario:
@@ -332,9 +357,6 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
                     fila["otros_pendientes"] += 1
                 vencidos_otros += int(horas_pendiente > meta_horas)
         elif finalizado and atendido:
-            if timezone.is_naive(atendido):
-                atendido = timezone.make_aware(atendido, timezone.get_current_timezone())
-            horas_atencion = max(0, (atendido - inicio_medicion).total_seconds() / 3600)
             tiempos_grupo.append(horas_atencion)
             if fila:
                 fila["tiempos"].append(horas_atencion)
@@ -385,6 +407,10 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
             cumplidos_otros * 100 / programados_otros, 1
         ) if programados_otros else None,
         "indicadores_por_tecnico": indicadores_por_tecnico,
+        "detalle_prioritarios": detalle_prioritarios,
+        "detalle_otros": detalle_otros,
+        "detalle_pendientes": detalle_pendientes,
+        "detalle_realizados": detalle_realizados,
     }
 
 
@@ -1162,6 +1188,10 @@ def service_worker_tecnico(request):
 @login_required(login_url='login')
 @user_passes_test(puede_ver_dashboard)
 def dashboard_instalaciones(request):
+    seccion = (request.GET.get("seccion") or "resumen").strip().lower()
+    secciones_validas = {"resumen", "instalaciones", "mantenimientos", "almacen", "facturacion"}
+    if seccion not in secciones_validas:
+        seccion = "resumen"
     mes = request.GET.get('mes')
     ciudades_seleccionadas = request.GET.getlist('ciudad')
     fecha_corte = timezone.localdate()
@@ -1420,6 +1450,7 @@ def dashboard_instalaciones(request):
     ciudades = sorted(set(ciudades_instalaciones) | set(ciudades_mantenimientos))
 
     contexto = {
+        'seccion': seccion,
         'mes': mes,
         'ciudades_seleccionadas': ciudades_seleccionadas,
         'ciudades': ciudades,
@@ -1462,6 +1493,9 @@ def dashboard_instalaciones(request):
         'pendientes_ejecucion_rango': pendientes_ejecucion_rango,
         'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
         'puede_ver_indicadores_mantenimiento': puede_gestionar_mantenimientos(request.user),
+        'detalle_instalaciones': qs.order_by('-fecha', '-pk')[:500],
+        'detalle_almacen': registros_almacen.order_by('-finaliza', '-pk')[:500],
+        'detalle_facturacion': registros_facturacion.order_by('-fecha_alistado', '-pk')[:500],
     }
 
     if contexto['puede_ver_indicadores_mantenimiento']:

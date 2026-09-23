@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from app_instalaciones.models.smartcheck import (
@@ -17,8 +18,12 @@ from app_instalaciones.models.smartcheck import (
     KitProyectoComercial,
     ProductoProyectoComercial,
     ProyectoSmartCheck,
+    VisitaComercialFonel,
 )
-from app_instalaciones.models.smartcheck_forms import ProductoProyectoComercialForm, ProyectoSmartCheckForm
+from app_instalaciones.models.smartcheck_forms import (
+    ProductoProyectoComercialForm, ProyectoSmartCheckForm,
+    VisitaComercialFonelForm,
+)
 
 
 CHECKLISTS = {
@@ -106,6 +111,69 @@ def listar_proyectos(request):
         "estados": ProyectoSmartCheck.ESTADOS,
         "sistemas": ProyectoSmartCheck.SISTEMAS,
     })
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_smartcheck, login_url="home")
+def visitas_comerciales_fonel(request, pk=None):
+    visita = get_object_or_404(VisitaComercialFonel, pk=pk) if pk else None
+    form = VisitaComercialFonelForm(request.POST or None, instance=visita)
+    if request.method == "POST" and form.is_valid():
+        registro = form.save(commit=False)
+        if not registro.creado_por_id:
+            registro.creado_por = request.user
+        registro.save()
+        messages.success(
+            request,
+            "Seguimiento de visita comercial actualizado correctamente."
+            if visita else "Visita comercial registrada correctamente.",
+        )
+        return redirect("smartcheck_visitas")
+
+    busqueda = (request.GET.get("busqueda") or "").strip()
+    etapa = (request.GET.get("etapa") or "").strip()
+    visitas = VisitaComercialFonel.objects.select_related("ejecutivo")
+    if busqueda:
+        visitas = visitas.filter(
+            Q(cliente__icontains=busqueda)
+            | Q(contacto__icontains=busqueda)
+            | Q(ciudad__icontains=busqueda)
+            | Q(ejecutivo__nombre__icontains=busqueda)
+        )
+    if etapa:
+        visitas = visitas.filter(etapa=etapa)
+
+    return render(request, "smartcheck/visitas_fonel.html", {
+        "form": form,
+        "visita_editar": visita,
+        "visitas": visitas,
+        "busqueda": busqueda,
+        "etapa_filtro": etapa,
+        "etapas": VisitaComercialFonel.ETAPAS,
+    })
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_smartcheck, login_url="home")
+@require_POST
+def pasar_visita_a_forecast(request, pk):
+    visita = get_object_or_404(VisitaComercialFonel, pk=pk)
+    if visita.etapa in {"GANADA", "PERDIDA"}:
+        messages.error(
+            request, "Una oportunidad cerrada no se puede pasar a Forecast."
+        )
+        return redirect("smartcheck_visitas")
+    if visita.etapa != "FORECAST":
+        visita.etapa = "FORECAST"
+        visita.fecha_forecast = timezone.now()
+        visita.pasado_forecast_por = request.user
+        visita.save(update_fields=[
+            "etapa", "fecha_forecast", "pasado_forecast_por", "actualizado",
+        ])
+        messages.success(
+            request, f"{visita.cliente} pasó a la etapa Forecast."
+        )
+    return redirect("smartcheck_visitas")
 
 
 @login_required(login_url="login")

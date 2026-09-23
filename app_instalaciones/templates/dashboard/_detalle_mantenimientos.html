@@ -1,0 +1,33 @@
+<div id="{{ id_detalle }}" class="card border-0 shadow-sm mb-4 detalle-indicador">
+    <div class="card-header {{ clase_cabecera }} d-flex justify-content-between align-items-center">
+        <strong><i class="fas fa-list-ul me-2"></i>{{ titulo_detalle }}</strong>
+        <span class="badge bg-light text-dark">{{ detalles|length }} registros</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Ticket</th><th>Programado</th><th>Inicio</th><th>Tiempo</th><th>Falla</th><th>Cliente / ciudad</th><th>Técnico</th><th>Resultado</th><th>Novedad / observación</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for detalle in detalles %}
+                <tr class="{% if not detalle.finalizado %}fila-pendiente{% elif detalle.cumple %}fila-cumple{% else %}fila-incumple{% endif %}">
+                    <td>{{ detalle.servicio.numero_ticket|default:"—" }}</td>
+                    <td>{{ detalle.servicio.fecha_programada|date:"Y-m-d" }}</td>
+                    <td>{% if detalle.atendido %}{{ detalle.atendido|date:"Y-m-d H:i" }}{% else %}—{% endif %}</td>
+                    <td>{% if detalle.horas_atencion != None %}{{ detalle.horas_atencion }} h{% else %}—{% endif %}</td>
+                    <td>{{ detalle.servicio.get_tipo_falla_display|default:"Sin registrar" }}</td>
+                    <td>{{ detalle.servicio.cliente }}<br><small class="text-muted">{{ detalle.servicio.ciudad|default:"—" }}</small></td>
+                    <td>{{ detalle.servicio.tecnico.nombre|default:"Sin asignar" }}</td>
+                    <td>
+                        {% if not detalle.finalizado %}<span class="badge bg-warning text-dark">Pendiente</span>
+                        {% elif detalle.cumple %}<span class="badge bg-success">Cumplió &lt; {{ detalle.meta_horas }} h</span>
+                        {% else %}<span class="badge bg-danger">Fuera de {{ detalle.meta_horas }} h</span>{% endif %}
+                    </td>
+                    <td class="text-wrap" style="min-width:220px">{{ detalle.servicio.novedad|default:detalle.servicio.observacion|default:"—"|truncatechars:140 }}</td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="{% url 'listar_mantenimientos' %}?busqueda={{ detalle.servicio.numero_ticket|urlencode }}">Abrir</a></td>
+                </tr>
+            {% empty %}<tr><td colspan="10" class="text-center text-muted py-4">No hay registros para este resultado.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

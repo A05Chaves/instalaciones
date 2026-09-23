@@ -18,6 +18,7 @@ from app_instalaciones.models import (
     RotacionTecnicoDisponible, Tecnico, ItemChecklistSmartCheck,
     ItemKitProyectoComercial, KitProyectoComercial,
     ProductoProyectoComercial, ProyectoSmartCheck, RegistroAuditoria,
+    VisitaComercialFonel,
 )
 from app_instalaciones.home_views.user_views import registrar_cambio_tecnico
 from app_instalaciones.home_views.user_views import indicadores_ocupacion_tecnicos
@@ -965,7 +966,9 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.assertEqual(indicador["promedio_horas"], 12.0)
         self.assertEqual(indicador["efectividad"], 25.0)
 
-        dashboard = self.client.get(reverse("dashboard_instalaciones"))
+        dashboard = self.client.get(
+            reverse("dashboard_instalaciones"), {"seccion": "mantenimientos"}
+        )
         self.assertEqual(dashboard.context["promedio_grupo_horas"], 12.0)
         self.assertEqual(dashboard.context["efectividad_grupo"], 33.3)
         self.assertEqual(dashboard.context["cumplimiento_prioritarios"], 50.0)
@@ -977,6 +980,20 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.assertContains(dashboard, "Resumen operativo por técnico")
         self.assertContains(dashboard, "TECNICO INDICADOR")
         self.assertContains(dashboard, 'id="indicadores-mantenimiento-dashboard"')
+        self.assertContains(dashboard, 'id="detalle-prioritarios"')
+        self.assertContains(dashboard, "FIN-1")
+
+    def test_dashboard_separa_los_procesos_en_pestanas(self):
+        respuesta = self.client.get(
+            reverse("dashboard_instalaciones"), {"seccion": "instalaciones"}
+        )
+        self.assertContains(respuesta, "Indicadores operativos")
+        self.assertContains(respuesta, "Instalaciones")
+        self.assertContains(respuesta, "Mantenimientos")
+        self.assertContains(respuesta, "Almacén")
+        self.assertContains(respuesta, "Facturación")
+        self.assertContains(respuesta, 'id="detalle-instalaciones"')
+        self.assertNotContains(respuesta, 'id="indicadores-mantenimiento-dashboard"')
 
     def test_dashboard_filtra_cumplimiento_por_intervalo_programado(self):
         hoy = timezone.localdate()
@@ -984,6 +1001,7 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.crear_mantenimiento("FUERA", "CCTV", hoy - timedelta(days=10))
 
         dashboard = self.client.get(reverse("dashboard_instalaciones"), {
+            "seccion": "mantenimientos",
             "indicador_desde": hoy.isoformat(),
             "indicador_hasta": hoy.isoformat(),
         })
@@ -1000,6 +1018,7 @@ class IndicadoresAtencionMantenimientosTests(TestCase):
         self.crear_mantenimiento("CALI-1", "CCTV", hoy, ciudad="CALI")
 
         dashboard = self.client.get(reverse("dashboard_instalaciones"), {
+            "seccion": "mantenimientos",
             "indicador_desde": hoy.isoformat(),
             "indicador_hasta": hoy.isoformat(),
             "ciudad": "PASTO",
@@ -1267,6 +1286,53 @@ class SmartCheckTests(TestCase):
         self.assertContains(response, "Proyectos comerciales")
         self.assertContains(response, reverse("smartcheck_listar"))
         self.assertContains(response, "Ver proyectos comerciales")
+
+    def test_registra_y_edita_visita_comercial_fonel(self):
+        listado = self.client.get(reverse("smartcheck_listar"))
+        self.assertContains(listado, "Visita comercial")
+        self.assertContains(listado, reverse("smartcheck_visitas"))
+
+        datos = {
+            "cliente": "cliente de prueba",
+            "contacto": "persona contacto",
+            "telefono": "3001234567",
+            "correo": "contacto@example.com",
+            "ciudad": "pasto",
+            "direccion": "calle 1",
+            "fecha_visita": "2026-09-09",
+            "tipo_oportunidad": "ALARMA",
+            "etapa": "VISITA_REALIZADA",
+            "necesidad": "sistema de alarma",
+            "valor_estimado": "2500000",
+            "probabilidad": "40",
+            "proxima_gestion": "2026-09-12",
+            "compromiso": "enviar propuesta",
+            "observaciones": "cliente interesado",
+        }
+        respuesta = self.client.post(reverse("smartcheck_visitas"), datos)
+        visita = VisitaComercialFonel.objects.get()
+
+        self.assertRedirects(respuesta, reverse("smartcheck_visitas"))
+        self.assertEqual(visita.cliente, "CLIENTE DE PRUEBA")
+        self.assertEqual(visita.creado_por, self.usuario)
+        self.assertEqual(visita.probabilidad, 40)
+
+        respuesta = self.client.post(
+            reverse("smartcheck_visita_forecast", args=[visita.pk])
+        )
+        visita.refresh_from_db()
+        self.assertRedirects(respuesta, reverse("smartcheck_visitas"))
+        self.assertEqual(visita.etapa, "FORECAST")
+        self.assertEqual(visita.pasado_forecast_por, self.usuario)
+        self.assertIsNotNone(visita.fecha_forecast)
+
+        datos["etapa"] = "NEGOCIACION"
+        respuesta = self.client.post(
+            reverse("smartcheck_visita_editar", args=[visita.pk]), datos
+        )
+        visita.refresh_from_db()
+        self.assertRedirects(respuesta, reverse("smartcheck_visitas"))
+        self.assertEqual(visita.etapa, "NEGOCIACION")
 
     def test_crea_proyecto_y_genera_checklist_por_sistemas(self):
         response = self.client.post(reverse("smartcheck_crear"), {

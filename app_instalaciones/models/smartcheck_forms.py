@@ -4,7 +4,41 @@ import json
 import math
 
 from .cuadroInstalaciones import Ejecutivo, Tecnico
-from .smartcheck import ProductoProyectoComercial, ProyectoSmartCheck
+from .smartcheck import (
+    ProductoProyectoComercial, ProyectoSmartCheck, VisitaComercialFonel,
+)
+
+
+class VisitaComercialFonelForm(forms.ModelForm):
+    class Meta:
+        model = VisitaComercialFonel
+        fields = [
+            "cliente", "contacto", "telefono", "correo", "ciudad",
+            "direccion", "ejecutivo", "fecha_visita", "tipo_oportunidad",
+            "etapa", "necesidad", "valor_estimado", "probabilidad",
+            "proxima_gestion", "compromiso", "observaciones",
+        ]
+        widgets = {
+            "fecha_visita": forms.DateInput(attrs={"type": "date"}),
+            "proxima_gestion": forms.DateInput(attrs={"type": "date"}),
+            "necesidad": forms.Textarea(attrs={"rows": 3}),
+            "compromiso": forms.Textarea(attrs={"rows": 3}),
+            "observaciones": forms.Textarea(attrs={"rows": 3}),
+            "valor_estimado": forms.NumberInput(attrs={"min": "0", "step": "0.01"}),
+            "probabilidad": forms.NumberInput(attrs={"min": "0", "max": "100"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            clase = "form-select" if isinstance(campo.widget, forms.Select) else "form-control"
+            campo.widget.attrs["class"] = clase
+
+    def clean_probabilidad(self):
+        valor = self.cleaned_data.get("probabilidad")
+        if valor is not None and not 0 <= valor <= 100:
+            raise forms.ValidationError("La probabilidad debe estar entre 0 y 100.")
+        return valor
 
 
 class ProyectoSmartCheckForm(forms.ModelForm):

@@ -11,9 +11,14 @@
         <h1 class="h3 mb-1"><i class="fas fa-clipboard-check me-2"></i>Proyectos comerciales</h1>
         <p class="mb-0">Visitas, levantamientos, propuestas y entregas de sistemas.</p>
     </div>
-    <a href="{% url 'smartcheck_crear' %}" class="btn btn-light fw-semibold">
-        <i class="fas fa-plus me-1"></i> Nuevo proyecto
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'smartcheck_crear' %}" class="btn btn-light fw-semibold">
+            <i class="fas fa-plus me-1"></i> Nuevo proyecto
+        </a>
+        <a href="{% url 'smartcheck_visitas' %}" class="btn btn-warning fw-semibold">
+            <i class="fas fa-handshake me-1"></i> Visita comercial
+        </a>
+    </div>
 </div>
 
 <div class="card shadow-sm border-0">
