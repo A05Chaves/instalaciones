@@ -127,6 +127,35 @@ class DashboardInstalacionesTests(TestCase):
         self.assertEqual(response.context["vencidos_almacen"], 1)
         self.assertEqual(response.context["vencidos_facturacion"], 1)
 
+    def test_detalles_almacen_y_facturacion_renderizan_campos_de_fecha(self):
+        hoy = timezone.localdate()
+        CuadroInsta.objects.create(
+            pvg=2099,
+            cliente="CLIENTE INDICADORES",
+            ciudad="PASTO",
+            estado="LEGALIZADO",
+            finaliza=hoy - timedelta(days=4),
+            alistado=True,
+            fecha_alistado=hoy - timedelta(days=2),
+            estado_facturacion="FACTURADO",
+            facturado=True,
+            fecha_facturacion=hoy,
+        )
+
+        almacen = self.client.get(
+            reverse("dashboard_instalaciones"), {"seccion": "almacen"}
+        )
+        facturacion = self.client.get(
+            reverse("dashboard_instalaciones"), {"seccion": "facturacion"}
+        )
+
+        self.assertEqual(almacen.status_code, 200)
+        self.assertContains(almacen, "CLIENTE INDICADORES")
+        self.assertContains(almacen, (hoy - timedelta(days=2)).isoformat())
+        self.assertEqual(facturacion.status_code, 200)
+        self.assertContains(facturacion, "CLIENTE INDICADORES")
+        self.assertContains(facturacion, hoy.isoformat())
+
 
 class ListaMantenimientosTests(TestCase):
     def setUp(self):
