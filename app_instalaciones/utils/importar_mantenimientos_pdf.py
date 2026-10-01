@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from pypdf import PdfReader
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from app_instalaciones.models import Mantenimiento, Tecnico, CuadroInsta
@@ -461,18 +462,41 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
             errores += 1
             continue
 
+        numero_ticket = str(data["numero_ticket"]).strip()
+        codigo_acta = str(data.get("codigo_acta") or "").strip()
+
         existente = Mantenimiento.objects.filter(
-            numero_ticket=data["numero_ticket"]
+            numero_ticket=numero_ticket
         ).first()
+        # Algunos archivos vuelven a publicar el mismo servicio con otro
+        # número de ticket. El acta/orden es la identidad más estable en ese
+        # caso y evita crear un segundo mantenimiento.
+        if not existente and codigo_acta:
+            existente = Mantenimiento.objects.filter(
+                Q(codigo_acta__iexact=codigo_acta)
+                | Q(orden__iexact=codigo_acta)
+            ).first()
         if existente and not actualizar_existentes:
             repetidos += 1
             continue
         if existente and existente.orden:
-            repetidos += 1
-            continue
+            actas_existentes = {
+                str(valor).strip().casefold()
+                for valor in (existente.codigo_acta, existente.orden)
+                if valor
+            }
+            # Una orden diligenciada manualmente no debe ser alterada por un
+            # PDF que no identifica esa misma acta.
+            if not codigo_acta or codigo_acta.casefold() not in actas_existentes:
+                repetidos += 1
+                continue
 
         tecnico_id = data.get("tecnico_id")
-        if not tecnico_id and data.get("tecnico_nombre"):
+        # No crear ni resolver otro técnico cuando el servicio ya tiene uno
+        # asignado: la importación solo puede llenar este campo si está vacío.
+        if existente and existente.tecnico_id:
+            tecnico_id = None
+        elif not tecnico_id and data.get("tecnico_nombre"):
             nombre_tecnico = limpiar_texto(data["tecnico_nombre"])[:100]
             tecnico = Tecnico.objects.filter(
                 nombre__iexact=nombre_tecnico
@@ -483,10 +507,10 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
                 )
             tecnico_id = tecnico.id
 
-        fecha_creacion_servicio = (
-            data.get("fecha_creacion_servicio") or timezone.now()
-        )
-        if timezone.is_naive(fecha_creacion_servicio):
+        fecha_creacion_servicio = data.get("fecha_creacion_servicio")
+        if not existente and not fecha_creacion_servicio:
+            fecha_creacion_servicio = timezone.now()
+        if fecha_creacion_servicio and timezone.is_naive(fecha_creacion_servicio):
             fecha_creacion_servicio = timezone.make_aware(
                 fecha_creacion_servicio, timezone.get_current_timezone()
             )
@@ -527,13 +551,31 @@ def importar_resultados_pdf(resultados, usuario, actualizar_existentes=False):
                     valores[campo] = valor[:max_length]
 
         if existente:
+            campos_actualizados = []
             for campo, valor in valores.items():
-                setattr(existente, campo, valor)
-            existente.save()
-            actualizados += 1
+                valor_actual = getattr(existente, campo)
+                actual_vacio = valor_actual is None or (
+                    isinstance(valor_actual, str) and not valor_actual.strip()
+                )
+                nuevo_con_dato = valor is not None and not (
+                    isinstance(valor, str) and not valor.strip()
+                )
+                if actual_vacio and nuevo_con_dato:
+                    setattr(existente, campo, valor)
+                    campos_actualizados.append(campo)
+
+            if campos_actualizados:
+                # Guardado normal para que el modelo también persista sus
+                # campos derivados (por ejemplo, fecha de orden y estado).
+                existente.save()
+                actualizados += 1
+            else:
+                # Evita generar movimientos de auditoría cuando el registro
+                # ya contiene toda la información disponible en el archivo.
+                repetidos += 1
         else:
             Mantenimiento.objects.create(
-                numero_ticket=data["numero_ticket"],
+                numero_ticket=numero_ticket,
                 creado_por=usuario,
                 **valores,
             )

@@ -882,6 +882,54 @@ class ImportacionMantenimientosPdfTests(TestCase):
         self.assertFalse(mantenimiento.estado_ticket)
         self.assertEqual(mantenimiento.orden, "ORDEN-MANUAL")
 
+    def test_actualizacion_solo_completa_vacios_y_conserva_tecnico_asignado(self):
+        usuario = User.objects.create_user("importador_parcial", password="prueba123")
+        tecnico = Tecnico.objects.create(nombre="TECNICO ASIGNADO")
+        mantenimiento = Mantenimiento.objects.create(
+            numero_ticket="64511",
+            codigo="CODIGO CONSERVADO",
+            cliente="CLIENTE CONSERVADO",
+            direccion="",
+            tecnico=tecnico,
+            codigo_acta="159-800",
+            orden="159-800",
+        )
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+        data.update({"ciudad": "Pasto", "tecnico_id": None})
+
+        resumen = importar_resultados_pdf(
+            [{"data": data}], usuario, actualizar_existentes=True
+        )
+
+        mantenimiento.refresh_from_db()
+        self.assertEqual(resumen["actualizados"], 1)
+        self.assertEqual(mantenimiento.tecnico, tecnico)
+        self.assertEqual(mantenimiento.codigo, "CODIGO CONSERVADO")
+        self.assertEqual(mantenimiento.cliente, "CLIENTE CONSERVADO")
+        self.assertEqual(mantenimiento.direccion, "CALLE 17 13-56")
+        self.assertEqual(mantenimiento.ciudad, "Pasto")
+
+    def test_misma_acta_no_duplica_y_si_esta_completa_no_guarda_cambios(self):
+        usuario = User.objects.create_user("importador_completo", password="prueba123")
+        data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
+        data.update({"ciudad": "Pasto", "tecnico_id": None})
+        primer_resumen = importar_resultados_pdf([{"data": data}], usuario)
+
+        data_repetida = dict(data)
+        data_repetida["numero_ticket"] = "TICKET-DIFERENTE"
+        segundo_resumen = importar_resultados_pdf(
+            [{"data": data_repetida}], usuario, actualizar_existentes=True
+        )
+
+        self.assertEqual(primer_resumen["creados"], 1)
+        self.assertEqual(segundo_resumen["actualizados"], 0)
+        self.assertEqual(segundo_resumen["repetidos"], 1)
+        self.assertEqual(Mantenimiento.objects.count(), 1)
+        self.assertEqual(
+            Mantenimiento.objects.get().numero_ticket,
+            "64511",
+        )
+
     def test_muestra_duracion_importada_en_formato_horas_y_minutos(self):
         data = extraer_mantenimiento_desde_texto(self.TEXTO_FINALIZADO)
         mantenimiento = Mantenimiento(
