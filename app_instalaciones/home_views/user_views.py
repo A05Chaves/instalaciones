@@ -110,6 +110,19 @@ def puede_eliminar_mantenimientos(user):
     return user.is_superuser or pertenece_grupo(user, "Administrador")
 
 
+def es_usuario_solo_tecnico(user):
+    """Indica si el portal móvil debe ser el inicio principal del usuario."""
+    if not _tecnico_del_usuario(user):
+        return False
+    if user.is_superuser:
+        return False
+    roles_administrativos = {
+        "Administrador", "Coordinador", "Programador", "Almacen",
+        "Facturacion", "Visor",
+    }
+    return not user.groups.filter(name__in=roles_administrativos).exists()
+
+
 def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
     if anterior == nuevo:
         return
@@ -144,7 +157,7 @@ def registrar_cambio_tecnico(mantenimiento, anterior, nuevo, usuario):
 
 def login(request):
     if request.user.is_authenticated:
-        return redirect('portal_tecnico' if _tecnico_del_usuario(request.user) else 'home')
+        return redirect('portal_tecnico' if es_usuario_solo_tecnico(request.user) else 'home')
 
     contexto = {}
 
@@ -160,7 +173,7 @@ def login(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             auth_login(request, user)
-            return redirect('portal_tecnico' if _tecnico_del_usuario(user) else 'home')
+            return redirect('portal_tecnico' if es_usuario_solo_tecnico(user) else 'home')
         else:
             contexto['error'] = "Usuario o contraseña incorrectos. Intenta nuevamente."
 
@@ -1566,19 +1579,24 @@ def configuracion_usuarios(request):
         Group.objects.get_or_create(name=nombre)
 
     formulario_creacion = UserCreationForm()
+    grupos_creacion_seleccionados = request.POST.getlist('grupo_ids')
+    if not grupos_creacion_seleccionados and request.POST.get('grupo_id'):
+        grupos_creacion_seleccionados = [request.POST.get('grupo_id')]
 
     if request.method == 'POST':
         accion = request.POST.get('accion', 'actualizar_usuario')
 
         if accion == 'crear_usuario':
             formulario_creacion = UserCreationForm(request.POST)
-            grupo_id = request.POST.get('grupo_id')
             tecnico_id = request.POST.get('tecnico_id')
-            grupo = Group.objects.filter(id=grupo_id).first()
+            grupos_seleccionados = Group.objects.filter(
+                id__in=grupos_creacion_seleccionados,
+                name__in=grupos_base,
+            )
             tecnico = None
 
-            if not grupo:
-                formulario_creacion.add_error(None, "Debes seleccionar un rol.")
+            if not grupos_seleccionados.exists():
+                formulario_creacion.add_error(None, "Debes seleccionar al menos un rol.")
 
             if tecnico_id:
                 tecnico = get_object_or_404(Tecnico, id=tecnico_id)
@@ -1587,7 +1605,7 @@ def configuracion_usuarios(request):
                         None, "Ese técnico ya está vinculado a otro usuario."
                     )
 
-            if grupo and grupo.name == 'Tecnico' and not tecnico:
+            if grupos_seleccionados.filter(name='Tecnico').exists() and not tecnico:
                 formulario_creacion.add_error(
                     None, "El rol Técnico debe estar vinculado a un técnico."
                 )
@@ -1601,7 +1619,7 @@ def configuracion_usuarios(request):
                 usuario.is_superuser = False
                 usuario.save()
 
-                usuario.groups.add(grupo)
+                usuario.groups.set(grupos_seleccionados)
 
                 if tecnico:
                     tecnico.usuario = usuario
@@ -1618,14 +1636,19 @@ def configuracion_usuarios(request):
 
         else:
             usuario_id = request.POST.get('usuario_id')
-            grupo_id = request.POST.get('grupo_id')
+            grupo_ids = request.POST.getlist('grupo_ids')
+            if not grupo_ids and request.POST.get('grupo_id'):
+                grupo_ids = [request.POST.get('grupo_id')]
             tecnico_id = request.POST.get('tecnico_id')
 
             usuario = get_object_or_404(User, id=usuario_id)
-            if grupo_id:
-                grupo = get_object_or_404(Group, id=grupo_id)
-                usuario.groups.clear()
-                usuario.groups.add(grupo)
+            grupos_seleccionados = Group.objects.filter(
+                id__in=grupo_ids,
+                name__in=grupos_base,
+            )
+            if not grupos_seleccionados.exists():
+                messages.error(request, "Debes seleccionar al menos un rol.")
+                return redirect('configuracion_usuarios')
 
             tecnico = None
             if tecnico_id:
@@ -1633,6 +1656,10 @@ def configuracion_usuarios(request):
                 if tecnico.usuario and tecnico.usuario != usuario:
                     messages.error(request, "Ese técnico ya está vinculado a otro usuario.")
                     return redirect('configuracion_usuarios')
+            if grupos_seleccionados.filter(name='Tecnico').exists() and not tecnico:
+                messages.error(request, "El rol Técnico debe estar vinculado a un técnico.")
+                return redirect('configuracion_usuarios')
+            usuario.groups.set(grupos_seleccionados)
             for tecnico_anterior in Tecnico.objects.filter(usuario=usuario).exclude(pk=getattr(tecnico, "pk", None)):
                 tecnico_anterior.usuario = None
                 tecnico_anterior.save(update_fields=["usuario"])
@@ -1642,7 +1669,7 @@ def configuracion_usuarios(request):
 
             messages.success(
                 request,
-                f"Rol actualizado para el usuario {usuario.username}."
+                f"Roles actualizados para el usuario {usuario.username}."
             )
 
             return redirect('configuracion_usuarios')
@@ -1657,6 +1684,7 @@ def configuracion_usuarios(request):
         'grupos': grupos,
         'tecnicos': Tecnico.objects.select_related("usuario").order_by("nombre"),
         'formulario_creacion': formulario_creacion,
+        'grupos_creacion_seleccionados': grupos_creacion_seleccionados,
     })
 
 

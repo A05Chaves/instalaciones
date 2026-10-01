@@ -81,16 +81,18 @@ Configuración de usuarios
                 <div class="text-danger small">{{ formulario_creacion.password2.errors }}</div>
             </div>
             <div class="col-12 col-md-4">
-                <label class="form-label fw-semibold">Rol</label>
-                <select name="grupo_id" class="form-select" required>
-                    <option value="">Seleccione...</option>
+                <label class="form-label fw-semibold d-block">Roles</label>
+                <div class="border rounded p-2 bg-light">
                     {% for grupo in grupos %}
-                        <option value="{{ grupo.id }}"
-                            {% if request.POST.grupo_id == grupo.id|stringformat:'s' %}selected{% endif %}>
-                            {{ grupo.name }}
-                        </option>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="grupo_ids"
+                                   value="{{ grupo.id }}" id="crear-rol-{{ grupo.id }}"
+                                   {% if grupo.id|stringformat:'s' in grupos_creacion_seleccionados %}checked{% endif %}>
+                            <label class="form-check-label" for="crear-rol-{{ grupo.id }}">{{ grupo.name }}</label>
+                        </div>
                     {% endfor %}
-                </select>
+                </div>
+                <div class="form-text">Puedes seleccionar varios roles.</div>
             </div>
             <div class="col-12 col-md-5">
                 <label class="form-label fw-semibold">Vincular técnico (opcional)</label>
@@ -166,16 +168,16 @@ Configuración de usuarios
 
                                     <input type="hidden" name="usuario_id" value="{{ usuario.id }}">
 
-                                    <select name="grupo_id" class="form-select form-select-sm">
-                                        <option value="">Seleccione...</option>
-
+                                    <div class="border rounded p-2 flex-shrink-0">
                                         {% for grupo in grupos %}
-                                            <option value="{{ grupo.id }}"
-                                                {% if grupo in usuario.groups.all %}selected{% endif %}>
-                                                {{ grupo.name }}
-                                            </option>
+                                            <div class="form-check form-check-inline me-2">
+                                                <input class="form-check-input" type="checkbox" name="grupo_ids"
+                                                       value="{{ grupo.id }}" id="rol-{{ usuario.id }}-{{ grupo.id }}"
+                                                       {% if grupo in usuario.groups.all %}checked{% endif %}>
+                                                <label class="form-check-label small" for="rol-{{ usuario.id }}-{{ grupo.id }}">{{ grupo.name }}</label>
+                                            </div>
                                         {% endfor %}
-                                    </select>
+                                    </div>
 
                                     <select name="tecnico_id" class="form-select form-select-sm">
                                         <option value="">Sin técnico vinculado</option>

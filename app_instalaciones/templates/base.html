@@ -185,7 +185,7 @@
             </li>
             
 
-            {% if request.user.is_authenticated and request.user.is_staff or es_coordinador %}
+            {% if request.user.is_authenticated and request.user.is_staff or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion %}
             <li class="nav-item">
               <a class="nav-link {% if request.resolver_match.url_name == 'lista_instalaciones' %}active{% endif %}"
                 href="{% url 'lista_instalaciones' %}">
@@ -288,11 +288,13 @@
       {% if request.user.is_authenticated %}
       Sesión activa como: <strong>{{ request.user.username }}</strong>
 
-      {% if request.user.is_staff %}
-      | Rol: <span class="badge bg-success">Administrador</span>
-      {% else %}
-      | Rol: <span class="badge bg-secondary">Usuario</span>
-      {% endif %}
+      | Roles:
+      {% if request.user.is_superuser %}<span class="badge bg-danger">Superusuario</span>{% endif %}
+      {% for grupo in request.user.groups.all %}
+      <span class="badge bg-success">{{ grupo.name }}</span>
+      {% empty %}
+        {% if not request.user.is_superuser %}<span class="badge bg-secondary">Usuario</span>{% endif %}
+      {% endfor %}
       {% else %}
       <a href="{% url 'login' %}" class="text-white">Iniciar sesión</a> para ver más opciones.
       {% endif %}

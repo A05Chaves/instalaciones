@@ -415,6 +415,46 @@ class ConfiguracionUsuariosTests(TestCase):
         self.assertFalse(usuario.is_staff)
         self.assertFalse(usuario.is_superuser)
 
+    def test_usuario_puede_ser_administrador_y_tecnico_a_la_vez(self):
+        superusuario = User.objects.create_superuser(
+            "super_roles", "roles@example.com", "ClaveSegura-4567"
+        )
+        tecnico = Tecnico.objects.create(nombre="Técnico administrador")
+        administrador = Group.objects.create(name="Administrador")
+        rol_tecnico = Group.objects.create(name="Tecnico")
+        self.client.force_login(superusuario)
+
+        response = self.client.post(reverse("configuracion_usuarios"), {
+            "accion": "crear_usuario",
+            "username": "admin_tecnico",
+            "first_name": "Administrador",
+            "last_name": "Técnico",
+            "password1": "ClaveTecnico-9876",
+            "password2": "ClaveTecnico-9876",
+            "grupo_ids": [administrador.pk, rol_tecnico.pk],
+            "tecnico_id": tecnico.pk,
+        })
+
+        self.assertRedirects(response, reverse("configuracion_usuarios"))
+        usuario = User.objects.get(username="admin_tecnico")
+        self.assertSetEqual(
+            set(usuario.groups.values_list("name", flat=True)),
+            {"Administrador", "Tecnico"},
+        )
+        self.assertEqual(usuario.perfil_tecnico, tecnico)
+
+        self.client.logout()
+        ingreso = self.client.post(reverse("login"), {
+            "username": "admin_tecnico",
+            "password": "ClaveTecnico-9876",
+        })
+        self.assertRedirects(ingreso, reverse("home"))
+        inicio = self.client.get(reverse("home"))
+        self.assertContains(inicio, "Administrador")
+        self.assertContains(inicio, "Tecnico")
+        self.assertContains(inicio, "Mis servicios")
+        self.assertEqual(self.client.get(reverse("portal_tecnico")).status_code, 200)
+
 
 class PortalTecnicoTests(TestCase):
     def setUp(self):
