@@ -7,7 +7,7 @@ Mantenimientos - App_Sesur
 
 {% block content %}
 
-<link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}">
+<link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}?v=2">
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
@@ -274,7 +274,7 @@ Mantenimientos - App_Sesur
 
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-light btn-sm"
-                    onclick="window.location.reload()" title="Actualizar cambios del portal móvil">
+                    id="btn-actualizar-mantenimientos" title="Actualizar cambios del portal móvil">
                 <i class="fas fa-sync-alt me-1"></i> Actualizar tabla
             </button>
             <span class="badge bg-primary">
@@ -673,5 +673,5 @@ Mantenimientos - App_Sesur
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'sesur/js/mantenimientos.js' %}"></script>
+<script src="{% static 'sesur/js/mantenimientos.js' %}?v=2"></script>
 {% endblock %}

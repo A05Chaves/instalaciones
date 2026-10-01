@@ -101,6 +101,15 @@
     overflow: hidden;
 }
 
+#tabla-mantenimientos .fila-recien-guardada > td {
+    animation: filaGuardada 2.2s ease-out;
+}
+
+@keyframes filaGuardada {
+    0%, 35% { background-color: #d1e7dd; }
+    100% { background-color: transparent; }
+}
+
 #tabla-mantenimientos .col-cliente .form-control,
 #tabla-mantenimientos .col-direccion .form-control,
 #tabla-mantenimientos .col-observacion .form-control {

@@ -1,5 +1,45 @@
 document.addEventListener("DOMContentLoaded", function () {
     const tabla = $("#tabla-mantenimientos");
+    const contenedorTabla = document.querySelector(".tabla-mantenimientos-scroll");
+    const claveEstadoTabla = "sesur-mantenimientos-posicion";
+
+    function guardarEstadoTabla(filaId = null) {
+        const estado = {
+            ruta: window.location.pathname,
+            ventanaY: window.scrollY,
+            tablaX: contenedorTabla ? contenedorTabla.scrollLeft : 0,
+            tablaY: contenedorTabla ? contenedorTabla.scrollTop : 0,
+            filaId: filaId,
+            fecha: Date.now(),
+        };
+        sessionStorage.setItem(claveEstadoTabla, JSON.stringify(estado));
+    }
+
+    function restaurarEstadoTabla() {
+        let estado;
+        try {
+            estado = JSON.parse(sessionStorage.getItem(claveEstadoTabla) || "null");
+        } catch (_) {
+            estado = null;
+        }
+        sessionStorage.removeItem(claveEstadoTabla);
+        if (!estado || estado.ruta !== window.location.pathname || Date.now() - estado.fecha > 120000) return;
+
+        requestAnimationFrame(() => {
+            window.scrollTo({top: estado.ventanaY || 0, behavior: "instant"});
+            if (contenedorTabla) {
+                contenedorTabla.scrollLeft = estado.tablaX || 0;
+                contenedorTabla.scrollTop = estado.tablaY || 0;
+            }
+            if (estado.filaId) {
+                const fila = document.querySelector(`#tabla-mantenimientos tr[data-id="${estado.filaId}"]`);
+                if (fila) {
+                    fila.classList.add("fila-recien-guardada");
+                    setTimeout(() => fila.classList.remove("fila-recien-guardada"), 2200);
+                }
+            }
+        });
+    }
 
     const tablaMantenimientos = document.getElementById("tabla-mantenimientos");
     if (tablaMantenimientos) {
@@ -90,6 +130,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (busquedaInput) {
+        busquedaInput.form.addEventListener("submit", () => guardarEstadoTabla());
         busquedaInput.addEventListener("input", function () {
             clearTimeout(busquedaInput._timeout);
             busquedaInput._timeout = setTimeout(() => {
@@ -199,6 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(resp => resp.json())
             .then(data => {
                 if (data.ok) {
+                    guardarEstadoTabla(id);
                     window.location.reload();
                 } else {
                     alert(data.error || "No se pudo guardar. Intenta nuevamente.");
@@ -280,4 +322,26 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     });
+
+    if (formEliminar) {
+        formEliminar.addEventListener("submit", () => {
+            const id = (formEliminar.action.match(/\/mantenimientos\/(\d+)\//) || [])[1];
+            guardarEstadoTabla(id || null);
+        });
+    }
+    if (formUpload) {
+        formUpload.addEventListener("submit", () => {
+            const id = (formUpload.action.match(/\/mantenimientos\/(\d+)\//) || [])[1];
+            guardarEstadoTabla(id || null);
+        });
+    }
+    const botonActualizar = document.getElementById("btn-actualizar-mantenimientos");
+    if (botonActualizar) {
+        botonActualizar.addEventListener("click", () => {
+            guardarEstadoTabla();
+            window.location.reload();
+        });
+    }
+
+    restaurarEstadoTabla();
 });
