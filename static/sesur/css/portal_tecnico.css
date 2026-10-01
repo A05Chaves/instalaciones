@@ -8,6 +8,11 @@ main { max-width: 760px; margin: auto; padding: 1rem; }
 .estado-red, .titulo-seccion, .acciones { display: flex; align-items: center; gap: .6rem; }
 .estado-red { background: white; border-radius: .8rem; padding: .75rem; margin-bottom: 1rem; box-shadow: 0 2px 10px #1f293712; }
 .estado-red .boton { margin-left: auto; }
+.resumen-pendientes { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: white; background: linear-gradient(135deg, #0d6efd, #0754c9); border-radius: .9rem; padding: .9rem 1rem; margin-bottom: 1rem; box-shadow: 0 5px 16px #0d6efd30; }
+.resumen-pendientes div { display: flex; flex-direction: column; }
+.resumen-pendientes small { color: #dbeafe; }
+.resumen-pendientes strong { font-size: 2rem; line-height: 1.05; }
+.resumen-pendientes > span { background: #ffffff24; border: 1px solid #ffffff3d; border-radius: 2rem; padding: .35rem .7rem; font-size: .8rem; font-weight: 800; }
 .punto { width: .7rem; height: .7rem; border-radius: 50%; background: #f59e0b; }
 .punto.online { background: #16a34a; }.punto.offline { background: #dc2626; }
 .filtros { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; margin: 1rem 0; }

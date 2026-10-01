@@ -68,11 +68,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function escapar(texto) {
         const div = document.createElement("div"); div.textContent = texto || ""; return div.innerHTML;
     }
+    function estaActivo(servicio) {
+        return servicio.estado !== "FINALIZADO" && !servicio.bloqueado && !servicio.realizado;
+    }
     function render() {
-        let visibles = servicios;
-        if (filtro === "HOY") visibles = servicios.filter(s => s.fecha_programada === hoy());
-        if (filtro === "PENDIENTE") visibles = servicios.filter(s => s.estado !== "FINALIZADO");
-        if (filtro === "EJECUCION") visibles = servicios.filter(s => s.estado === "EN_PROCESO");
+        const activos = servicios.filter(estaActivo);
+        document.getElementById("total-pendientes").textContent = activos.length;
+        let visibles = activos;
+        if (filtro === "HOY") visibles = activos.filter(s => s.fecha_programada === hoy());
+        if (filtro === "PENDIENTE") visibles = activos;
+        if (filtro === "EJECUCION") visibles = activos.filter(s => s.estado === "EN_PROCESO");
         if (terminoBusqueda) {
             visibles = visibles.filter(servicio => [
                 servicio.codigo, servicio.ticket, servicio.cliente,
@@ -86,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!visibles.length) {
             lista.innerHTML = '<p class="vacio">No hay servicios en esta sección.</p>'; return;
         }
-        const servicioEnEjecucion = servicios.find(s => s.estado === "EN_PROCESO");
+        const servicioEnEjecucion = activos.find(s => s.estado === "EN_PROCESO");
         visibles.forEach(servicio => {
             const nodo = plantilla.content.cloneNode(true);
             const articulo = nodo.querySelector("article");
@@ -215,7 +220,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (!respuesta.ok || respuesta.redirected) throw new Error("servidor");
             const data = await respuesta.json();
-            Object.assign(servicio, data.servicio); await guardar("datos", "servicios", servicios); render();
+            Object.assign(servicio, data.servicio);
+            if (!estaActivo(servicio)) servicios = servicios.filter(item => item.id !== servicio.id);
+            await guardar("datos", "servicios", servicios); render();
             mensaje("Servicio actualizado.");
         } catch (_) {
             payload.registrado_offline = true;
@@ -273,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("online", sincronizar); window.addEventListener("offline", actualizarRed);
     (async () => {
         servicios = await leer("datos", "servicios") || [];
-        servicios = servicios.filter(s => s.estado !== "FINALIZADO" && !s.bloqueado);
+        servicios = servicios.filter(estaActivo);
         await guardar("datos", "servicios", servicios);
         render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
         if ("serviceWorker" in navigator) {

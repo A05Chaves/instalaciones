@@ -468,6 +468,28 @@ class PortalTecnicoTests(TestCase):
         self.assertNotIn("REALIZADO-HOY", codigos)
         self.assertNotIn("REALIZADO-AYER", codigos)
 
+    def test_api_oculta_servicio_con_fecha_realizada_aunque_conserve_estado_pendiente(self):
+        Mantenimiento.objects.create(
+            codigo="REALIZADO-ESTADO-ANTIGUO",
+            cliente="Servicio realizado",
+            direccion="Calle realizada",
+            tecnico=self.tecnico,
+            fecha_programada=timezone.localdate(),
+            realizado=timezone.localdate(),
+            estado_operativo="PENDIENTE",
+        )
+
+        response = self.client.get(reverse("api_servicios_tecnico"))
+        codigos = [item["codigo"] for item in response.json()["servicios"]]
+
+        self.assertNotIn("REALIZADO-ESTADO-ANTIGUO", codigos)
+
+    def test_portal_muestra_contador_superior_de_pendientes(self):
+        response = self.client.get(reverse("portal_tecnico"))
+
+        self.assertContains(response, 'id="total-pendientes"')
+        self.assertContains(response, "Servicios asignados por realizar")
+
     def test_api_oculta_servicio_cerrado_con_orden_aunque_estado_siga_pendiente(self):
         self.servicio.orden = "OT-CERRADA"
         self.servicio.save(update_fields=["orden"])
@@ -641,7 +663,7 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=15")
+        self.assertContains(portal, "portal_tecnico.js?v=16")
 
     def test_no_permite_soltar_servicio_que_no_esta_en_ejecucion(self):
         response = self.client.post(

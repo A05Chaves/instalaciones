@@ -1005,13 +1005,17 @@ def api_servicios_tecnico(request):
         sin_programar = Mantenimiento.objects.filter(
             tecnico=tecnico,
             fecha_programada__isnull=True,
+            realizado__isnull=True,
         ).exclude(estado_operativo="FINALIZADO").filter(
             Q(orden__isnull=True) | Q(orden="")
         )
         for mantenimiento in sin_programar:
             mantenimiento.fecha_programada = hoy
             mantenimiento.save(update_fields=["fecha_programada"])
-        servicios = Mantenimiento.objects.filter(tecnico=tecnico).exclude(
+        servicios = Mantenimiento.objects.filter(
+            tecnico=tecnico,
+            realizado__isnull=True,
+        ).exclude(
             estado_operativo="FINALIZADO"
         ).filter(
             Q(orden__isnull=True) | Q(orden="")
@@ -1041,9 +1045,9 @@ def api_servicios_tecnico(request):
     mantenimiento = get_object_or_404(
         Mantenimiento, pk=data.get("id"), tecnico=tecnico
     )
-    if mantenimiento.orden:
+    if mantenimiento.orden or mantenimiento.realizado:
         return JsonResponse(
-            {"ok": False, "error": "El servicio ya fue cerrado con una orden.", "retirar": True},
+            {"ok": False, "error": "El servicio ya fue realizado o cerrado con una orden.", "retirar": True},
             status=409,
         )
     if mantenimiento.estado_operativo == "FINALIZADO":
