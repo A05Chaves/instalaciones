@@ -489,6 +489,8 @@ class PortalTecnicoTests(TestCase):
 
         self.assertContains(response, 'id="total-pendientes"')
         self.assertContains(response, "Servicios asignados por realizar")
+        self.assertContains(response, 'id="alerta-asignacion"')
+        self.assertContains(response, "Activar alertas")
 
     def test_api_oculta_servicio_cerrado_con_orden_aunque_estado_siga_pendiente(self):
         self.servicio.orden = "OT-CERRADA"
@@ -663,7 +665,7 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=16")
+        self.assertContains(portal, "portal_tecnico.js?v=17")
 
     def test_no_permite_soltar_servicio_que_no_esta_en_ejecucion(self):
         response = self.client.post(

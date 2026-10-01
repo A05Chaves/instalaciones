@@ -1,9 +1,9 @@
-const CACHE = "sesur-tecnico-v16";
+const CACHE = "sesur-tecnico-v17";
 const SHELL = [
   "{% url 'portal_tecnico' %}",
-  "/static/sesur/css/portal_tecnico.css?v=16",
-  "/static/sesur/js/session_activity.js?v=16",
-  "/static/sesur/js/portal_tecnico.js?v=16",
+  "/static/sesur/css/portal_tecnico.css?v=17",
+  "/static/sesur/js/session_activity.js?v=17",
+  "/static/sesur/js/portal_tecnico.js?v=17",
   "/static/sesur/img/logosesur.png"
 ];
 
@@ -29,5 +29,20 @@ self.addEventListener("fetch", event => {
       caches.open(CACHE).then(cache => cache.put(event.request, copia));
       return response;
     }).catch(() => caches.match(event.request).then(response => response || caches.match("{% url 'portal_tecnico' %}")))
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const destino = (event.notification.data && event.notification.data.url) || "{% url 'portal_tecnico' %}";
+  event.waitUntil(
+    clients.matchAll({type: "window", includeUncontrolled: true}).then(ventanas => {
+      const abierta = ventanas.find(ventana => "focus" in ventana);
+      if (abierta) {
+        abierta.navigate(destino);
+        return abierta.focus();
+      }
+      return clients.openWindow(destino);
+    })
   );
 });

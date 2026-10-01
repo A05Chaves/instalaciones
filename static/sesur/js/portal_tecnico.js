@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let servicios = [];
     let filtro = "HOY";
     let terminoBusqueda = "";
+    let servicioAlertaId = null;
 
     const abrirDB = () => new Promise((resolve, reject) => {
         const req = indexedDB.open("sesur-tecnico", 1);
@@ -96,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const nodo = plantilla.content.cloneNode(true);
             const articulo = nodo.querySelector("article");
             articulo.dataset.estado = servicio.estado;
+            articulo.dataset.servicioId = servicio.id;
             nodo.querySelector(".referencia").textContent =
                 `Código cliente: ${servicio.codigo || "Sin código"}` +
                 (servicio.ticket ? ` · Ticket: ${servicio.ticket}` : "");
@@ -160,6 +162,45 @@ document.addEventListener("DOMContentLoaded", () => {
         panel.classList.toggle("oculto", !avisos.length);
         document.getElementById("total-avisos").textContent = avisos.length;
         contenedor.innerHTML = avisos.map(a => `<div class="aviso"><strong>${escapar(a.tipo)}</strong><br>${escapar(a.mensaje)}</div>`).join("");
+    }
+    function actualizarBotonAlertas() {
+        const boton = document.getElementById("btn-alertas");
+        const disponible = "Notification" in window;
+        boton.hidden = !disponible || Notification.permission === "granted";
+    }
+    async function notificarTelefono(aviso) {
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        const opciones = {
+            body: aviso.mensaje,
+            icon: "/static/sesur/img/logosesur.png",
+            badge: "/static/sesur/img/logosesur.png",
+            tag: `asignacion-${aviso.id}`,
+            renotify: true,
+            data: {url: window.location.href},
+        };
+        if ("serviceWorker" in navigator) {
+            const registro = await navigator.serviceWorker.getRegistration();
+            if (registro) {
+                await registro.showNotification("Nuevo servicio asignado", opciones);
+                return;
+            }
+        }
+        new Notification("Nuevo servicio asignado", opciones);
+    }
+    async function procesarAvisosNuevos(avisos) {
+        const asignaciones = avisos.filter(a => ["ASIGNACION", "REASIGNACION"].includes(a.tipo));
+        if (!asignaciones.length) return;
+        const mostrados = new Set(await leer("datos", "avisos_mostrados") || []);
+        const nuevos = asignaciones.filter(a => !mostrados.has(a.id));
+        if (!nuevos.length) return;
+        nuevos.forEach(a => mostrados.add(a.id));
+        await guardar("datos", "avisos_mostrados", Array.from(mostrados).slice(-100));
+        const aviso = nuevos[0];
+        servicioAlertaId = aviso.servicio_id;
+        document.getElementById("texto-alerta-asignacion").textContent = aviso.mensaje;
+        document.getElementById("alerta-asignacion").classList.remove("oculto");
+        await notificarTelefono(aviso).catch(() => {});
+        if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
     }
     async function encolar(payload) {
         const db = await abrirDB();
@@ -248,9 +289,9 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (_) { break; }
         }
     }
-    async function sincronizar() {
+    async function sincronizar(silencioso = false) {
         await actualizarRed();
-        if (!navigator.onLine) { mensaje("Continúas sin conexión."); return; }
+        if (!navigator.onLine) { if (!silencioso) mensaje("Continúas sin conexión."); return; }
         try {
             await enviarCola();
             const respuesta = await fetch(cfg.api, {headers: {"Accept": "application/json"}, cache: "no-store"});
@@ -258,8 +299,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await respuesta.json();
             servicios = data.servicios; await guardar("datos", "servicios", servicios);
             await guardar("datos", "avisos", data.notificaciones);
-            render(); renderAvisos(data.notificaciones); mensaje("Información sincronizada.");
-        } catch (_) { mensaje("No fue posible conectar. Se muestran los últimos datos guardados."); }
+            render(); renderAvisos(data.notificaciones);
+            await procesarAvisosNuevos(data.notificaciones);
+            if (!silencioso) mensaje("Información sincronizada.");
+        } catch (_) { if (!silencioso) mensaje("No fue posible conectar. Se muestran los últimos datos guardados."); }
         actualizarRed();
     }
     document.querySelectorAll(".filtro").forEach(btn => btn.addEventListener("click", () => {
@@ -270,19 +313,45 @@ document.addEventListener("DOMContentLoaded", () => {
         terminoBusqueda = event.target.value.trim().toLocaleLowerCase("es");
         render();
     });
-    document.getElementById("btn-sincronizar").addEventListener("click", sincronizar);
+    document.getElementById("btn-sincronizar").addEventListener("click", () => sincronizar(false));
+    document.getElementById("btn-alertas").addEventListener("click", async () => {
+        if (!("Notification" in window)) return mensaje("Este dispositivo no admite notificaciones.");
+        const permiso = await Notification.requestPermission();
+        actualizarBotonAlertas();
+        mensaje(permiso === "granted" ? "Alertas del teléfono activadas." : "No se habilitaron las alertas del teléfono.");
+    });
+    document.getElementById("btn-cerrar-alerta").addEventListener("click", () => {
+        document.getElementById("alerta-asignacion").classList.add("oculto");
+    });
+    document.getElementById("btn-ver-asignacion").addEventListener("click", () => {
+        document.getElementById("alerta-asignacion").classList.add("oculto");
+        filtro = "TODOS";
+        document.querySelectorAll(".filtro").forEach(b => b.classList.toggle("activo", b.dataset.filtro === "TODOS"));
+        terminoBusqueda = "";
+        document.getElementById("buscar-servicio").value = "";
+        render();
+        const articulo = document.querySelector(`[data-servicio-id="${servicioAlertaId}"]`);
+        if (articulo) {
+            articulo.scrollIntoView({behavior: "smooth", block: "center"});
+            articulo.querySelector(".resumen-servicio").click();
+        }
+    });
     document.getElementById("btn-leer-avisos").addEventListener("click", async () => {
         if (!navigator.onLine) return mensaje("Necesitas conexión para confirmar las notificaciones.");
         await fetch(cfg.leerAvisos, {method: "POST", headers: {"X-CSRFToken": cookie("csrftoken")}});
         await guardar("datos", "avisos", []); renderAvisos([]);
     });
     document.getElementById("form-logout").addEventListener("submit", () => indexedDB.deleteDatabase("sesur-tecnico"));
-    window.addEventListener("online", sincronizar); window.addEventListener("offline", actualizarRed);
+    window.addEventListener("online", () => sincronizar(true)); window.addEventListener("offline", actualizarRed);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) sincronizar(true);
+    });
+    setInterval(() => sincronizar(true), 30000);
     (async () => {
         servicios = await leer("datos", "servicios") || [];
         servicios = servicios.filter(estaActivo);
         await guardar("datos", "servicios", servicios);
-        render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); sincronizar();
+        render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); actualizarBotonAlertas(); sincronizar(true);
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register(cfg.serviceWorker).then(registro => registro.update());
         }
