@@ -6,6 +6,37 @@ document.addEventListener("DOMContentLoaded", () => {
     let filtro = "HOY";
     let terminoBusqueda = "";
     let servicioAlertaId = null;
+    const claveBorradores = "sesur-tecnico-borradores-novedad";
+    let borradoresNovedad = {};
+    try {
+        borradoresNovedad = JSON.parse(sessionStorage.getItem(claveBorradores) || "{}") || {};
+    } catch (_) {
+        borradoresNovedad = {};
+    }
+
+    function guardarBorradores() {
+        sessionStorage.setItem(claveBorradores, JSON.stringify(borradoresNovedad));
+    }
+
+    function limpiarBorrador(servicioId) {
+        delete borradoresNovedad[String(servicioId)];
+        guardarBorradores();
+    }
+
+    function estadoVisualActual() {
+        const abiertos = Array.from(document.querySelectorAll(".servicio")).filter(articulo => (
+            articulo.querySelector(".resumen-servicio")?.getAttribute("aria-expanded") === "true"
+        )).map(articulo => articulo.dataset.servicioId);
+        const activo = document.activeElement;
+        const editando = activo?.classList?.contains("novedad") ? activo.closest(".servicio") : null;
+        return {
+            abiertos,
+            servicioEditando: editando?.dataset.servicioId || null,
+            inicioSeleccion: activo?.selectionStart,
+            finSeleccion: activo?.selectionEnd,
+            desplazamiento: window.scrollY,
+        };
+    }
 
     const abrirDB = () => new Promise((resolve, reject) => {
         const req = indexedDB.open("sesur-tecnico", 1);
@@ -73,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return servicio.estado !== "FINALIZADO" && !servicio.bloqueado && !servicio.realizado;
     }
     function render() {
+        const estadoVisual = estadoVisualActual();
         const activos = servicios.filter(estaActivo);
         document.getElementById("total-pendientes").textContent = activos.length;
         let visibles = activos;
@@ -120,7 +152,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 resumen.setAttribute("aria-expanded", String(!abierto));
                 detalleServicio.classList.toggle("oculto", abierto);
             });
-            const novedad = nodo.querySelector(".novedad"); novedad.value = servicio.novedad || "";
+            const novedad = nodo.querySelector(".novedad");
+            const claveServicio = String(servicio.id);
+            novedad.value = Object.prototype.hasOwnProperty.call(borradoresNovedad, claveServicio)
+                ? borradoresNovedad[claveServicio]
+                : (servicio.novedad || "");
             const iniciar = nodo.querySelector(".iniciar");
             const soltar = nodo.querySelector(".soltar");
             const finalizar = nodo.querySelector(".finalizar");
@@ -138,7 +174,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     : "";
             };
             actualizarFinalizar();
-            novedad.addEventListener("input", actualizarFinalizar);
+            novedad.addEventListener("input", () => {
+                borradoresNovedad[claveServicio] = novedad.value;
+                guardarBorradores();
+                actualizarFinalizar();
+            });
             iniciar.addEventListener("click", () => {
                 if (!navigator.onLine && ejecucionDistinta) {
                     const referencia = servicioEnEjecucion.ticket || servicioEnEjecucion.codigo || servicioEnEjecucion.id;
@@ -155,6 +195,31 @@ document.addEventListener("DOMContentLoaded", () => {
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
             lista.appendChild(nodo);
         });
+        estadoVisual.abiertos.forEach(id => {
+            const articulo = lista.querySelector(`[data-servicio-id="${id}"]`);
+            const resumen = articulo?.querySelector(".resumen-servicio");
+            const detalle = articulo?.querySelector(".detalle-servicio");
+            if (resumen && detalle) {
+                resumen.setAttribute("aria-expanded", "true");
+                detalle.classList.remove("oculto");
+            }
+        });
+        if (estadoVisual.servicioEditando) {
+            requestAnimationFrame(() => {
+                const textarea = lista.querySelector(
+                    `[data-servicio-id="${estadoVisual.servicioEditando}"] .novedad`
+                );
+                if (!textarea) return;
+                textarea.focus({preventScroll: true});
+                if (Number.isInteger(estadoVisual.inicioSeleccion)) {
+                    textarea.setSelectionRange(
+                        estadoVisual.inicioSeleccion,
+                        estadoVisual.finSeleccion
+                    );
+                }
+                window.scrollTo({top: estadoVisual.desplazamiento, behavior: "auto"});
+            });
+        }
     }
     function renderAvisos(avisos) {
         const panel = document.getElementById("avisos");
@@ -245,6 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (respuesta.status === 400 || respuesta.status === 409) {
                 const error = await respuesta.json().catch(() => ({}));
                 if (error.retirar) {
+                    limpiarBorrador(servicio.id);
                     servicios = servicios.filter(item => item.id !== servicio.id);
                     await guardar("datos", "servicios", servicios);
                     render();
@@ -262,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!respuesta.ok || respuesta.redirected) throw new Error("servidor");
             const data = await respuesta.json();
             Object.assign(servicio, data.servicio);
+            limpiarBorrador(servicio.id);
             if (!estaActivo(servicio)) servicios = servicios.filter(item => item.id !== servicio.id);
             await guardar("datos", "servicios", servicios); render();
             mensaje("Servicio actualizado.");
@@ -278,6 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const respuesta = await enviar(cambio.payload);
                 if (respuesta.ok || respuesta.status === 400 || respuesta.status === 404 || respuesta.status === 409) {
                     await quitarCola(cambio.clave);
+                    if (respuesta.ok) limpiarBorrador(cambio.payload.id);
                     if (!respuesta.ok) {
                         const error = await respuesta.json().catch(() => ({}));
                         mensaje(error.error || "Un cambio pendiente no pudo aplicarse.");
@@ -297,9 +365,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch(cfg.api, {headers: {"Accept": "application/json"}, cache: "no-store"});
             if (!respuesta.ok) throw new Error();
             const data = await respuesta.json();
-            servicios = data.servicios; await guardar("datos", "servicios", servicios);
+            const escribiendoNovedad = document.activeElement?.classList?.contains("novedad");
+            // No reconstruir la tarjeta mientras el teclado del teléfono está
+            // abierto. La siguiente sincronización aplicará los datos nuevos.
+            if (!escribiendoNovedad) {
+                servicios = data.servicios;
+                await guardar("datos", "servicios", servicios);
+                render();
+            }
             await guardar("datos", "avisos", data.notificaciones);
-            render(); renderAvisos(data.notificaciones);
+            renderAvisos(data.notificaciones);
             await procesarAvisosNuevos(data.notificaciones);
             if (!silencioso) mensaje("Información sincronizada.");
         } catch (_) { if (!silencioso) mensaje("No fue posible conectar. Se muestran los últimos datos guardados."); }
@@ -341,7 +416,10 @@ document.addEventListener("DOMContentLoaded", () => {
         await fetch(cfg.leerAvisos, {method: "POST", headers: {"X-CSRFToken": cookie("csrftoken")}});
         await guardar("datos", "avisos", []); renderAvisos([]);
     });
-    document.getElementById("form-logout").addEventListener("submit", () => indexedDB.deleteDatabase("sesur-tecnico"));
+    document.getElementById("form-logout").addEventListener("submit", () => {
+        sessionStorage.removeItem(claveBorradores);
+        indexedDB.deleteDatabase("sesur-tecnico");
+    });
     window.addEventListener("online", () => sincronizar(true)); window.addEventListener("offline", actualizarRed);
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) sincronizar(true);

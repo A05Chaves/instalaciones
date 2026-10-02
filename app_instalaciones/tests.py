@@ -705,7 +705,7 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=17")
+        self.assertContains(portal, "portal_tecnico.js?v=18")
 
     def test_no_permite_soltar_servicio_que_no_esta_en_ejecucion(self):
         response = self.client.post(
