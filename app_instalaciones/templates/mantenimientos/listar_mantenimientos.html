@@ -7,7 +7,7 @@ Mantenimientos - App_Sesur
 
 {% block content %}
 
-<link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'sesur/css/mantenimientos.css' %}?v=3">
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
@@ -356,7 +356,13 @@ Mantenimientos - App_Sesur
 
                     <tr data-id="{{ m.id }}">
 
-                        <td>{{ m.fecha_visible|date:"Y-m-d H:i" }}</td>
+                        <td class="col-fecha-ticket">
+                            <span class="d-block">{{ m.fecha_visible|date:"Y-m-d H:i" }}</span>
+                            <small class="ticket-servicio d-block mt-1">
+                                <i class="fas fa-ticket-alt me-1" aria-hidden="true"></i>
+                                {% if m.numero_ticket %}Ticket: {{ m.numero_ticket }}{% else %}Sin ticket{% endif %}
+                            </small>
+                        </td>
 
                         <td>
                             <span class="view-mode">{{ m.codigo }}</span>

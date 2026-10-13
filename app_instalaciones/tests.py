@@ -785,6 +785,8 @@ class PortalTecnicoTests(TestCase):
         self.assertIn("2026-07-24 09:15", self.servicio.observacion)
 
     def test_tabla_administrativa_muestra_cambios_del_portal_movil(self):
+        self.servicio.numero_ticket = "TICKET-MOV-001"
+        self.servicio.save(update_fields=["numero_ticket"])
         self.client.post(
             reverse("api_servicios_tecnico"),
             data='{"id": %d, "estado": "EN_PROCESO", "novedad": "En sitio"}' % self.servicio.pk,
@@ -800,6 +802,7 @@ class PortalTecnicoTests(TestCase):
         self.assertContains(response, "Estado móvil")
         self.assertContains(response, "En proceso")
         self.assertContains(response, "En sitio")
+        self.assertContains(response, "Ticket: TICKET-MOV-001")
 
     def test_tabla_administrativa_edita_ciudad_con_selector(self):
         Ciudad.objects.create(nombre="Pasto")

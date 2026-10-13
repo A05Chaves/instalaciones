@@ -76,6 +76,16 @@
     vertical-align: middle;
 }
 
+#tabla-mantenimientos .col-fecha-ticket {
+    min-width: 145px;
+}
+
+#tabla-mantenimientos .ticket-servicio {
+    color: #495057;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 #tabla-mantenimientos .col-cliente {
     width: 175px;
     min-width: 175px;
