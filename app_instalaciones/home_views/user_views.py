@@ -599,8 +599,17 @@ def listar_mantenimientos(request):
         form = MantenimientoForm()
 
     busqueda = (request.GET.get("busqueda") or "").strip()
-    fecha_filtro_txt = (request.GET.get("fecha") or "").strip()
-    fecha_filtro = parse_date(fecha_filtro_txt)
+    # Conserva compatibilidad con enlaces anteriores que enviaban una sola
+    # fecha y permite consultar intervalos abiertos o cerrados.
+    fecha_legacy_txt = (request.GET.get("fecha") or "").strip()
+    fecha_desde_txt = (request.GET.get("fecha_desde") or fecha_legacy_txt).strip()
+    fecha_hasta_txt = (request.GET.get("fecha_hasta") or fecha_legacy_txt).strip()
+    fecha_desde = parse_date(fecha_desde_txt)
+    fecha_hasta = parse_date(fecha_hasta_txt)
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        fecha_desde_txt = fecha_desde.isoformat()
+        fecha_hasta_txt = fecha_hasta.isoformat()
     estado_filtro = (request.GET.get("estado_movil") or "").strip().upper()
     alerta_filtro = (request.GET.get("alerta") or "").strip().lower()
 
@@ -632,9 +641,13 @@ def listar_mantenimientos(request):
             | Q(pendiente__icontains=busqueda)
         ).distinct()
 
-    if fecha_filtro:
+    if fecha_desde:
         mantenimientos = mantenimientos.filter(
-            fecha_ordenamiento__date=fecha_filtro
+            fecha_ordenamiento__date__gte=fecha_desde
+        )
+    if fecha_hasta:
+        mantenimientos = mantenimientos.filter(
+            fecha_ordenamiento__date__lte=fecha_hasta
         )
 
     if estado_filtro == "PENDIENTE":
@@ -672,7 +685,8 @@ def listar_mantenimientos(request):
         "tecnicos": tecnicos,
         "ciudades_mantenimiento": ciudades_mantenimiento,
         "busqueda": busqueda,
-        "fecha_filtro": fecha_filtro_txt,
+        "fecha_desde_filtro": fecha_desde_txt,
+        "fecha_hasta_filtro": fecha_hasta_txt,
         "estado_filtro": estado_filtro,
         "alerta_filtro": alerta_filtro,
         **indicadores_mantenimiento,

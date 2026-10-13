@@ -295,12 +295,14 @@ Mantenimientos - App_Sesur
                        value="{{ busqueda }}"
                        placeholder="Buscar por ticket, código, cliente, ciudad, técnico, orden..."
                        aria-label="Buscar mantenimientos">
-                <span class="input-group-text bg-white">
-                    <i class="fas fa-calendar-alt text-muted"></i>
-                </span>
-                <input type="date" name="fecha" class="form-control"
-                       value="{{ fecha_filtro }}"
-                       aria-label="Filtrar mantenimientos por fecha">
+                <span class="input-group-text bg-white fw-semibold">Desde</span>
+                <input type="date" name="fecha_desde" class="form-control"
+                       value="{{ fecha_desde_filtro }}"
+                       aria-label="Fecha inicial">
+                <span class="input-group-text bg-white fw-semibold">Hasta</span>
+                <input type="date" name="fecha_hasta" class="form-control"
+                       value="{{ fecha_hasta_filtro }}"
+                       aria-label="Fecha final">
                 <select name="estado_movil" class="form-select"
                         aria-label="Filtrar por estado móvil">
                     <option value="">Todos los estados</option>
@@ -310,11 +312,11 @@ Mantenimientos - App_Sesur
                     <option value="FINALIZADO" {% if estado_filtro == "FINALIZADO" %}selected{% endif %}>Realizado</option>
                 </select>
                 <button class="btn btn-primary" type="submit">Buscar</button>
-                {% if busqueda or fecha_filtro or estado_filtro or alerta_filtro %}
+                {% if busqueda or fecha_desde_filtro or fecha_hasta_filtro or estado_filtro or alerta_filtro %}
                     <a class="btn btn-outline-secondary" href="{% url 'listar_mantenimientos' %}">Limpiar</a>
                 {% endif %}
             </div>
-            {% if busqueda or fecha_filtro or estado_filtro or alerta_filtro %}
+            {% if busqueda or fecha_desde_filtro or fecha_hasta_filtro or estado_filtro or alerta_filtro %}
                 <small class="text-muted d-block mt-2">
                     Resultados encontrados: {{ mantenimientos|length }}
                     {% if alerta_filtro == "prioritarios" %} · Filtro: prioritarios pendientes{% endif %}

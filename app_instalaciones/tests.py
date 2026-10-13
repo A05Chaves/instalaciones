@@ -243,6 +243,39 @@ class ListaMantenimientosTests(TestCase):
         ))
         self.assertEqual(codigos, ["COD-002"])
 
+    def test_filtra_mantenimientos_por_intervalo_de_fechas(self):
+        zona = timezone.get_current_timezone()
+        Mantenimiento.objects.filter(codigo="COD-001").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 6, 8, 0), zona
+            )
+        )
+        Mantenimiento.objects.filter(codigo="COD-002").update(
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 20, 8, 0), zona
+            )
+        )
+        Mantenimiento.objects.create(
+            codigo="COD-003",
+            cliente="Cliente intermedio",
+            direccion="Calle 3",
+            fecha_creacion_servicio=timezone.make_aware(
+                datetime(2026, 7, 12, 8, 0), zona
+            ),
+        )
+
+        response = self.client.get(reverse("listar_mantenimientos"), {
+            "fecha_desde": "2026-07-18",
+            "fecha_hasta": "2026-07-10",
+        })
+
+        codigos = list(response.context["mantenimientos"].values_list(
+            "codigo", flat=True
+        ))
+        self.assertEqual(codigos, ["COD-003"])
+        self.assertEqual(response.context["fecha_desde_filtro"], "2026-07-10")
+        self.assertEqual(response.context["fecha_hasta_filtro"], "2026-07-18")
+
     def test_filtra_por_estado_movil_asignado(self):
         tecnico = Tecnico.objects.create(nombre="Técnico filtro")
         Mantenimiento.objects.filter(codigo="COD-002").update(tecnico=tecnico)
