@@ -561,7 +561,12 @@ Mantenimientos - App_Sesur
                                         {{ m.fecha_orden|date:"Y-m-d H:i" }}
                                     </small>
                                     <small class="d-block text-muted">
-                                        Operador: {{ m.orden_registrada_por.get_full_name|default:m.orden_registrada_por.username|default:"Sin identificar" }}
+                                        Operador:
+                                        {% if m.orden_registrada_por %}
+                                            {{ m.orden_registrada_por.get_full_name|default:m.orden_registrada_por.username }}
+                                        {% else %}
+                                            Sin identificar
+                                        {% endif %}
                                     </small>
                                     {% if m.duracion_validacion_omt %}
                                     <small class="d-block text-primary">
