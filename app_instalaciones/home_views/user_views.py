@@ -1210,6 +1210,18 @@ def registrar_cotizacion_tecnico(request, pk):
             status=409,
         )
 
+    registro = (mantenimiento.numero_ticket or "").strip()
+    if not registro:
+        return JsonResponse(
+            {"ok": False, "error": "El servicio no tiene número de registro."},
+            status=400,
+        )
+    if CotizacionServicioTecnico.objects.filter(registro=registro).exists():
+        return JsonResponse(
+            {"ok": False, "error": f"El registro {registro} ya tiene una cotización."},
+            status=409,
+        )
+
     descripcion = (request.POST.get("descripcion") or "").strip()
     soporte = request.FILES.get("soporte")
     if not descripcion:
@@ -1239,7 +1251,7 @@ def registrar_cotizacion_tecnico(request, pk):
         mantenimiento=mantenimiento,
         tecnico=tecnico,
         codigo=(mantenimiento.codigo or "SIN CÓDIGO")[:50],
-        registro=(mantenimiento.numero_ticket or "")[:50],
+        registro=registro[:50],
         cliente=mantenimiento.cliente,
         direccion=mantenimiento.direccion,
         descripcion=descripcion[:5000],
@@ -1336,17 +1348,20 @@ def crear_cotizacion_tecnica_manual(request):
     if fecha_orden and timezone.is_naive(fecha_orden):
         fecha_orden = timezone.make_aware(fecha_orden, timezone.get_current_timezone())
     soporte = request.FILES.get("soporte")
-    if not all([codigo, cliente, direccion, descripcion, soporte]):
+    if not all([codigo, registro, cliente, direccion, descripcion, soporte]):
         messages.error(request, "Completa los campos obligatorios y adjunta el PDF.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=manual')
+    if CotizacionServicioTecnico.objects.filter(registro=registro[:50]).exists():
+        messages.error(request, f"El registro {registro[:50]} ya tiene una cotización.")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=manual')
     if soporte.size > 10 * 1024 * 1024:
         messages.error(request, "El PDF no puede superar 10 MB.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=manual')
     encabezado = soporte.read(5)
     soporte.seek(0)
     if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
         messages.error(request, "El soporte debe ser un archivo PDF válido.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=manual')
     CotizacionServicioTecnico.objects.create(
         codigo=codigo[:50],
         registro=registro[:50],
@@ -1393,18 +1408,22 @@ def importar_cotizacion_visita_pdf(request):
     soporte = request.FILES.get("soporte")
     if not soporte or not soporte.name.lower().endswith(".pdf"):
         messages.error(request, "Selecciona una orden de visita en formato PDF.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=importar')
     if soporte.size > 10 * 1024 * 1024:
         messages.error(request, "El PDF no puede superar 10 MB.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=importar')
     try:
         datos = analizar_visita_tecnica_cotizacion(soporte)
     except (ValueError, OSError) as error:
         messages.error(request, f"No fue posible importar la orden: {error}")
-        return redirect("listar_cotizaciones_tecnicas")
-    if CotizacionServicioTecnico.objects.filter(registro=datos["registro"]).exists():
-        messages.error(request, f"El registro {datos['registro']} ya fue importado.")
-        return redirect("listar_cotizaciones_tecnicas")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=importar')
+    registro = (datos.get("registro") or "").strip()[:50]
+    if not registro:
+        messages.error(request, "La orden no contiene un número de registro válido.")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=importar')
+    if CotizacionServicioTecnico.objects.filter(registro=registro).exists():
+        messages.error(request, f"El registro {registro} ya fue importado.")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=importar')
 
     clave_tecnico = normalizar_clave(datos["tecnico_nombre"]).replace(" ", "")
     tecnico = next(
@@ -1416,7 +1435,7 @@ def importar_cotizacion_visita_pdf(request):
     )
     soporte.seek(0)
     CotizacionServicioTecnico.objects.create(
-        registro=datos["registro"][:50],
+        registro=registro,
         codigo=datos["codigo"][:50],
         cliente=datos["cliente"][:100],
         direccion=datos["direccion"][:100],

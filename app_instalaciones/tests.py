@@ -506,7 +506,8 @@ class PortalTecnicoTests(TestCase):
         self.tecnico = Tecnico.objects.create(nombre="Técnico móvil", usuario=self.usuario)
         self.otro_tecnico = Tecnico.objects.create(nombre="Otro técnico", usuario=self.otro_usuario)
         self.servicio = Mantenimiento.objects.create(
-            codigo="MOV-001", cliente="Cliente móvil", ciudad="Pasto",
+            codigo="MOV-001", numero_ticket="REG-MOV-001",
+            cliente="Cliente móvil", ciudad="Pasto",
             direccion="Calle móvil", tecnico=self.tecnico,
             fecha_programada=timezone.localdate(),
         )
@@ -770,7 +771,7 @@ class PortalTecnicoTests(TestCase):
             mantenimiento=self.servicio
         )
         self.assertEqual(cotizacion.codigo, "MOV-001")
-        self.assertEqual(cotizacion.registro, "")
+        self.assertEqual(cotizacion.registro, "REG-MOV-001")
         self.assertEqual(cotizacion.cliente, "Cliente móvil")
         self.assertEqual(cotizacion.direccion, "Calle móvil")
         self.assertEqual(cotizacion.tecnico, self.tecnico)

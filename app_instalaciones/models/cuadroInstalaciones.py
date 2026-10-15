@@ -524,7 +524,7 @@ class CotizacionServicioTecnico(models.Model):
         related_name="cotizaciones_tecnicas",
     )
     codigo = models.CharField(max_length=50, db_index=True)
-    registro = models.CharField(max_length=50, blank=True, db_index=True)
+    registro = models.CharField(max_length=50, unique=True)
     cliente = models.CharField(max_length=100)
     direccion = models.CharField(max_length=100)
     descripcion = models.TextField()

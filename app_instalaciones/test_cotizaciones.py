@@ -151,6 +151,37 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertNotContains(aprobadas, "MAN-01")
         self.assertContains(aprobadas, ">1</span>", html=False)
 
+    def test_no_permite_repetir_el_numero_de_registro_manual(self):
+        respuesta = self.client.post(
+            reverse("crear_cotizacion_tecnica_manual"),
+            {
+                "codigo": "MAN-02",
+                "registro": self.cotizacion.registro,
+                "fecha_orden": "2026-10-08T10:02",
+                "cliente": "Cliente duplicado",
+                "direccion": "Calle duplicada",
+                "descripcion": "No debe crearse",
+                "soporte": SimpleUploadedFile(
+                    "duplicado.pdf", b"%PDF-1.4\n", content_type="application/pdf"
+                ),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "No se pudo procesar la orden")
+        self.assertContains(
+            respuesta,
+            f"El registro {self.cotizacion.registro} ya tiene una cotización.",
+        )
+        self.assertContains(respuesta, 'formularioConError = "manual"')
+        self.assertEqual(
+            CotizacionServicioTecnico.objects.filter(
+                registro=self.cotizacion.registro
+            ).count(),
+            1,
+        )
+
     @patch(
         "app_instalaciones.home_views.user_views.analizar_visita_tecnica_cotizacion"
     )
