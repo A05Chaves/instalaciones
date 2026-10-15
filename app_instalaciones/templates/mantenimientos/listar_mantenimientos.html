@@ -32,6 +32,7 @@ Mantenimientos - App_Sesur
         </a>
     </div>
 
+    {% if puede_gestionar_mantenimientos %}
     <div class="d-flex gap-2">
         <a href="{% url 'importar_mantenimientos_pdf' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-file-import"></i> Importar PDF / Excel
@@ -41,6 +42,7 @@ Mantenimientos - App_Sesur
             <i class="fas fa-file-excel"></i> Exportar
         </a>
     </div>
+    {% endif %}
 </div>
 
 {% if messages %}
@@ -135,6 +137,7 @@ Mantenimientos - App_Sesur
 </div>
 {% endcomment %}
 
+{% if puede_gestionar_mantenimientos %}
 <div class="card shadow-sm border-0 mb-4">
     <button class="card-header bg-primary text-white border-0 text-start d-flex justify-content-between align-items-center"
             type="button" data-bs-toggle="collapse" data-bs-target="#panel-nuevo-mantenimiento"
@@ -264,6 +267,7 @@ Mantenimientos - App_Sesur
     </div>
     </div>
 </div>
+{% endif %}
 
 <div class="card shadow-sm border-0">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
@@ -309,6 +313,7 @@ Mantenimientos - App_Sesur
                     <option value="PENDIENTE" {% if estado_filtro == "PENDIENTE" %}selected{% endif %}>Pendiente</option>
                     <option value="ASIGNADO" {% if estado_filtro == "ASIGNADO" %}selected{% endif %}>Asignado</option>
                     <option value="EN_PROCESO" {% if estado_filtro == "EN_PROCESO" %}selected{% endif %}>En proceso</option>
+                    <option value="PENDIENTE_OMT" {% if estado_filtro == "PENDIENTE_OMT" %}selected{% endif %}>Pendiente OMT</option>
                     <option value="FINALIZADO" {% if estado_filtro == "FINALIZADO" %}selected{% endif %}>Realizado</option>
                 </select>
                 <button class="btn btn-primary" type="submit">Buscar</button>
@@ -356,7 +361,7 @@ Mantenimientos - App_Sesur
                 <tbody>
                     {% for m in mantenimientos %}
 
-                    <tr data-id="{{ m.id }}">
+                    <tr id="mantenimiento-{{ m.id }}" data-id="{{ m.id }}">
 
                         <td class="col-fecha-ticket">
                             <span class="d-block">{{ m.fecha_visible|date:"Y-m-d H:i" }}</span>
@@ -489,6 +494,8 @@ Mantenimientos - App_Sesur
                             <span class="view-mode">
                             {% if m.estado_operativo == "FINALIZADO" %}
                                 <span class="badge bg-success">Realizado</span>
+                            {% elif m.estado_operativo == "PENDIENTE_OMT" %}
+                                <span class="badge bg-info text-dark">Pendiente OMT</span>
                             {% elif m.estado_operativo == "EN_PROCESO" %}
                                 <span class="badge bg-primary">En proceso</span>
                             {% elif m.tecnico %}
@@ -502,6 +509,7 @@ Mantenimientos - App_Sesur
                                     name="estado_operativo">
                                 <option value="PENDIENTE" {% if m.estado_operativo == "PENDIENTE" %}selected{% endif %}>Pendiente / asignado</option>
                                 <option value="EN_PROCESO" {% if m.estado_operativo == "EN_PROCESO" %}selected{% endif %}>En proceso</option>
+                                <option value="PENDIENTE_OMT" {% if m.estado_operativo == "PENDIENTE_OMT" %}selected{% endif %}>Pendiente OMT</option>
                                 <option value="FINALIZADO" {% if m.estado_operativo == "FINALIZADO" %}selected{% endif %}>Realizado</option>
                             </select>
                             {% endif %}
@@ -552,12 +560,32 @@ Mantenimientos - App_Sesur
                                     <small class="d-block text-muted mt-1">
                                         {{ m.fecha_orden|date:"Y-m-d H:i" }}
                                     </small>
+                                    <small class="d-block text-muted">
+                                        Operador: {{ m.orden_registrada_por.get_full_name|default:m.orden_registrada_por.username|default:"Sin identificar" }}
+                                    </small>
+                                    {% if m.duracion_validacion_omt %}
+                                    <small class="d-block text-primary">
+                                        Validación OMT: {{ m.duracion_validacion_omt }}
+                                    </small>
+                                    {% endif %}
                                 {% endif %}
                             </span>
 
+                            {% if puede_registrar_orden_omt and m.estado_operativo == "PENDIENTE_OMT" and not m.orden %}
+                            <form method="post" action="{% url 'registrar_orden_omt' m.pk %}"
+                                  class="d-flex gap-1 align-items-center mt-1">
+                                {% csrf_token %}
+                                <input class="form-control form-control-sm" name="orden"
+                                       maxlength="50" required placeholder="Número de orden">
+                                <button class="btn btn-success btn-sm" type="submit" title="Cerrar orden OMT">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
+                            {% elif puede_gestionar_mantenimientos %}
                             <input class="edit-mode form-control form-control-sm d-none"
                                    name="orden"
                                    value="{{ m.orden }}">
+                            {% endif %}
 
                         </td>
 
@@ -590,6 +618,7 @@ Mantenimientos - App_Sesur
 
                         <td class="text-center">
 
+                            {% if puede_gestionar_mantenimientos %}
                             <div class="btn-group btn-group-sm">
 
                                 {% if request.user.is_superuser or not m.orden %}
@@ -602,7 +631,7 @@ Mantenimientos - App_Sesur
                                 </button>
                                 {% endif %}
 
-                                {% if not es_coordinador and m.estado_operativo != "FINALIZADO" and not m.orden %}
+                                {% if not es_coordinador and m.estado_operativo != "FINALIZADO" and m.estado_operativo != "PENDIENTE_OMT" and not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-danger btn-inline-delete"
                                         data-id="{{ m.id }}"
@@ -611,7 +640,7 @@ Mantenimientos - App_Sesur
                                 </button>
                                 {% endif %}
 
-                                {% if m.estado_operativo != "FINALIZADO" and not m.orden %}
+                                {% if m.estado_operativo != "FINALIZADO" and m.estado_operativo != "PENDIENTE_OMT" and not m.orden %}
                                 <button type="button"
                                         class="btn btn-outline-secondary btn-inline-upload"
                                         data-id="{{ m.id }}">
@@ -626,6 +655,9 @@ Mantenimientos - App_Sesur
                                 {% endif %}
 
                             </div>
+                            {% else %}
+                            <span class="text-muted small">Sólo orden OMT</span>
+                            {% endif %}
 
                         </td>
 

@@ -11,7 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from app_instalaciones.home_views.user_views import (
-    puede_editar_instalacion, puede_gestionar_cotizaciones, puede_programar
+    puede_editar_instalacion, puede_gestionar_cotizaciones, puede_programar,
+    puede_ver_instalaciones,
 )
 from app_instalaciones.models.cuadroInstalaciones import (
     Ciudad,
@@ -88,6 +89,8 @@ def registro_inst(request):
 # VISTA PARA LISTAR INSTALACIONES
 
 
+@login_required(login_url='login')
+@user_passes_test(puede_ver_instalaciones, login_url='home')
 def lista_instalaciones(request):
     ejecutivos_seleccionados = request.GET.getlist('ejecutivo')
     tecnicos_seleccionados = request.GET.getlist('tecnico')

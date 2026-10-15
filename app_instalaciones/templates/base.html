@@ -193,19 +193,23 @@
               </a>
             </li>
             {% endif %}
+            {% if not es_monitoreo and not es_administrador_monitoreo or request.user.is_superuser %}
             <li class="nav-item">
               <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_instalaciones' %}active{% endif %}"
                 href="{% url 'dashboard_instalaciones' %}">
                 <i class="fas fa-chart-line me-1"></i> Dashboard
               </a>
             </li>
-            {% if request.user.is_superuser %}
+            {% endif %}
+            {% if request.user.is_superuser or es_administrador_monitoreo %}
                 <li class="nav-item">
                   <a class="nav-link {% if request.resolver_match.url_name == 'configuracion_usuarios' %}active{% endif %}"
                     href="{% url 'configuracion_usuarios' %}">
                     <i class="fas fa-cog me-1"></i> Configuración
                   </a>
                 </li>
+            {% endif %}
+            {% if request.user.is_superuser %}
                 <li class="nav-item">
                   <a class="nav-link {% if request.resolver_match.url_name == 'registro_movimientos' %}active{% endif %}"
                     href="{% url 'registro_movimientos' %}">
@@ -218,6 +222,14 @@
                     <i class="fas fa-business-time me-1"></i> Horarios técnicos
                   </a>
                 </li>
+            {% endif %}
+            {% if request.user.is_superuser or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo %}
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'listar_mantenimientos' %}active{% endif %}"
+                 href="{% url 'listar_mantenimientos' %}">
+                <i class="fas fa-tools me-1"></i> Mantenimientos
+              </a>
+            </li>
             {% endif %}
             {% if request.user.is_superuser or es_administrador or es_coordinador %}
             <li class="nav-item">

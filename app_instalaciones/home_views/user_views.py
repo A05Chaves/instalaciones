@@ -107,12 +107,45 @@ def puede_ver(user):
     return user.is_authenticated
 
 
+def puede_ver_instalaciones(user):
+    return (
+        user.is_superuser
+        or user.is_staff
+        or user.groups.filter(name__in={
+            "Administrador", "Coordinador", "Programador", "Almacen",
+            "Facturacion", "Visor",
+        }).exists()
+    )
+
+
 def puede_gestionar_mantenimientos(user):
     return (
         user.is_superuser
         or pertenece_grupo(user, "Administrador")
         or pertenece_grupo(user, "Coordinador")
     )
+
+
+def puede_ver_mantenimientos(user):
+    return (
+        puede_gestionar_mantenimientos(user)
+        or pertenece_grupo(user, "Monitoreo")
+        or pertenece_grupo(user, "Administrador Monitoreo")
+    )
+
+
+def puede_registrar_orden_omt(user):
+    return (
+        user.is_superuser
+        or pertenece_grupo(user, "Administrador")
+        or pertenece_grupo(user, "Coordinador")
+        or pertenece_grupo(user, "Monitoreo")
+        or pertenece_grupo(user, "Administrador Monitoreo")
+    )
+
+
+def puede_configurar_usuarios(user):
+    return user.is_superuser or pertenece_grupo(user, "Administrador Monitoreo")
 
 
 def puede_gestionar_cotizaciones(user):
@@ -131,7 +164,8 @@ def es_usuario_solo_tecnico(user):
         return False
     roles_administrativos = {
         "Administrador", "Coordinador", "Programador", "Almacen",
-        "Facturacion", "Visor", "Cotizaciones",
+        "Facturacion", "Visor", "Cotizaciones", "Monitoreo",
+        "Administrador Monitoreo",
     }
     return not user.groups.filter(name__in=roles_administrativos).exists()
 
@@ -343,7 +377,7 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
         atendido = fecha_atencion(servicio)
         # El estado operativo es la fuente de verdad. Una fecha ``realizado``
         # aislada no debe sacar un servicio pendiente de las alertas.
-        finalizado = servicio.estado_operativo == "FINALIZADO"
+        finalizado = servicio.estado_operativo in {"PENDIENTE_OMT", "FINALIZADO"}
         if finalizado:
             realizados_grupo += 1
         if finalizado and fila:
@@ -416,7 +450,7 @@ def indicadores_atencion_mantenimientos(fecha_desde=None, fecha_hasta=None, ciud
         "vencidos_prioritarios": vencidos_prioritarios,
         "vencidos_otros": vencidos_otros,
         "pendientes_sin_programar": Mantenimiento.objects.exclude(
-            estado_operativo="FINALIZADO"
+            estado_operativo__in={"PENDIENTE_OMT", "FINALIZADO"}
         ).filter(fecha_programada__isnull=True).count(),
         "promedio_grupo_horas": round(sum(tiempos_grupo) / len(tiempos_grupo), 1) if tiempos_grupo else None,
         "servicios_programados": len(servicios),
@@ -511,7 +545,7 @@ def indicadores_ocupacion_tecnicos(fecha_desde=None, fecha_hasta=None):
     servicios_medidos = {tecnico.id: 0 for tecnico in tecnicos}
     servicios = Mantenimiento.objects.select_related("tecnico").filter(
         tecnico__in=tecnicos,
-        estado_operativo="FINALIZADO",
+        estado_operativo__in={"PENDIENTE_OMT", "FINALIZADO"},
     )
     for servicio in servicios:
         inicio = servicio.inicio_tecnico or servicio.fecha_inicio
@@ -570,10 +604,13 @@ def indicadores_ocupacion_tecnicos(fecha_desde=None, fecha_hasta=None):
 
 
 @login_required(login_url='login')
-@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
+@user_passes_test(puede_ver_mantenimientos, login_url='home')
 def listar_mantenimientos(request):
 
     if request.method == "POST":
+        if not puede_gestionar_mantenimientos(request.user):
+            messages.error(request, "Tu perfil sólo permite consultar y registrar órdenes OMT.")
+            return redirect("listar_mantenimientos")
         # form = MantenimientoForm(request.POST, request.FILES)
         post_data = request.POST.copy()
 
@@ -671,13 +708,15 @@ def listar_mantenimientos(request):
         mantenimientos = mantenimientos.filter(
             estado_operativo="PENDIENTE", tecnico__isnull=False
         )
-    elif estado_filtro in {"EN_PROCESO", "FINALIZADO"}:
+    elif estado_filtro in {"EN_PROCESO", "PENDIENTE_OMT", "FINALIZADO"}:
         mantenimientos = mantenimientos.filter(
             estado_operativo=estado_filtro
         )
 
     if alerta_filtro in {"prioritarios", "otros"}:
-        mantenimientos = mantenimientos.exclude(estado_operativo="FINALIZADO").filter(
+        mantenimientos = mantenimientos.exclude(
+            estado_operativo__in={"FINALIZADO", "PENDIENTE_OMT"}
+        ).filter(
             fecha_programada__lte=hoy
         )
         if alerta_filtro == "prioritarios":
@@ -702,6 +741,8 @@ def listar_mantenimientos(request):
         "fecha_hasta_filtro": fecha_hasta_txt,
         "estado_filtro": estado_filtro,
         "alerta_filtro": alerta_filtro,
+        "puede_gestionar_mantenimientos": puede_gestionar_mantenimientos(request.user),
+        "puede_registrar_orden_omt": puede_registrar_orden_omt(request.user),
         **indicadores_mantenimiento,
     }
 
@@ -795,11 +836,23 @@ def _aplicar_novedad_operador(mantenimiento, datos, usuario, novedad_anterior):
 
 
 @login_required
-@user_passes_test(puede_gestionar_mantenimientos, login_url='home')
+@user_passes_test(puede_ver_mantenimientos, login_url='home')
 @require_POST
 def mantenimiento_actualizar(request, pk):
     m = get_object_or_404(Mantenimiento, pk=pk)
+    if (
+        not puede_gestionar_mantenimientos(request.user)
+        and (
+            pertenece_grupo(request.user, "Monitoreo")
+            or pertenece_grupo(request.user, "Administrador Monitoreo")
+        )
+    ):
+        return JsonResponse(
+            {"ok": False, "error": "Tu perfil sólo puede registrar la orden OMT."},
+            status=403,
+        )
     tecnico_anterior = m.tecnico
+    orden_anterior = m.orden
     novedad_anterior = m.novedad or ""
 
     if m.orden and not request.user.is_superuser:
@@ -807,7 +860,9 @@ def mantenimiento_actualizar(request, pk):
             {"ok": False, "error": "El servicio está cerrado y no admite cambios."},
             status=409,
         )
-    if m.estado_operativo == "FINALIZADO" and not request.user.is_superuser:
+    if m.estado_operativo in {"FINALIZADO", "PENDIENTE_OMT"} and not request.user.is_superuser:
+        if not puede_registrar_orden_omt(request.user):
+            return JsonResponse({"ok": False, "error": "No tienes permiso para registrar la orden."}, status=403)
         orden = (request.POST.get("orden") or "").strip()
         if not orden:
             return JsonResponse(
@@ -815,6 +870,8 @@ def mantenimiento_actualizar(request, pk):
                 status=400,
             )
         m.orden = orden[:50]
+        m.fecha_orden = timezone.now()
+        m.orden_registrada_por = request.user
         fecha_realizado = parse_date((request.POST.get("realizado") or "").strip())
         m.realizado = fecha_realizado or m.realizado or timezone.localdate()
         error_horas = _aplicar_horas_manuales(m, request.POST)
@@ -824,7 +881,11 @@ def mantenimiento_actualizar(request, pk):
             m, request.POST, request.user, novedad_anterior
         )
         m.estado_operativo = "FINALIZADO"
-        m.save()
+        m.save(update_fields=[
+            "orden", "fecha_orden", "orden_registrada_por", "realizado",
+            "hora_entrada", "hora_salida", "inicio_tecnico", "fin_tecnico",
+            "horas", "novedad", "observacion", "estado_operativo",
+        ])
         return JsonResponse({
             "ok": True,
             "orden": m.orden,
@@ -891,6 +952,15 @@ def mantenimiento_actualizar(request, pk):
                 ),
             }, status=400)
         m.estado_operativo = "FINALIZADO"
+        if not m.fecha_orden:
+            m.fecha_orden = timezone.now()
+        if not m.orden_registrada_por:
+            m.orden_registrada_por = request.user
+    if m.orden and not orden_anterior:
+        m.fecha_orden = timezone.now()
+        m.orden_registrada_por = request.user
+        if m.estado_operativo == "PENDIENTE_OMT":
+            m.estado_operativo = "FINALIZADO"
     m.save(permitir_estado_manual=request.user.is_superuser)
     registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 
@@ -905,6 +975,33 @@ def mantenimiento_actualizar(request, pk):
         "orden": m.orden,
         "realizado": m.realizado.isoformat() if m.realizado else "",
     })
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_registrar_orden_omt, login_url="home")
+@require_POST
+def registrar_orden_omt(request, pk):
+    mantenimiento = get_object_or_404(Mantenimiento, pk=pk)
+    if mantenimiento.orden:
+        messages.error(request, "Este servicio ya tiene un número de orden registrado.")
+        return redirect(f'{reverse("listar_mantenimientos")}#mantenimiento-{pk}')
+    if mantenimiento.estado_operativo != "PENDIENTE_OMT":
+        messages.error(request, "La orden sólo puede registrarse cuando el servicio está pendiente de OMT.")
+        return redirect(f'{reverse("listar_mantenimientos")}#mantenimiento-{pk}')
+    orden = (request.POST.get("orden") or "").strip()
+    if not orden:
+        messages.error(request, "Debes ingresar el número de orden.")
+        return redirect(f'{reverse("listar_mantenimientos")}#mantenimiento-{pk}')
+
+    mantenimiento.orden = orden[:50]
+    mantenimiento.fecha_orden = timezone.now()
+    mantenimiento.orden_registrada_por = request.user
+    mantenimiento.estado_operativo = "FINALIZADO"
+    mantenimiento.save(update_fields=[
+        "orden", "fecha_orden", "orden_registrada_por", "estado_operativo"
+    ])
+    messages.success(request, "Orden OMT registrada y servicio cerrado correctamente.")
+    return redirect(f'{reverse("listar_mantenimientos")}#mantenimiento-{pk}')
 
 
 @login_required
@@ -1010,6 +1107,8 @@ def _serializar_servicio_tecnico(mantenimiento):
         "estado_label": (
             "REALIZADO"
             if mantenimiento.estado_operativo == "FINALIZADO"
+            else "PENDIENTE OMT"
+            if mantenimiento.estado_operativo == "PENDIENTE_OMT"
             else "EN PROCESO"
             if mantenimiento.estado_operativo == "EN_PROCESO"
             else "ASIGNADO"
@@ -1021,9 +1120,10 @@ def _serializar_servicio_tecnico(mantenimiento):
             mantenimiento.inicio_tecnico and mantenimiento.estado_operativo != "PENDIENTE"
         ) else "",
         "fin": mantenimiento.fin_tecnico.isoformat() if (
-            mantenimiento.fin_tecnico and mantenimiento.estado_operativo == "FINALIZADO"
+            mantenimiento.fin_tecnico
+            and mantenimiento.estado_operativo in {"PENDIENTE_OMT", "FINALIZADO"}
         ) else "",
-        "bloqueado": mantenimiento.estado_operativo == "FINALIZADO" or bool(mantenimiento.orden),
+        "bloqueado": mantenimiento.estado_operativo in {"PENDIENTE_OMT", "FINALIZADO"} or bool(mantenimiento.orden),
         "cotizacion_registrada": cotizacion_registrada,
     }
 
@@ -1095,13 +1195,13 @@ def api_servicios_tecnico(request):
             {"ok": False, "error": "El servicio ya fue realizado o cerrado con una orden.", "retirar": True},
             status=409,
         )
-    if mantenimiento.estado_operativo == "FINALIZADO":
+    if mantenimiento.estado_operativo in {"FINALIZADO", "PENDIENTE_OMT"}:
         return JsonResponse(
             {"ok": False, "error": "El servicio ya fue finalizado.", "retirar": True},
             status=409,
         )
     estado = data.get("estado")
-    if estado not in dict(Mantenimiento.ESTADO_OPERATIVO_CHOICES):
+    if estado not in {"PENDIENTE", "EN_PROCESO", "FINALIZADO"}:
         return JsonResponse({"ok": False, "error": "Estado inválido."}, status=400)
 
     ahora = timezone.now()
@@ -1184,6 +1284,7 @@ def api_servicios_tecnico(request):
         mantenimiento.horas = None
         mantenimiento.realizado = None
     if estado == "FINALIZADO":
+        mantenimiento.estado_operativo = "PENDIENTE_OMT"
         mantenimiento.realizado = fecha_evento_local.date()
         mantenimiento.fin_tecnico = fecha_evento
         mantenimiento.hora_salida = fecha_evento_local.time().replace(
@@ -2066,7 +2167,7 @@ def alistar_instalacion(request, id):
 
 
 @login_required(login_url='login')
-@user_passes_test(lambda u: u.is_superuser)
+@user_passes_test(puede_configurar_usuarios, login_url='home')
 def configuracion_usuarios(request):
     grupos_base = [
         'Administrador',
@@ -2077,10 +2178,18 @@ def configuracion_usuarios(request):
         'Visor',
         'Tecnico',
         'Cotizaciones',
+        'Monitoreo',
+        'Administrador Monitoreo',
     ]
 
     for nombre in grupos_base:
         Group.objects.get_or_create(name=nombre)
+
+    configuracion_monitoreo_limitada = (
+        not request.user.is_superuser
+        and pertenece_grupo(request.user, 'Administrador Monitoreo')
+    )
+    grupos_permitidos = ['Monitoreo'] if configuracion_monitoreo_limitada else grupos_base
 
     formulario_creacion = UserCreationForm()
     grupos_creacion_seleccionados = request.POST.getlist('grupo_ids')
@@ -2095,7 +2204,7 @@ def configuracion_usuarios(request):
             tecnico_id = request.POST.get('tecnico_id')
             grupos_seleccionados = Group.objects.filter(
                 id__in=grupos_creacion_seleccionados,
-                name__in=grupos_base,
+                name__in=grupos_permitidos,
             )
             tecnico = None
 
@@ -2139,6 +2248,9 @@ def configuracion_usuarios(request):
             )
 
         else:
+            if configuracion_monitoreo_limitada:
+                messages.error(request, "Este perfil sólo puede crear usuarios de Monitoreo.")
+                return redirect('configuracion_usuarios')
             usuario_id = request.POST.get('usuario_id')
             grupo_ids = request.POST.getlist('grupo_ids')
             if not grupo_ids and request.POST.get('grupo_id'):
@@ -2179,7 +2291,9 @@ def configuracion_usuarios(request):
             return redirect('configuracion_usuarios')
 
     usuarios = User.objects.all().order_by('username')
-    grupos = Group.objects.filter(name__in=grupos_base).order_by('name')
+    if configuracion_monitoreo_limitada:
+        usuarios = usuarios.filter(groups__name='Monitoreo').distinct()
+    grupos = Group.objects.filter(name__in=grupos_permitidos).order_by('name')
     for campo in formulario_creacion.fields.values():
         campo.widget.attrs['class'] = 'form-control'
 
@@ -2189,6 +2303,7 @@ def configuracion_usuarios(request):
         'tecnicos': Tecnico.objects.select_related("usuario").order_by("nombre"),
         'formulario_creacion': formulario_creacion,
         'grupos_creacion_seleccionados': grupos_creacion_seleccionados,
+        'configuracion_monitoreo_limitada': configuracion_monitoreo_limitada,
     })
 
 

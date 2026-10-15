@@ -120,6 +120,7 @@ App_Sesur
 
     {% endif %}
 
+    {% if es_superusuario or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_visor %}
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
 
@@ -150,7 +151,9 @@ App_Sesur
         </div>
     </div>
 
-    {% if es_superusuario or es_administrador or es_coordinador %}
+    {% endif %}
+
+    {% if es_superusuario or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
@@ -181,6 +184,10 @@ App_Sesur
             </div>
         </div>
     </div>
+
+    {% endif %}
+
+    {% if es_superusuario or es_administrador or es_coordinador %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">

@@ -13,7 +13,11 @@ Configuración de usuarios
             Configuración
         </h2>
         <p class="text-muted mb-0">
+            {% if configuracion_monitoreo_limitada %}
+            Creación de usuarios con acceso exclusivo al perfil Monitoreo.
+            {% else %}
             Asignación de roles y permisos de usuarios.
+            {% endif %}
         </p>
     </div>
 
@@ -84,16 +88,24 @@ Configuración de usuarios
                 <label class="form-label fw-semibold d-block">Roles</label>
                 <div class="border rounded p-2 bg-light">
                     {% for grupo in grupos %}
+                        {% if configuracion_monitoreo_limitada %}
+                        <input type="hidden" name="grupo_ids" value="{{ grupo.id }}">
+                        <span class="badge bg-primary">{{ grupo.name }}</span>
+                        {% else %}
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="grupo_ids"
                                    value="{{ grupo.id }}" id="crear-rol-{{ grupo.id }}"
                                    {% if grupo.id|stringformat:'s' in grupos_creacion_seleccionados %}checked{% endif %}>
                             <label class="form-check-label" for="crear-rol-{{ grupo.id }}">{{ grupo.name }}</label>
                         </div>
+                        {% endif %}
                     {% endfor %}
                 </div>
-                <div class="form-text">Puedes seleccionar varios roles.</div>
+                <div class="form-text">
+                    {% if configuracion_monitoreo_limitada %}Sólo puedes asignar el perfil Monitoreo.{% else %}Puedes seleccionar varios roles.{% endif %}
+                </div>
             </div>
+            {% if not configuracion_monitoreo_limitada %}
             <div class="col-12 col-md-5">
                 <label class="form-label fw-semibold">Vincular técnico (opcional)</label>
                 <select name="tecnico_id" class="form-select">
@@ -108,6 +120,7 @@ Configuración de usuarios
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
             <div class="col-12 col-md-3 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="fas fa-user-plus me-1"></i> Crear usuario
@@ -159,7 +172,7 @@ Configuración de usuarios
                         </td>
 
                         <td>
-                            {% if usuario.is_superuser %}
+                            {% if usuario.is_superuser or configuracion_monitoreo_limitada %}
                                 <span class="text-muted">No editable</span>
                             {% else %}
                                 <form method="POST" class="d-flex gap-2">

@@ -269,6 +269,7 @@ class Mantenimiento(models.Model):
     ESTADO_OPERATIVO_CHOICES = [
         ("PENDIENTE", "Pendiente"),
         ("EN_PROCESO", "En proceso"),
+        ("PENDIENTE_OMT", "Pendiente OMT"),
         ("FINALIZADO", "Realizado"),
     ]
     # NUEVO: tipo de falla (para el select del template)
@@ -341,6 +342,13 @@ class Mantenimiento(models.Model):
     hora_salida = models.TimeField(null=True, blank=True)
     orden = models.CharField(max_length=50, null=True, blank=True)
     fecha_orden = models.DateTimeField(null=True, blank=True)
+    orden_registrada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ordenes_mantenimiento_registradas",
+    )
     realizado = models.DateField(null=True, blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
     fecha_creacion_servicio = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -426,6 +434,15 @@ class Mantenimiento(models.Model):
             return ""
 
         horas, resto = divmod(segundos_totales, 3600)
+        minutos, segundos = divmod(resto, 60)
+        return f"{horas:02d}:{minutos:02d}:{segundos:02d}"
+
+    @property
+    def duracion_validacion_omt(self):
+        if not self.fin_tecnico or not self.fecha_orden:
+            return ""
+        segundos = max(round((self.fecha_orden - self.fin_tecnico).total_seconds()), 0)
+        horas, resto = divmod(segundos, 3600)
         minutos, segundos = divmod(resto, 60)
         return f"{horas:02d}:{minutos:02d}:{segundos:02d}"
 

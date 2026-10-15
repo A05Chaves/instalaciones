@@ -6,6 +6,10 @@ def permisos_usuario(request):
         return {}
 
     es_cotizaciones = user.groups.filter(name='Cotizaciones').exists()
+    es_monitoreo = user.groups.filter(name='Monitoreo').exists()
+    es_administrador_monitoreo = user.groups.filter(
+        name='Administrador Monitoreo'
+    ).exists()
     cotizaciones_nuevas = 0
     if user.is_superuser or es_cotizaciones:
         from app_instalaciones.models import CotizacionServicioTecnico
@@ -38,6 +42,10 @@ def permisos_usuario(request):
         ).exists(),
 
         'es_cotizaciones': es_cotizaciones,
+
+        'es_monitoreo': es_monitoreo,
+
+        'es_administrador_monitoreo': es_administrador_monitoreo,
 
         'cotizaciones_nuevas': cotizaciones_nuevas,
 
