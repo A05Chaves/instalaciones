@@ -38,10 +38,16 @@ main { max-width: 760px; margin: auto; padding: 1rem; }
 .estado { font-size: .72rem; font-weight: 800; background: #e2e8f0; padding: .3rem .5rem; border-radius: 1rem; white-space: nowrap; }
 label { display: block; font-size: .85rem; font-weight: 700; margin-top: .8rem; }
 textarea { width: 100%; margin-top: .35rem; border: 1px solid #cbd5e1; border-radius: .6rem; padding: .65rem; font: inherit; }
-.acciones { margin-top: .8rem; }.acciones .boton { flex: 1; }
+.acciones { margin-top: .8rem; flex-wrap: wrap; }.acciones .boton { flex: 1 1 45%; }
 .boton { border: 0; border-radius: .6rem; background: #0d6efd; color: white; padding: .7rem .9rem; font-weight: 700; }
 .boton-exito { background: #16803c; }.boton-claro { background: #fff; color: #172033; }.boton-pequeno { padding: .45rem .65rem; }
 .boton-alerta { background: #b45309; }
+.boton-cotizar { background: #7c3aed; }
+.formulario-cotizacion { margin-top: 1rem; padding: 1rem; border: 1px solid #c4b5fd; border-radius: .75rem; background: #f5f3ff; }
+.formulario-cotizacion h4 { margin: 0 0 .7rem; color: #5b21b6; }
+.formulario-cotizacion input[type="file"] { display: block; width: 100%; margin-top: .4rem; padding: .55rem; border: 1px solid #cbd5e1; border-radius: .55rem; background: white; }
+.formulario-cotizacion .enviar-cotizacion { width: 100%; margin-top: .8rem; }
+.ayuda-cotizacion { display: block; margin-top: .5rem; color: #64748b; }
 .boton:disabled { opacity: .45; }.enlace { border: 0; background: none; color: #0d6efd; }
 .avisos { background: #fff7df; border: 1px solid #f5d778; border-radius: .8rem; padding: .8rem; }
 .aviso { border-top: 1px solid #ecdca9; padding: .65rem 0; }.aviso:first-child { border-top: 0; }

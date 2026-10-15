@@ -28,6 +28,10 @@ def permisos_usuario(request):
             name='Facturacion'
         ).exists(),
 
+        'es_cotizaciones': user.groups.filter(
+            name='Cotizaciones'
+        ).exists(),
+
         'es_visor': user.groups.filter(
             name='Visor'
         ).exists(),

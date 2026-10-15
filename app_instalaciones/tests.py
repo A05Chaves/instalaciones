@@ -2,18 +2,21 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO
 import json
+import shutil
+import tempfile
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import Group, User
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from app_instalaciones.models import (
-    Ciudad, CuadroInsta, DiaNoLaboralTecnico, HistorialAsignacionMantenimiento,
+    Ciudad, CotizacionServicioTecnico, CuadroInsta, DiaNoLaboralTecnico, Ejecutivo,
+    HistorialAsignacionMantenimiento,
     JornadaLaboralTecnico, Mantenimiento, NotificacionTecnico,
     RotacionTecnicoDisponible, Tecnico, ItemChecklistSmartCheck,
     ItemKitProyectoComercial, KitProyectoComercial,
@@ -491,6 +494,13 @@ class ConfiguracionUsuariosTests(TestCase):
 
 class PortalTecnicoTests(TestCase):
     def setUp(self):
+        self.media_root = tempfile.mkdtemp(
+            prefix="sesur-tests-media-", dir=settings.BASE_DIR
+        )
+        self.media_override = override_settings(MEDIA_ROOT=self.media_root)
+        self.media_override.enable()
+        self.addCleanup(self.media_override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
         self.usuario = User.objects.create_user("tecnico_movil", password="prueba123")
         self.otro_usuario = User.objects.create_user("otro_tecnico", password="prueba123")
         self.tecnico = Tecnico.objects.create(nombre="Técnico móvil", usuario=self.usuario)
@@ -738,7 +748,97 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=18")
+        self.assertContains(portal, "portal_tecnico.js?v=19")
+
+    def test_tecnico_registra_cotizacion_con_soporte_pdf(self):
+        soporte = SimpleUploadedFile(
+            "soporte-cotizacion.pdf",
+            b"%PDF-1.4\nsoporte de prueba",
+            content_type="application/pdf",
+        )
+
+        response = self.client.post(
+            reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
+            {
+                "descripcion": "Cambio de panel y dos sensores",
+                "soporte": soporte,
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.content)
+        cotizacion = CotizacionServicioTecnico.objects.get(
+            mantenimiento=self.servicio
+        )
+        self.assertEqual(cotizacion.codigo, "MOV-001")
+        self.assertEqual(cotizacion.registro, "")
+        self.assertEqual(cotizacion.cliente, "Cliente móvil")
+        self.assertEqual(cotizacion.direccion, "Calle móvil")
+        self.assertEqual(cotizacion.tecnico, self.tecnico)
+        self.assertEqual(cotizacion.creado_por, self.usuario)
+        self.assertIn("Cambio de panel", cotizacion.descripcion)
+
+        servicio = self.client.get(reverse("api_servicios_tecnico")).json()[
+            "servicios"
+        ][0]
+        self.assertTrue(servicio["cotizacion_registrada"])
+
+    def test_cotizacion_exige_un_pdf_valido_y_no_permite_duplicados(self):
+        archivo_invalido = SimpleUploadedFile(
+            "soporte.txt", b"no es pdf", content_type="text/plain"
+        )
+        invalida = self.client.post(
+            reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
+            {"descripcion": "Prueba", "soporte": archivo_invalido},
+        )
+        self.assertEqual(invalida.status_code, 400)
+
+        CotizacionServicioTecnico.objects.create(
+            mantenimiento=self.servicio,
+            tecnico=self.tecnico,
+            codigo=self.servicio.codigo,
+            cliente=self.servicio.cliente,
+            direccion=self.servicio.direccion,
+            descripcion="Cotización existente",
+            soporte="cotizaciones_tecnicas/existente.pdf",
+            creado_por=self.usuario,
+        )
+        repetida = self.client.post(
+            reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
+            {
+                "descripcion": "Otra cotización",
+                "soporte": SimpleUploadedFile(
+                    "otra.pdf", b"%PDF-1.4\n", content_type="application/pdf"
+                ),
+            },
+        )
+        self.assertEqual(repetida.status_code, 409)
+
+    def test_rol_cotizaciones_visualiza_la_cotizacion_en_el_nuevo_modulo(self):
+        CotizacionServicioTecnico.objects.create(
+            mantenimiento=self.servicio,
+            tecnico=self.tecnico,
+            codigo="MOV-001",
+            registro="TKT-908",
+            cliente="Cliente móvil",
+            direccion="Calle móvil",
+            descripcion="Cotizar panel de alarma",
+            soporte="cotizaciones_tecnicas/soporte.pdf",
+            creado_por=self.usuario,
+        )
+        usuario_cotizaciones = User.objects.create_user("usuario_cotizaciones")
+        grupo, _ = Group.objects.get_or_create(name="Cotizaciones")
+        usuario_cotizaciones.groups.add(grupo)
+        self.client.force_login(usuario_cotizaciones)
+
+        inicio = self.client.get(reverse("home"))
+        listado = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+
+        self.assertContains(inicio, "Cotizaciones")
+        self.assertEqual(listado.status_code, 200)
+        self.assertContains(listado, "MOV-001")
+        self.assertContains(listado, "TKT-908")
+        self.assertContains(listado, "Cliente móvil")
+        self.assertContains(listado, "Cotizar panel de alarma")
 
     def test_no_permite_soltar_servicio_que_no_esta_en_ejecucion(self):
         response = self.client.post(

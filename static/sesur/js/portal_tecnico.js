@@ -160,6 +160,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const iniciar = nodo.querySelector(".iniciar");
             const soltar = nodo.querySelector(".soltar");
             const finalizar = nodo.querySelector(".finalizar");
+            const cotizar = nodo.querySelector(".cotizar");
+            const formularioCotizacion = nodo.querySelector(".formulario-cotizacion");
+            const descripcionCotizacion = nodo.querySelector(".descripcion-cotizacion");
+            const soporteCotizacion = nodo.querySelector(".soporte-cotizacion");
+            const enviarCotizacion = nodo.querySelector(".enviar-cotizacion");
             const bloqueado = servicio.bloqueado || servicio.estado === "FINALIZADO";
             const ejecucionDistinta = servicioEnEjecucion && servicioEnEjecucion.id !== servicio.id;
             novedad.disabled = bloqueado;
@@ -193,6 +198,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
             finalizar.addEventListener("click", () => cambiarEstado(servicio, "FINALIZADO", novedad.value));
+            if (servicio.cotizacion_registrada) {
+                cotizar.textContent = "Cotización enviada";
+                cotizar.disabled = true;
+            } else {
+                cotizar.addEventListener("click", () => {
+                    formularioCotizacion.classList.toggle("oculto");
+                    if (!formularioCotizacion.classList.contains("oculto")) {
+                        descripcionCotizacion.focus();
+                    }
+                });
+                enviarCotizacion.addEventListener("click", () => registrarCotizacion(
+                    servicio,
+                    descripcionCotizacion,
+                    soporteCotizacion,
+                    enviarCotizacion
+                ));
+            }
             lista.appendChild(nodo);
         });
         estadoVisual.abiertos.forEach(id => {
@@ -282,6 +304,56 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify(payload),
         });
     }
+    async function registrarCotizacion(servicio, descripcionInput, soporteInput, boton) {
+        if (!navigator.onLine) {
+            mensaje("Necesitas conexión para subir el soporte PDF de la cotización.");
+            return;
+        }
+        const descripcion = descripcionInput.value.trim();
+        const soporte = soporteInput.files[0];
+        if (!descripcion) {
+            mensaje("Escribe la descripción de la cotización.");
+            descripcionInput.focus();
+            return;
+        }
+        if (!soporte || !soporte.name.toLocaleLowerCase().endsWith(".pdf")) {
+            mensaje("Selecciona un soporte válido en formato PDF.");
+            return;
+        }
+        if (soporte.size > 10 * 1024 * 1024) {
+            mensaje("El PDF no puede superar 10 MB.");
+            return;
+        }
+
+        const datos = new FormData();
+        datos.append("descripcion", descripcion);
+        datos.append("soporte", soporte);
+        boton.disabled = true;
+        boton.textContent = "Enviando…";
+        try {
+            const url = cfg.cotizarUrl.replace("/0/", `/${servicio.id}/`);
+            const respuesta = await fetch(url, {
+                method: "POST",
+                headers: {"X-CSRFToken": cookie("csrftoken")},
+                body: datos,
+            });
+            const data = await respuesta.json().catch(() => ({}));
+            if (!respuesta.ok) {
+                mensaje(data.error || "No fue posible registrar la cotización.");
+                boton.disabled = false;
+                boton.textContent = "Enviar cotización";
+                return;
+            }
+            servicio.cotizacion_registrada = true;
+            await guardar("datos", "servicios", servicios);
+            render();
+            mensaje("Cotización enviada correctamente.");
+        } catch (_) {
+            boton.disabled = false;
+            boton.textContent = "Enviar cotización";
+            mensaje("No fue posible subir el PDF. Revisa la conexión e intenta nuevamente.");
+        }
+    }
     async function cambiarEstado(servicio, estado, novedad) {
         const payload = {
             id: servicio.id,
@@ -365,10 +437,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const respuesta = await fetch(cfg.api, {headers: {"Accept": "application/json"}, cache: "no-store"});
             if (!respuesta.ok) throw new Error();
             const data = await respuesta.json();
-            const escribiendoNovedad = document.activeElement?.classList?.contains("novedad");
+            const editandoFormulario = document.activeElement?.matches(
+                ".novedad, .descripcion-cotizacion, .soporte-cotizacion"
+            ) || document.querySelector(".formulario-cotizacion:not(.oculto)");
             // No reconstruir la tarjeta mientras el teclado del teléfono está
             // abierto. La siguiente sincronización aplicará los datos nuevos.
-            if (!escribiendoNovedad) {
+            if (!editandoFormulario) {
                 servicios = data.servicios;
                 await guardar("datos", "servicios", servicios);
                 render();

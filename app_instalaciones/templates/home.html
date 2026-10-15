@@ -18,6 +18,12 @@ App_Sesur
         margin-bottom: 1.25rem;
     }
     .home-module-card .btn { margin-top: auto; }
+    @media (min-width: 1200px) {
+        .home-module-card {
+            flex: 0 0 20%;
+            max-width: 20%;
+        }
+    }
     @media (max-width: 767.98px) {
         .home-module-card .card-body > .mb-3,
         .home-module-card .card-body > p.text-muted { min-height: auto; }
@@ -208,6 +214,68 @@ App_Sesur
 
     {% endif %}
 
+    {% if es_superusuario or es_cotizaciones %}
+
+    <div class="col-12 col-md-6 col-xxl-3 home-module-card">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <div class="mb-3">
+                    <span class="badge bg-danger mb-2">Servicios técnicos</span>
+                    <h4 class="fw-bold">Cotizaciones</h4>
+                </div>
+                <p class="text-muted flex-grow-1">
+                    Cotizaciones solicitadas por los técnicos durante la atención
+                    de mantenimientos y sus soportes en PDF.
+                </p>
+                <a href="{% url 'listar_cotizaciones_tecnicas' %}"
+                   class="btn btn-danger w-100">
+                    <i class="fas fa-file-invoice-dollar me-1"></i>
+                    Ver cotizaciones
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+
 </div>
 
+{% if cotizaciones_sin_respuesta %}
+<div class="modal fade" id="modalAlertaCotizaciones" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-subtle">
+                <h5 class="modal-title"><i class="fas fa-bell me-2"></i>Cotizaciones sin respuesta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if cotizaciones_sin_respuesta == 1 %}
+                Tienes 1 cotización enviada hace 8 días o más sin respuesta del cliente.
+                {% else %}
+                Tienes {{ cotizaciones_sin_respuesta }} cotizaciones enviadas hace 8 días o más sin respuesta del cliente.
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Después</button>
+                <a href="{% url 'listar_cotizaciones_tecnicas' %}" class="btn btn-warning">
+                    Revisar seguimiento
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if cotizaciones_sin_respuesta %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    bootstrap.Modal.getOrCreateInstance(
+        document.getElementById("modalAlertaCotizaciones")
+    ).show();
+});
+</script>
+{% endif %}
 {% endblock %}

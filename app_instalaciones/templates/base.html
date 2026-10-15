@@ -227,6 +227,14 @@
               </a>
             </li>
             {% endif %}
+            {% if request.user.is_superuser or es_cotizaciones %}
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'listar_cotizaciones_tecnicas' %}active{% endif %}"
+                 href="{% url 'listar_cotizaciones_tecnicas' %}">
+                <i class="fas fa-file-invoice-dollar me-1"></i> Cotizaciones
+              </a>
+            </li>
+            {% endif %}
 
           </ul>
 

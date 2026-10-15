@@ -1,5 +1,5 @@
 import csv
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 import openpyxl
 import pandas as pd
@@ -11,10 +11,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from app_instalaciones.home_views.user_views import (
-    puede_editar_instalacion, puede_programar
+    puede_editar_instalacion, puede_gestionar_cotizaciones, puede_programar
 )
 from app_instalaciones.models.cuadroInstalaciones import (
     Ciudad,
+    CotizacionServicioTecnico,
     CuadroInsta,
     Ejecutivo,
     Mantenimiento,
@@ -35,8 +36,18 @@ from app_instalaciones.models.forms import (
 def home(request):
     if not request.user.is_authenticated:
         return redirect('login')  # redirige al login si no está autenticado
-    # muestra home si ya está autenticado
-    return render(request, "home.html")
+    cotizaciones_sin_respuesta = 0
+    if puede_gestionar_cotizaciones(request.user):
+        limite = timezone.localdate() - timedelta(days=8)
+        cotizaciones_sin_respuesta = CotizacionServicioTecnico.objects.filter(
+            estado="PENDIENTE",
+        ).filter(
+            Q(fecha_seguimiento__date__lte=limite)
+            | Q(fecha_seguimiento__isnull=True, fecha_orden__date__lte=limite)
+        ).count()
+    return render(request, "home.html", {
+        "cotizaciones_sin_respuesta": cotizaciones_sin_respuesta,
+    })
 
 
 @login_required(login_url='login')

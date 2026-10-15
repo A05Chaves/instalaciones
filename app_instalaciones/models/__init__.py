@@ -1,9 +1,10 @@
 # from app_instalaciones import *
 
 from .cuadroInstalaciones import (
-    Ciudad, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
+    Ciudad, CotizacionServicioTecnico, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
     DiaNoLaboralTecnico, JornadaLaboralTecnico, Mantenimiento,
-    NotificacionTecnico, RotacionTecnicoDisponible, Tecnico,
+    NotificacionTecnico, RotacionTecnicoDisponible, SeguimientoCotizacionTecnica,
+    Tecnico,
 )
 from .smartcheck import (
     CotizacionProyectoComercial, ItemChecklistSmartCheck,

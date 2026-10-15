@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0d6efd">
     <title>Mis servicios - SESUR</title>
     <link rel="manifest" href="{% url 'manifiesto_tecnico' %}">
-    <link rel="stylesheet" href="{% static 'sesur/css/portal_tecnico.css' %}?v=18">
+    <link rel="stylesheet" href="{% static 'sesur/css/portal_tecnico.css' %}?v=19">
 </head>
 <body>
     <header class="cabecera">
@@ -93,6 +93,19 @@
                     <button type="button" class="boton iniciar">Iniciar servicio</button>
                     <button type="button" class="boton boton-alerta soltar" hidden>Soltar servicio</button>
                     <button type="button" class="boton boton-exito finalizar">Finalizar servicio</button>
+                    <button type="button" class="boton boton-cotizar cotizar">Cotizar</button>
+                </div>
+                <div class="formulario-cotizacion oculto">
+                    <h4>Registrar cotización</h4>
+                    <label>Descripción de la cotización
+                        <textarea class="descripcion-cotizacion" rows="3"
+                                  placeholder="Describe los equipos, materiales o trabajos que se deben cotizar"></textarea>
+                    </label>
+                    <label>Soporte en PDF
+                        <input class="soporte-cotizacion" type="file" accept="application/pdf,.pdf">
+                    </label>
+                    <small class="ayuda-cotizacion">Archivo PDF de máximo 10 MB. Se requiere conexión para enviarlo.</small>
+                    <button type="button" class="boton boton-exito enviar-cotizacion">Enviar cotización</button>
                 </div>
             </div>
         </article>
@@ -112,6 +125,7 @@
     <script>
         window.SESUR_TECNICO = {
             api: "{% url 'api_servicios_tecnico' %}",
+            cotizarUrl: "{% url 'registrar_cotizacion_tecnico' 0 %}",
             leerAvisos: "{% url 'leer_notificaciones_tecnico' %}",
             serviceWorker: "{% url 'service_worker_tecnico' %}"
         };
@@ -119,7 +133,7 @@
             renovar: "{% url 'renovar_sesion' %}"
         };
     </script>
-    <script src="{% static 'sesur/js/session_activity.js' %}?v=18"></script>
-    <script src="{% static 'sesur/js/portal_tecnico.js' %}?v=18"></script>
+    <script src="{% static 'sesur/js/session_activity.js' %}?v=19"></script>
+    <script src="{% static 'sesur/js/portal_tecnico.js' %}?v=19"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
 from django.utils import timezone
 
 
@@ -492,6 +493,115 @@ class NotificacionTecnico(models.Model):
 
     class Meta:
         ordering = ["-fecha"]
+
+
+class CotizacionServicioTecnico(models.Model):
+    ESTADOS = [
+        ("REGISTRADA", "Registrada"),
+        ("PENDIENTE", "Pendiente"),
+        ("APROBADA", "Aprobada"),
+        ("RECHAZADA", "Rechazada"),
+    ]
+    MEDIOS_ENVIO = [
+        ("CELULAR", "Celular"),
+        ("CORREO", "Correo"),
+    ]
+    ACCIONES_SEGUIMIENTO = [
+        ("GESTIONADA", "Volví a gestionar"),
+        ("IGNORADA", "Ignorada"),
+    ]
+    mantenimiento = models.OneToOneField(
+        Mantenimiento,
+        on_delete=models.CASCADE,
+        related_name="cotizacion_tecnica",
+        null=True,
+        blank=True,
+    )
+    tecnico = models.ForeignKey(
+        Tecnico,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="cotizaciones_tecnicas",
+    )
+    codigo = models.CharField(max_length=50, db_index=True)
+    registro = models.CharField(max_length=50, blank=True, db_index=True)
+    cliente = models.CharField(max_length=100)
+    direccion = models.CharField(max_length=100)
+    descripcion = models.TextField()
+    fecha_orden = models.DateTimeField(default=timezone.now, db_index=True)
+    contacto = models.CharField(max_length=150, blank=True)
+    telefono = models.CharField(max_length=50, blank=True)
+    omt = models.CharField(max_length=150, blank=True)
+    actividad_realizada = models.TextField(blank=True)
+    ejecutivo = models.ForeignKey(
+        Ejecutivo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cotizaciones_tecnicas",
+    )
+    medio_envio = models.CharField(max_length=10, choices=MEDIOS_ENVIO, blank=True)
+    dirigida_a = models.CharField(max_length=150, blank=True)
+    numero_cotizacion = models.CharField(max_length=80, blank=True, db_index=True)
+    estado = models.CharField(
+        max_length=15, choices=ESTADOS, default="REGISTRADA", db_index=True
+    )
+    fecha_envio = models.DateTimeField(null=True, blank=True)
+    fecha_gestion = models.DateTimeField(null=True, blank=True)
+    nota_rechazo = models.TextField(blank=True)
+    accion_seguimiento = models.CharField(
+        max_length=12, choices=ACCIONES_SEGUIMIENTO, blank=True
+    )
+    nota_seguimiento = models.TextField(blank=True)
+    fecha_seguimiento = models.DateTimeField(null=True, blank=True)
+    soporte = models.FileField(
+        upload_to="cotizaciones_tecnicas/%Y/%m/",
+        validators=[FileExtensionValidator(["pdf"])],
+    )
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="cotizaciones_tecnicas_creadas",
+    )
+    fecha_registro = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-fecha_registro"]
+        verbose_name = "cotización de servicio técnico"
+        verbose_name_plural = "cotizaciones de servicios técnicos"
+
+    def __str__(self):
+        return f"{self.codigo} - {self.cliente}"
+
+
+class SeguimientoCotizacionTecnica(models.Model):
+    cotizacion = models.ForeignKey(
+        CotizacionServicioTecnico,
+        on_delete=models.CASCADE,
+        related_name="seguimientos",
+    )
+    numero = models.PositiveIntegerField()
+    nota = models.TextField()
+    fecha = models.DateTimeField(default=timezone.now, db_index=True)
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="seguimientos_cotizaciones_registrados",
+    )
+
+    class Meta:
+        ordering = ["numero", "fecha"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cotizacion", "numero"],
+                name="seguimiento_cotizacion_numero_unico",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.cotizacion} - seguimiento {self.numero}"
 
 
 # MODELO PARA CIUDADES

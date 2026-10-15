@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import date, datetime, time, timedelta
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import authenticate
@@ -10,7 +11,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from django.forms.models import model_to_dict
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
@@ -25,13 +26,16 @@ from openpyxl import Workbook
 from app_instalaciones.models.cuadroInstalaciones import (
     CuadroInsta,
     Ciudad,
+    CotizacionServicioTecnico,
     DiaNoLaboralTecnico,
+    Ejecutivo,
     Mantenimiento,
     JornadaLaboralTecnico,
     Tecnico,
     HistorialAsignacionMantenimiento,
     NotificacionTecnico,
     RotacionTecnicoDisponible,
+    SeguimientoCotizacionTecnica,
 )
 from app_instalaciones.models.forms import MantenimientoForm
 from app_instalaciones.models.auditoria import RegistroAuditoria
@@ -39,10 +43,14 @@ from app_instalaciones.models.auditoria import RegistroAuditoria
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
     analizar_pdf_mantenimientos,
     importar_resultados_pdf,
+    normalizar_clave,
     preparar_resultados_para_session,
     restaurar_resultados_desde_session,
 )
 from app_instalaciones.utils.importar_mantenimientos_excel import analizar_excel_mantenimientos
+from app_instalaciones.utils.importar_cotizacion_visita_pdf import (
+    analizar_visita_tecnica_cotizacion,
+)
 
 # VISTAS PARA LA GESTIÓN DE USUARIOS
 
@@ -106,6 +114,10 @@ def puede_gestionar_mantenimientos(user):
     )
 
 
+def puede_gestionar_cotizaciones(user):
+    return user.is_superuser or pertenece_grupo(user, "Cotizaciones")
+
+
 def puede_eliminar_mantenimientos(user):
     return user.is_superuser or pertenece_grupo(user, "Administrador")
 
@@ -118,7 +130,7 @@ def es_usuario_solo_tecnico(user):
         return False
     roles_administrativos = {
         "Administrador", "Coordinador", "Programador", "Almacen",
-        "Facturacion", "Visor",
+        "Facturacion", "Visor", "Cotizaciones",
     }
     return not user.groups.filter(name__in=roles_administrativos).exists()
 
@@ -978,6 +990,10 @@ def _tecnico_del_usuario(user):
 
 
 def _serializar_servicio_tecnico(mantenimiento):
+    try:
+        cotizacion_registrada = bool(mantenimiento.cotizacion_tecnica)
+    except CotizacionServicioTecnico.DoesNotExist:
+        cotizacion_registrada = False
     return {
         "id": mantenimiento.pk,
         "ticket": mantenimiento.numero_ticket or "",
@@ -1007,6 +1023,7 @@ def _serializar_servicio_tecnico(mantenimiento):
             mantenimiento.fin_tecnico and mantenimiento.estado_operativo == "FINALIZADO"
         ) else "",
         "bloqueado": mantenimiento.estado_operativo == "FINALIZADO" or bool(mantenimiento.orden),
+        "cotizacion_registrada": cotizacion_registrada,
     }
 
 
@@ -1039,7 +1056,7 @@ def api_servicios_tecnico(request):
         for mantenimiento in sin_programar:
             mantenimiento.fecha_programada = hoy
             mantenimiento.save(update_fields=["fecha_programada"])
-        servicios = Mantenimiento.objects.filter(
+        servicios = Mantenimiento.objects.select_related("cotizacion_tecnica").filter(
             tecnico=tecnico,
             realizado__isnull=True,
         ).exclude(
@@ -1177,6 +1194,345 @@ def api_servicios_tecnico(request):
             )
     mantenimiento.save()
     return JsonResponse({"ok": True, "servicio": _serializar_servicio_tecnico(mantenimiento)})
+
+
+@login_required(login_url="login")
+@require_POST
+def registrar_cotizacion_tecnico(request, pk):
+    tecnico = _tecnico_del_usuario(request.user)
+    if not tecnico:
+        return JsonResponse({"ok": False, "error": "Usuario sin técnico vinculado."}, status=403)
+
+    mantenimiento = get_object_or_404(Mantenimiento, pk=pk, tecnico=tecnico)
+    if hasattr(mantenimiento, "cotizacion_tecnica"):
+        return JsonResponse(
+            {"ok": False, "error": "Este servicio ya tiene una cotización registrada."},
+            status=409,
+        )
+
+    descripcion = (request.POST.get("descripcion") or "").strip()
+    soporte = request.FILES.get("soporte")
+    if not descripcion:
+        return JsonResponse(
+            {"ok": False, "error": "Debes escribir la descripción de la cotización."},
+            status=400,
+        )
+    if not soporte:
+        return JsonResponse(
+            {"ok": False, "error": "Debes adjuntar el soporte en PDF."},
+            status=400,
+        )
+    if soporte.size > 10 * 1024 * 1024:
+        return JsonResponse(
+            {"ok": False, "error": "El PDF no puede superar 10 MB."},
+            status=400,
+        )
+    encabezado = soporte.read(5)
+    soporte.seek(0)
+    if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
+        return JsonResponse(
+            {"ok": False, "error": "El soporte debe ser un archivo PDF válido."},
+            status=400,
+        )
+
+    cotizacion = CotizacionServicioTecnico.objects.create(
+        mantenimiento=mantenimiento,
+        tecnico=tecnico,
+        codigo=(mantenimiento.codigo or "SIN CÓDIGO")[:50],
+        registro=(mantenimiento.numero_ticket or "")[:50],
+        cliente=mantenimiento.cliente,
+        direccion=mantenimiento.direccion,
+        descripcion=descripcion[:5000],
+        soporte=soporte,
+        creado_por=request.user,
+    )
+    return JsonResponse({
+        "ok": True,
+        "cotizacion": {
+            "id": cotizacion.pk,
+            "codigo": cotizacion.codigo,
+            "registro": cotizacion.registro,
+            "cliente": cotizacion.cliente,
+        },
+    }, status=201)
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+def listar_cotizaciones_tecnicas(request):
+    busqueda = (request.GET.get("busqueda") or "").strip()
+    filtro_estado = (request.GET.get("estado") or "").upper()
+    cotizaciones_base = CotizacionServicioTecnico.objects.select_related(
+        "tecnico", "mantenimiento", "creado_por", "ejecutivo"
+    ).prefetch_related("seguimientos")
+    if busqueda:
+        cotizaciones_base = cotizaciones_base.filter(
+            Q(codigo__icontains=busqueda)
+            | Q(registro__icontains=busqueda)
+            | Q(cliente__icontains=busqueda)
+            | Q(direccion__icontains=busqueda)
+            | Q(descripcion__icontains=busqueda)
+            | Q(numero_cotizacion__icontains=busqueda)
+            | Q(tecnico__nombre__icontains=busqueda)
+        ).distinct()
+    contadores = {
+        "enviadas": cotizaciones_base.filter(fecha_envio__isnull=False).count(),
+        "aprobadas": cotizaciones_base.filter(estado="APROBADA").count(),
+        "pendientes": cotizaciones_base.filter(estado="PENDIENTE").count(),
+    }
+    cotizaciones = cotizaciones_base
+    if filtro_estado == "ENVIADAS":
+        cotizaciones = cotizaciones.filter(fecha_envio__isnull=False)
+    elif filtro_estado in {"APROBADA", "PENDIENTE"}:
+        cotizaciones = cotizaciones.filter(estado=filtro_estado)
+    cotizaciones = list(cotizaciones)
+    limite = timezone.localdate() - timedelta(days=8)
+    for cotizacion in cotizaciones:
+        cotizacion.total_seguimientos = len(cotizacion.seguimientos.all())
+        ultima_gestion = cotizacion.fecha_seguimiento or cotizacion.fecha_orden
+        fecha_ultima_gestion = (
+            timezone.localtime(ultima_gestion).date() if ultima_gestion else None
+        )
+        cotizacion.fecha_proximo_seguimiento = (
+            fecha_ultima_gestion + timedelta(days=8)
+            if fecha_ultima_gestion else None
+        )
+        cotizacion.seguimiento_vencido = bool(
+            cotizacion.estado == "PENDIENTE"
+            and fecha_ultima_gestion
+            and fecha_ultima_gestion <= limite
+        )
+        cotizacion.siguiente_seguimiento = cotizacion.total_seguimientos + 1
+    cotizaciones_vencidas = list(
+        CotizacionServicioTecnico.objects.filter(estado="PENDIENTE")
+        .filter(
+            Q(fecha_seguimiento__date__lte=limite)
+            | Q(fecha_seguimiento__isnull=True, fecha_orden__date__lte=limite)
+        )
+        .select_related("ejecutivo")
+    )
+    return render(request, "mantenimientos/listar_cotizaciones.html", {
+        "cotizaciones": cotizaciones,
+        "busqueda": busqueda,
+        "ejecutivos": Ejecutivo.objects.all().order_by("nombre"),
+        "cotizaciones_vencidas": cotizaciones_vencidas,
+        "filtro_estado": filtro_estado,
+        "contadores": contadores,
+    })
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@require_POST
+def crear_cotizacion_tecnica_manual(request):
+    codigo = (request.POST.get("codigo") or "").strip()
+    registro = (request.POST.get("registro") or "").strip()
+    cliente = (request.POST.get("cliente") or "").strip()
+    direccion = (request.POST.get("direccion") or "").strip()
+    descripcion = (request.POST.get("descripcion") or "").strip()
+    contacto = (request.POST.get("contacto") or "").strip()
+    telefono = (request.POST.get("telefono") or "").strip()
+    fecha_orden = parse_datetime(request.POST.get("fecha_orden") or "")
+    if fecha_orden and timezone.is_naive(fecha_orden):
+        fecha_orden = timezone.make_aware(fecha_orden, timezone.get_current_timezone())
+    soporte = request.FILES.get("soporte")
+    if not all([codigo, cliente, direccion, descripcion, soporte]):
+        messages.error(request, "Completa los campos obligatorios y adjunta el PDF.")
+        return redirect("listar_cotizaciones_tecnicas")
+    if soporte.size > 10 * 1024 * 1024:
+        messages.error(request, "El PDF no puede superar 10 MB.")
+        return redirect("listar_cotizaciones_tecnicas")
+    encabezado = soporte.read(5)
+    soporte.seek(0)
+    if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
+        messages.error(request, "El soporte debe ser un archivo PDF válido.")
+        return redirect("listar_cotizaciones_tecnicas")
+    CotizacionServicioTecnico.objects.create(
+        codigo=codigo[:50],
+        registro=registro[:50],
+        cliente=cliente[:100],
+        direccion=direccion[:100],
+        descripcion=descripcion[:5000],
+        fecha_orden=fecha_orden or timezone.now(),
+        contacto=contacto[:150],
+        dirigida_a=contacto[:150],
+        telefono=telefono[:50],
+        soporte=soporte,
+        creado_por=request.user,
+    )
+    messages.success(request, "Cotización manual creada correctamente.")
+    return redirect("listar_cotizaciones_tecnicas")
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+def buscar_cliente_mantenimiento(request):
+    codigo = (request.GET.get("codigo") or "").strip()
+    if not codigo:
+        return JsonResponse({"encontrado": False})
+    mantenimiento = (
+        Mantenimiento.objects.filter(codigo__iexact=codigo)
+        .exclude(cliente__isnull=True)
+        .exclude(cliente="")
+        .order_by("-fecha_creacion_servicio", "-fecha_registro", "-pk")
+        .first()
+    )
+    if not mantenimiento:
+        return JsonResponse({"encontrado": False})
+    return JsonResponse({
+        "encontrado": True,
+        "cliente": mantenimiento.cliente or "",
+        "direccion": mantenimiento.direccion or "",
+    })
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@require_POST
+def importar_cotizacion_visita_pdf(request):
+    soporte = request.FILES.get("soporte")
+    if not soporte or not soporte.name.lower().endswith(".pdf"):
+        messages.error(request, "Selecciona una orden de visita en formato PDF.")
+        return redirect("listar_cotizaciones_tecnicas")
+    if soporte.size > 10 * 1024 * 1024:
+        messages.error(request, "El PDF no puede superar 10 MB.")
+        return redirect("listar_cotizaciones_tecnicas")
+    try:
+        datos = analizar_visita_tecnica_cotizacion(soporte)
+    except (ValueError, OSError) as error:
+        messages.error(request, f"No fue posible importar la orden: {error}")
+        return redirect("listar_cotizaciones_tecnicas")
+    if CotizacionServicioTecnico.objects.filter(registro=datos["registro"]).exists():
+        messages.error(request, f"El registro {datos['registro']} ya fue importado.")
+        return redirect("listar_cotizaciones_tecnicas")
+
+    clave_tecnico = normalizar_clave(datos["tecnico_nombre"]).replace(" ", "")
+    tecnico = next(
+        (
+            item for item in Tecnico.objects.all()
+            if normalizar_clave(item.nombre).replace(" ", "") == clave_tecnico
+        ),
+        None,
+    )
+    soporte.seek(0)
+    CotizacionServicioTecnico.objects.create(
+        registro=datos["registro"][:50],
+        codigo=datos["codigo"][:50],
+        cliente=datos["cliente"][:100],
+        direccion=datos["direccion"][:100],
+        descripcion=datos["descripcion"][:5000],
+        fecha_orden=datos["fecha_orden"] or timezone.now(),
+        contacto=datos["contacto"][:150],
+        dirigida_a=datos["contacto"][:150],
+        telefono=datos["telefono"][:50],
+        omt=datos["omt"][:150],
+        actividad_realizada=datos["actividad_realizada"][:5000],
+        tecnico=tecnico,
+        soporte=soporte,
+        creado_por=request.user,
+    )
+    messages.success(
+        request,
+        f"Orden {datos['registro']} importada y guardada con su soporte PDF.",
+    )
+    return redirect("listar_cotizaciones_tecnicas")
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@require_POST
+def gestionar_cotizacion_tecnica(request, pk):
+    cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
+    accion = (request.POST.get("accion") or "").upper()
+    ahora = timezone.now()
+
+    if accion == "ENVIAR":
+        ejecutivo_id = request.POST.get("ejecutivo")
+        medio = (request.POST.get("medio_envio") or "").upper()
+        dirigida_a = (request.POST.get("dirigida_a") or "").strip()
+        numero_cotizacion = (request.POST.get("numero_cotizacion") or "").strip()
+        ejecutivo = Ejecutivo.objects.filter(pk=ejecutivo_id).first()
+        if (
+            not ejecutivo
+            or medio not in {"CELULAR", "CORREO"}
+            or not dirigida_a
+            or not numero_cotizacion
+        ):
+            messages.error(
+                request,
+                "Selecciona el ejecutivo, el medio, el destinatario y el número de cotización.",
+            )
+        elif cotizacion.estado != "REGISTRADA":
+            messages.error(request, "Esta cotización ya fue enviada.")
+        else:
+            cotizacion.ejecutivo = ejecutivo
+            cotizacion.medio_envio = medio
+            cotizacion.dirigida_a = dirigida_a[:150]
+            cotizacion.numero_cotizacion = numero_cotizacion[:80]
+            cotizacion.estado = "PENDIENTE"
+            cotizacion.fecha_envio = ahora
+            cotizacion.save(update_fields=[
+                "ejecutivo", "medio_envio", "dirigida_a", "numero_cotizacion",
+                "estado", "fecha_envio"
+            ])
+            messages.success(request, "Cotización marcada como enviada y pendiente.")
+    elif accion in {"APROBAR", "RECHAZAR"}:
+        if cotizacion.estado != "PENDIENTE":
+            messages.error(request, "Solo se puede gestionar una cotización pendiente.")
+        else:
+            nota = (request.POST.get("nota_rechazo") or "").strip()
+            if accion == "RECHAZAR" and not nota:
+                messages.error(request, "Escribe el motivo del rechazo.")
+            else:
+                cotizacion.estado = "APROBADA" if accion == "APROBAR" else "RECHAZADA"
+                cotizacion.nota_rechazo = nota[:5000] if accion == "RECHAZAR" else ""
+                cotizacion.fecha_gestion = ahora
+                cotizacion.save(update_fields=["estado", "nota_rechazo", "fecha_gestion"])
+                messages.success(request, f"Cotización {cotizacion.get_estado_display().lower()}.")
+    elif accion in {"SEGUIMIENTO", "GESTIONADA"}:
+        if cotizacion.estado != "PENDIENTE":
+            messages.error(request, "La cotización ya no está pendiente.")
+        else:
+            nota = (request.POST.get("nota_seguimiento") or "").strip()[:5000]
+            if not nota:
+                messages.error(request, "Escribe una nota sobre el seguimiento realizado.")
+            else:
+                numero = cotizacion.seguimientos.count() + 1
+                SeguimientoCotizacionTecnica.objects.create(
+                    cotizacion=cotizacion,
+                    numero=numero,
+                    nota=nota,
+                    fecha=ahora,
+                    usuario=request.user,
+                )
+                cotizacion.accion_seguimiento = "GESTIONADA"
+                cotizacion.nota_seguimiento = nota
+                cotizacion.fecha_seguimiento = ahora
+                cotizacion.save(update_fields=[
+                    "accion_seguimiento", "nota_seguimiento", "fecha_seguimiento"
+                ])
+                messages.success(request, "Seguimiento registrado; la cotización continúa pendiente.")
+    else:
+        messages.error(request, "Acción de cotización no válida.")
+
+    destino = reverse("listar_cotizaciones_tecnicas")
+    busqueda = (request.POST.get("busqueda") or "").strip()
+    if busqueda:
+        destino += "?" + urlencode({"busqueda": busqueda})
+    return redirect(f"{destino}#cotizacion-{cotizacion.pk}")
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+def descargar_soporte_cotizacion(request, pk):
+    cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
+    nombre = cotizacion.soporte.name.rsplit("/", 1)[-1]
+    return FileResponse(
+        cotizacion.soporte.open("rb"),
+        content_type="application/pdf",
+        as_attachment=False,
+        filename=nombre,
+    )
 
 
 @login_required(login_url="login")
@@ -1587,6 +1943,7 @@ def configuracion_usuarios(request):
         'Facturacion',
         'Visor',
         'Tecnico',
+        'Cotizaciones',
     ]
 
     for nombre in grupos_base:

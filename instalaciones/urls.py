@@ -67,6 +67,11 @@ urlpatterns = [
          name='configuracion_catalogo_comercial'),
     path('tecnico/servicios/', user_views.portal_tecnico, name='portal_tecnico'),
     path('api/tecnico/servicios/', user_views.api_servicios_tecnico, name='api_servicios_tecnico'),
+    path(
+        'api/tecnico/servicios/<int:pk>/cotizar/',
+        user_views.registrar_cotizacion_tecnico,
+        name='registrar_cotizacion_tecnico',
+    ),
     path('api/tecnico/notificaciones/leidas/', user_views.leer_notificaciones_tecnico, name='leer_notificaciones_tecnico'),
     path('manifest.webmanifest', user_views.manifiesto_tecnico, name='manifiesto_tecnico'),
     path('service-worker.js', user_views.service_worker_tecnico, name='service_worker_tecnico'),
@@ -83,6 +88,36 @@ urlpatterns = [
     path('mantenimientos/<int:pk>/subir-archivo/',
          user_views.mantenimiento_subir_archivo,
          name='mantenimiento_subir_archivo'),
+    path(
+        'cotizaciones/',
+        user_views.listar_cotizaciones_tecnicas,
+        name='listar_cotizaciones_tecnicas',
+    ),
+    path(
+        'cotizaciones/nueva/',
+        user_views.crear_cotizacion_tecnica_manual,
+        name='crear_cotizacion_tecnica_manual',
+    ),
+    path(
+        'api/cotizaciones/buscar-cliente/',
+        user_views.buscar_cliente_mantenimiento,
+        name='buscar_cliente_mantenimiento',
+    ),
+    path(
+        'cotizaciones/importar-visita/',
+        user_views.importar_cotizacion_visita_pdf,
+        name='importar_cotizacion_visita_pdf',
+    ),
+    path(
+        'cotizaciones/<int:pk>/soporte/',
+        user_views.descargar_soporte_cotizacion,
+        name='descargar_soporte_cotizacion',
+    ),
+    path(
+        'cotizaciones/<int:pk>/gestionar/',
+        user_views.gestionar_cotizacion_tecnica,
+        name='gestionar_cotizacion_tecnica',
+    ),
     path(
         'instalacion/<int:id>/facturar/',
         user_views.facturar_instalacion,
