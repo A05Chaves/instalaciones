@@ -1250,7 +1250,7 @@ def registrar_cotizacion_tecnico(request, pk):
     cotizacion = CotizacionServicioTecnico.objects.create(
         mantenimiento=mantenimiento,
         tecnico=tecnico,
-        codigo=(mantenimiento.codigo or "SIN CÓDIGO")[:50],
+        codigo=(mantenimiento.codigo or "0")[:50],
         registro=registro[:50],
         cliente=mantenimiento.cliente,
         direccion=mantenimiento.direccion,
@@ -1337,7 +1337,7 @@ def listar_cotizaciones_tecnicas(request):
 @user_passes_test(puede_gestionar_cotizaciones, login_url="home")
 @require_POST
 def crear_cotizacion_tecnica_manual(request):
-    codigo = (request.POST.get("codigo") or "").strip()
+    codigo = (request.POST.get("codigo") or "").strip() or "0"
     registro = (request.POST.get("registro") or "").strip()
     cliente = (request.POST.get("cliente") or "").strip()
     direccion = (request.POST.get("direccion") or "").strip()
@@ -1436,7 +1436,7 @@ def importar_cotizacion_visita_pdf(request):
     soporte.seek(0)
     CotizacionServicioTecnico.objects.create(
         registro=registro,
-        codigo=datos["codigo"][:50],
+        codigo=(datos.get("codigo") or "0")[:50],
         cliente=datos["cliente"][:100],
         direccion=datos["direccion"][:100],
         descripcion=datos["descripcion"][:5000],

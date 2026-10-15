@@ -218,6 +218,36 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertEqual(importada.fecha_orden.date().isoformat(), "2026-10-08")
         self.assertTrue(importada.soporte.name.endswith("visita.pdf"))
 
+    @patch(
+        "app_instalaciones.home_views.user_views.analizar_visita_tecnica_cotizacion"
+    )
+    def test_importa_orden_sin_codigo_usando_cero(self, analizar):
+        analizar.return_value = {
+            "registro": "1107471",
+            "fecha_orden": timezone.now(),
+            "tecnico_nombre": "Técnico cotización",
+            "codigo": "",
+            "cliente": "CLIENTE SIN CÓDIGO",
+            "direccion": "CALLE 1",
+            "descripcion": "Cotización requerida",
+            "actividad_realizada": "Visita técnica",
+            "telefono": "",
+            "contacto": "",
+            "omt": "",
+        }
+        respuesta = self.client.post(
+            reverse("importar_cotizacion_visita_pdf"),
+            {"soporte": SimpleUploadedFile(
+                "sin-codigo.pdf", b"%PDF-1.4\norden", content_type="application/pdf"
+            )},
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(
+            CotizacionServicioTecnico.objects.get(registro="1107471").codigo,
+            "0",
+        )
+
     def test_busca_cliente_y_direccion_por_codigo_de_mantenimiento(self):
         respuesta = self.client.get(
             reverse("buscar_cliente_mantenimiento"), {"codigo": "CLI-10"}

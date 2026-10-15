@@ -81,7 +81,10 @@ def analizar_visita_tecnica_cotizacion(archivo_pdf):
         "contacto": _buscar(texto, r"NOMBRE\s+CLIENTE\s*:\s*([^\n]+)"),
         "omt": _buscar(texto, r"\bOMT\s*:\s*([^\n]+)"),
     }
-    obligatorios = ["registro", "codigo", "cliente", "direccion", "descripcion"]
+    # Algunas órdenes no tienen un código de cliente asignado. En esos casos
+    # se usa cero para permitir su registro sin confundirlo con el número único.
+    datos["codigo"] = datos["codigo"] or "0"
+    obligatorios = ["registro", "cliente", "direccion", "descripcion"]
     faltantes = [campo for campo in obligatorios if not datos[campo]]
     if faltantes:
         raise ValueError("No se encontraron estos campos: " + ", ".join(faltantes))

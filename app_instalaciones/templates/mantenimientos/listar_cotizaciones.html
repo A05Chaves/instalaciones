@@ -285,11 +285,11 @@
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label">Código *</label>
+                        <label class="form-label">Código</label>
                         <input name="codigo" id="codigo-cotizacion-manual" class="form-control"
-                               maxlength="50" required
+                               maxlength="50" value="0"
                                data-buscar-url="{% url 'buscar_cliente_mantenimiento' %}">
-                        <div id="resultado-codigo" class="form-text"></div>
+                        <div id="resultado-codigo" class="form-text">Si la orden no tiene código, se guardará como 0.</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Registro *</label>
