@@ -285,23 +285,26 @@ class SeguimientoCotizacionesTests(TestCase):
         )
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, "El soporte antiguo ya no está disponible")
+        self.assertContains(respuesta, "El soporte PDF original no está disponible")
+        self.assertContains(respuesta, "no se puede reemplazar")
 
-    def test_permite_reemplazar_un_soporte_antiguo(self):
-        respuesta = self.client.post(
-            reverse("actualizar_soporte_cotizacion", args=[self.cotizacion.pk]),
-            {"soporte": SimpleUploadedFile(
-                "recuperado.pdf", b"%PDF-1.4\nrecuperado", content_type="application/pdf"
-            )},
+    def test_soporte_antiguo_existente_se_copia_a_base_de_datos(self):
+        contenido = b"%PDF-1.4\nsoporte original"
+        self.cotizacion.soporte.save(
+            "soporte-original.pdf",
+            SimpleUploadedFile("soporte-original.pdf", contenido),
+        )
+        self.cotizacion.save(update_fields=["soporte"])
+
+        respuesta = self.client.get(
+            reverse("descargar_soporte_cotizacion", args=[self.cotizacion.pk])
         )
 
-        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(b"".join(respuesta.streaming_content), contenido)
         self.cotizacion.refresh_from_db()
-        self.assertEqual(self.cotizacion.soporte_nombre, "recuperado.pdf")
-        self.assertEqual(
-            bytes(self.cotizacion.soporte_contenido),
-            b"%PDF-1.4\nrecuperado",
-        )
+        self.assertEqual(bytes(self.cotizacion.soporte_contenido), contenido)
+        self.assertEqual(self.cotizacion.soporte_nombre, "soporte-original.pdf")
 
     def test_exporta_cotizaciones_en_excel(self):
         respuesta = self.client.get(reverse("exportar_cotizaciones_excel"))

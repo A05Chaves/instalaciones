@@ -84,6 +84,6 @@ class CotizacionServicioTecnicoAdmin(admin.ModelAdmin):
         "tecnico__nombre",
         "ejecutivo__nombre",
     )
-    readonly_fields = ("fecha_registro",)
+    readonly_fields = ("fecha_registro", "soporte", "soporte_nombre")
     date_hierarchy = "fecha_orden"
     ordering = ("-fecha_orden", "-pk")

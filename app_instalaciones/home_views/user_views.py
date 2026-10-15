@@ -1673,44 +1673,27 @@ def descargar_soporte_cotizacion(request, pk):
             filename=nombre,
         )
     try:
-        archivo = cotizacion.soporte.open("rb")
+        with cotizacion.soporte.open("rb") as archivo:
+            contenido = archivo.read()
     except (FileNotFoundError, OSError, ValueError):
         messages.error(
             request,
-            "El soporte antiguo ya no está disponible en el servidor. "
-            "Debes cargar nuevamente el PDF.",
+            "El soporte PDF original no está disponible en el almacenamiento. "
+            "El soporte de una cotización no se puede reemplazar.",
         )
         return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{cotizacion.pk}')
+    # Los soportes creados antes de almacenarlos en PostgreSQL conservaban solo
+    # la ruta del archivo. Al abrirlos por primera vez se guarda exactamente el
+    # mismo PDF en la base de datos para que sobreviva a futuros despliegues.
+    cotizacion.soporte_contenido = contenido
+    cotizacion.soporte_nombre = nombre[:255]
+    cotizacion.save(update_fields=["soporte_contenido", "soporte_nombre"])
     return FileResponse(
-        archivo,
+        BytesIO(contenido),
         content_type="application/pdf",
         as_attachment=False,
         filename=nombre,
     )
-
-
-@login_required(login_url="login")
-@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
-@require_POST
-def actualizar_soporte_cotizacion(request, pk):
-    cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
-    soporte = request.FILES.get("soporte")
-    if not soporte or soporte.size > 10 * 1024 * 1024:
-        messages.error(request, "Selecciona un PDF válido de máximo 10 MB.")
-        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
-    encabezado = soporte.read(5)
-    soporte.seek(0)
-    if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
-        messages.error(request, "El soporte debe ser un archivo PDF válido.")
-        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
-    cotizacion.soporte = soporte.name
-    cotizacion.soporte_nombre = soporte.name[:255]
-    cotizacion.soporte_contenido = soporte.read()
-    cotizacion.save(update_fields=[
-        "soporte", "soporte_nombre", "soporte_contenido"
-    ])
-    messages.success(request, "El soporte PDF fue actualizado correctamente.")
-    return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
 
 
 @login_required(login_url="login")

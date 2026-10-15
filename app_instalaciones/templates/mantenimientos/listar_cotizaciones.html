@@ -137,16 +137,6 @@
                            class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-file-pdf me-1"></i>Ver PDF
                         </a>
-                        <form method="post" enctype="multipart/form-data"
-                              action="{% url 'actualizar_soporte_cotizacion' cotizacion.pk %}"
-                              class="mt-2">
-                            {% csrf_token %}
-                            <label class="btn btn-outline-secondary btn-sm mb-0">
-                                <i class="fas fa-upload me-1"></i>Reemplazar PDF
-                                <input type="file" name="soporte" accept="application/pdf,.pdf"
-                                       class="d-none" required onchange="this.form.submit()">
-                            </label>
-                        </form>
                     </td>
                     <td>
                         {% if cotizacion.estado == "REGISTRADA" %}
