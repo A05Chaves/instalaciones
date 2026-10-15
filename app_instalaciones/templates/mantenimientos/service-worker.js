@@ -3,7 +3,7 @@ const SHELL = [
   "{% url 'portal_tecnico' %}",
   "/static/sesur/css/portal_tecnico.css?v=19",
   "/static/sesur/js/session_activity.js?v=19",
-  "/static/sesur/js/portal_tecnico.js?v=19",
+  "/static/sesur/js/portal_tecnico.js?v=20",
   "/static/sesur/img/logosesur.png"
 ];
 

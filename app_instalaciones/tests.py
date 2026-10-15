@@ -749,21 +749,12 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=19")
+        self.assertContains(portal, "portal_tecnico.js?v=20")
 
-    def test_tecnico_registra_cotizacion_con_soporte_pdf(self):
-        soporte = SimpleUploadedFile(
-            "soporte-cotizacion.pdf",
-            b"%PDF-1.4\nsoporte de prueba",
-            content_type="application/pdf",
-        )
-
+    def test_tecnico_registra_cotizacion_con_descripcion_sin_pdf(self):
         response = self.client.post(
             reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
-            {
-                "descripcion": "Cambio de panel y dos sensores",
-                "soporte": soporte,
-            },
+            {"descripcion": "Cambio de panel y dos sensores"},
         )
 
         self.assertEqual(response.status_code, 201, response.content)
@@ -777,19 +768,18 @@ class PortalTecnicoTests(TestCase):
         self.assertEqual(cotizacion.tecnico, self.tecnico)
         self.assertEqual(cotizacion.creado_por, self.usuario)
         self.assertIn("Cambio de panel", cotizacion.descripcion)
+        self.assertFalse(cotizacion.soporte)
+        self.assertIsNone(cotizacion.soporte_contenido)
 
         servicio = self.client.get(reverse("api_servicios_tecnico")).json()[
             "servicios"
         ][0]
         self.assertTrue(servicio["cotizacion_registrada"])
 
-    def test_cotizacion_exige_un_pdf_valido_y_no_permite_duplicados(self):
-        archivo_invalido = SimpleUploadedFile(
-            "soporte.txt", b"no es pdf", content_type="text/plain"
-        )
+    def test_cotizacion_exige_descripcion_y_no_permite_duplicados(self):
         invalida = self.client.post(
             reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
-            {"descripcion": "Prueba", "soporte": archivo_invalido},
+            {"descripcion": ""},
         )
         self.assertEqual(invalida.status_code, 400)
 
@@ -805,12 +795,7 @@ class PortalTecnicoTests(TestCase):
         )
         repetida = self.client.post(
             reverse("registrar_cotizacion_tecnico", args=[self.servicio.pk]),
-            {
-                "descripcion": "Otra cotización",
-                "soporte": SimpleUploadedFile(
-                    "otra.pdf", b"%PDF-1.4\n", content_type="application/pdf"
-                ),
-            },
+            {"descripcion": "Otra cotización"},
         )
         self.assertEqual(repetida.status_code, 409)
 

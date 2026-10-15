@@ -1327,32 +1327,11 @@ def registrar_cotizacion_tecnico(request, pk):
         )
 
     descripcion = (request.POST.get("descripcion") or "").strip()
-    soporte = request.FILES.get("soporte")
     if not descripcion:
         return JsonResponse(
             {"ok": False, "error": "Debes escribir la descripción de la cotización."},
             status=400,
         )
-    if not soporte:
-        return JsonResponse(
-            {"ok": False, "error": "Debes adjuntar el soporte en PDF."},
-            status=400,
-        )
-    if soporte.size > 10 * 1024 * 1024:
-        return JsonResponse(
-            {"ok": False, "error": "El PDF no puede superar 10 MB."},
-            status=400,
-        )
-    encabezado = soporte.read(5)
-    soporte.seek(0)
-    if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
-        return JsonResponse(
-            {"ok": False, "error": "El soporte debe ser un archivo PDF válido."},
-            status=400,
-        )
-
-    soporte_contenido = soporte.read()
-    soporte.seek(0)
 
     cotizacion = CotizacionServicioTecnico.objects.create(
         mantenimiento=mantenimiento,
@@ -1362,9 +1341,6 @@ def registrar_cotizacion_tecnico(request, pk):
         cliente=mantenimiento.cliente,
         direccion=mantenimiento.direccion,
         descripcion=descripcion[:5000],
-        soporte=soporte.name,
-        soporte_contenido=soporte_contenido,
-        soporte_nombre=soporte.name[:255],
         creado_por=request.user,
     )
     return JsonResponse({

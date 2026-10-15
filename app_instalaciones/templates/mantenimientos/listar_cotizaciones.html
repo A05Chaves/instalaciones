@@ -132,11 +132,15 @@
                     </td>
                     <td>{{ cotizacion.tecnico.nombre|default:"Sin técnico" }}</td>
                     <td class="text-center">
+                        {% if cotizacion.soporte_contenido or cotizacion.soporte %}
                         <a href="{% url 'descargar_soporte_cotizacion' cotizacion.pk %}"
                            target="_blank" rel="noopener"
                            class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-file-pdf me-1"></i>Ver PDF
                         </a>
+                        {% else %}
+                        <small class="text-muted">Solicitud escrita desde la app</small>
+                        {% endif %}
                     </td>
                     <td>
                         {% if cotizacion.estado == "REGISTRADA" %}
