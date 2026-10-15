@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import date, datetime, time, timedelta
+from io import BytesIO
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -1247,6 +1248,9 @@ def registrar_cotizacion_tecnico(request, pk):
             status=400,
         )
 
+    soporte_contenido = soporte.read()
+    soporte.seek(0)
+
     cotizacion = CotizacionServicioTecnico.objects.create(
         mantenimiento=mantenimiento,
         tecnico=tecnico,
@@ -1255,7 +1259,9 @@ def registrar_cotizacion_tecnico(request, pk):
         cliente=mantenimiento.cliente,
         direccion=mantenimiento.direccion,
         descripcion=descripcion[:5000],
-        soporte=soporte,
+        soporte=soporte.name,
+        soporte_contenido=soporte_contenido,
+        soporte_nombre=soporte.name[:255],
         creado_por=request.user,
     )
     return JsonResponse({
@@ -1362,6 +1368,8 @@ def crear_cotizacion_tecnica_manual(request):
     if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
         messages.error(request, "El soporte debe ser un archivo PDF válido.")
         return redirect(f'{reverse("listar_cotizaciones_tecnicas")}?error=manual')
+    soporte_contenido = soporte.read()
+    soporte.seek(0)
     CotizacionServicioTecnico.objects.create(
         codigo=codigo[:50],
         registro=registro[:50],
@@ -1372,7 +1380,9 @@ def crear_cotizacion_tecnica_manual(request):
         contacto=contacto[:150],
         dirigida_a=contacto[:150],
         telefono=telefono[:50],
-        soporte=soporte,
+        soporte=soporte.name,
+        soporte_contenido=soporte_contenido,
+        soporte_nombre=soporte.name[:255],
         creado_por=request.user,
     )
     messages.success(request, "Cotización manual creada correctamente.")
@@ -1434,6 +1444,8 @@ def importar_cotizacion_visita_pdf(request):
         None,
     )
     soporte.seek(0)
+    soporte_contenido = soporte.read()
+    soporte.seek(0)
     CotizacionServicioTecnico.objects.create(
         registro=registro,
         codigo=(datos.get("codigo") or "0")[:50],
@@ -1447,7 +1459,9 @@ def importar_cotizacion_visita_pdf(request):
         omt=datos["omt"][:150],
         actividad_realizada=datos["actividad_realizada"][:5000],
         tecnico=tecnico,
-        soporte=soporte,
+        soporte=soporte.name,
+        soporte_contenido=soporte_contenido,
+        soporte_nombre=soporte.name[:255],
         creado_por=request.user,
     )
     messages.success(
@@ -1545,13 +1559,113 @@ def gestionar_cotizacion_tecnica(request, pk):
 @user_passes_test(puede_gestionar_cotizaciones, login_url="home")
 def descargar_soporte_cotizacion(request, pk):
     cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
-    nombre = cotizacion.soporte.name.rsplit("/", 1)[-1]
+    nombre = (
+        cotizacion.soporte_nombre
+        or (cotizacion.soporte.name.rsplit("/", 1)[-1] if cotizacion.soporte else "")
+        or f"soporte-{cotizacion.registro}.pdf"
+    )
+    if cotizacion.soporte_contenido:
+        return FileResponse(
+            BytesIO(bytes(cotizacion.soporte_contenido)),
+            content_type="application/pdf",
+            as_attachment=False,
+            filename=nombre,
+        )
+    try:
+        archivo = cotizacion.soporte.open("rb")
+    except (FileNotFoundError, OSError, ValueError):
+        messages.error(
+            request,
+            "El soporte antiguo ya no está disponible en el servidor. "
+            "Debes cargar nuevamente el PDF.",
+        )
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{cotizacion.pk}')
     return FileResponse(
-        cotizacion.soporte.open("rb"),
+        archivo,
         content_type="application/pdf",
         as_attachment=False,
         filename=nombre,
     )
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@require_POST
+def actualizar_soporte_cotizacion(request, pk):
+    cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
+    soporte = request.FILES.get("soporte")
+    if not soporte or soporte.size > 10 * 1024 * 1024:
+        messages.error(request, "Selecciona un PDF válido de máximo 10 MB.")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
+    encabezado = soporte.read(5)
+    soporte.seek(0)
+    if not soporte.name.lower().endswith(".pdf") or encabezado != b"%PDF-":
+        messages.error(request, "El soporte debe ser un archivo PDF válido.")
+        return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
+    cotizacion.soporte = soporte.name
+    cotizacion.soporte_nombre = soporte.name[:255]
+    cotizacion.soporte_contenido = soporte.read()
+    cotizacion.save(update_fields=[
+        "soporte", "soporte_nombre", "soporte_contenido"
+    ])
+    messages.success(request, "El soporte PDF fue actualizado correctamente.")
+    return redirect(f'{reverse("listar_cotizaciones_tecnicas")}#cotizacion-{pk}')
+
+
+@login_required(login_url="login")
+@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+def exportar_cotizaciones_excel(request):
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Cotizaciones"
+    hoja.append([
+        "Fecha de la orden", "Código", "Registro / solicitante", "Cliente",
+        "Dirección", "Descripción", "Técnico", "Ejecutivo", "Medio de envío",
+        "Dirigida a", "Teléfono", "Número de cotización", "Estado",
+        "Fecha de envío", "Fecha de gestión", "Último seguimiento",
+    ])
+    cotizaciones = CotizacionServicioTecnico.objects.select_related(
+        "tecnico", "ejecutivo"
+    ).order_by("-fecha_orden", "-pk")
+    for cotizacion in cotizaciones:
+        def fecha_local(valor):
+            return timezone.localtime(valor).strftime("%Y-%m-%d %H:%M") if valor else ""
+
+        hoja.append([
+            fecha_local(cotizacion.fecha_orden),
+            cotizacion.codigo,
+            cotizacion.registro,
+            cotizacion.cliente,
+            cotizacion.direccion,
+            cotizacion.descripcion,
+            cotizacion.tecnico.nombre if cotizacion.tecnico else "",
+            cotizacion.ejecutivo.nombre if cotizacion.ejecutivo else "",
+            cotizacion.get_medio_envio_display() if cotizacion.medio_envio else "",
+            cotizacion.dirigida_a,
+            cotizacion.telefono,
+            cotizacion.numero_cotizacion,
+            cotizacion.get_estado_display(),
+            fecha_local(cotizacion.fecha_envio),
+            fecha_local(cotizacion.fecha_gestion),
+            fecha_local(cotizacion.fecha_seguimiento),
+        ])
+    for columna in hoja.columns:
+        letra = columna[0].column_letter
+        hoja.column_dimensions[letra].width = min(
+            max(len(str(celda.value or "")) for celda in columna) + 2,
+            45,
+        )
+    salida = BytesIO()
+    libro.save(salida)
+    salida.seek(0)
+    respuesta = HttpResponse(
+        salida.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    respuesta["Content-Disposition"] = (
+        f'attachment; filename="cotizaciones-{timezone.localdate():%Y-%m-%d}.xlsx"'
+    )
+    return respuesta
 
 
 @login_required(login_url="login")

@@ -557,7 +557,10 @@ class CotizacionServicioTecnico(models.Model):
     soporte = models.FileField(
         upload_to="cotizaciones_tecnicas/%Y/%m/",
         validators=[FileExtensionValidator(["pdf"])],
+        blank=True,
     )
+    soporte_contenido = models.BinaryField(null=True, blank=True, editable=False)
+    soporte_nombre = models.CharField(max_length=255, blank=True)
     creado_por = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

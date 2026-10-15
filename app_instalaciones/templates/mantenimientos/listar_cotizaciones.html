@@ -29,6 +29,9 @@
         <p class="text-muted mb-0">Solicitudes generadas por los técnicos desde sus servicios asignados.</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{% url 'exportar_cotizaciones_excel' %}" class="btn btn-success">
+            <i class="fas fa-file-excel me-1"></i>Exportar Excel
+        </a>
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
                 data-bs-target="#modalImportarVisita">
             <i class="fas fa-file-import me-1"></i>Importar orden PDF
@@ -134,6 +137,16 @@
                            class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-file-pdf me-1"></i>Ver PDF
                         </a>
+                        <form method="post" enctype="multipart/form-data"
+                              action="{% url 'actualizar_soporte_cotizacion' cotizacion.pk %}"
+                              class="mt-2">
+                            {% csrf_token %}
+                            <label class="btn btn-outline-secondary btn-sm mb-0">
+                                <i class="fas fa-upload me-1"></i>Reemplazar PDF
+                                <input type="file" name="soporte" accept="application/pdf,.pdf"
+                                       class="d-none" required onchange="this.form.submit()">
+                            </label>
+                        </form>
                     </td>
                     <td>
                         {% if cotizacion.estado == "REGISTRADA" %}
@@ -292,8 +305,10 @@
                         <div id="resultado-codigo" class="form-text">Si la orden no tiene código, se guardará como 0.</div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Registro *</label>
-                        <input name="registro" class="form-control" maxlength="50" required>
+                        <label class="form-label">Orden o nombre de quien solicita *</label>
+                        <input name="registro" class="form-control" maxlength="50" required
+                               placeholder="Ej.: SOLICITUD JUAN PÉREZ 15-10-2026">
+                        <div class="form-text">Debe ser un dato único para identificar la solicitud verbal.</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Fecha y hora de la orden *</label>

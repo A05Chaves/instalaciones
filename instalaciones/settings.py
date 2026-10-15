@@ -113,14 +113,13 @@ USE_TZ = True
 # === Archivos estáticos y media ===
 STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 if AMBIENTE == "produccion":
     STATIC_ROOT = BASE_DIR / "staticfiles"
     STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-else:
-    MEDIA_ROOT = BASE_DIR / "media"
 
 # === Login y sesiones ===
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

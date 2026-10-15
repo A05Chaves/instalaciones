@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 import shutil
 import tempfile
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from openpyxl import load_workbook
 
 from app_instalaciones.models import (
     CotizacionServicioTecnico,
@@ -224,6 +226,14 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertIsNotNone(importada.tecnico)
         self.assertEqual(importada.fecha_orden.date().isoformat(), "2026-10-08")
         self.assertTrue(importada.soporte.name.endswith("visita.pdf"))
+        self.assertEqual(bytes(importada.soporte_contenido), b"%PDF-1.4\norden")
+
+        descarga = self.client.get(
+            reverse("descargar_soporte_cotizacion", args=[importada.pk])
+        )
+        self.assertEqual(descarga.status_code, 200)
+        self.assertEqual(descarga["Content-Type"], "application/pdf")
+        self.assertEqual(b"".join(descarga.streaming_content), b"%PDF-1.4\norden")
 
     @patch(
         "app_instalaciones.home_views.user_views.analizar_visita_tecnica_cotizacion"
@@ -267,4 +277,39 @@ class SeguimientoCotizacionesTests(TestCase):
     def test_mantenimiento_no_es_obligatorio_en_admin(self):
         formulario = CotizacionServicioTecnicoAdminForm()
         self.assertFalse(formulario.fields["mantenimiento"].required)
+
+    def test_soporte_antiguo_faltante_no_genera_error_500(self):
+        respuesta = self.client.get(
+            reverse("descargar_soporte_cotizacion", args=[self.cotizacion.pk]),
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "El soporte antiguo ya no está disponible")
+
+    def test_permite_reemplazar_un_soporte_antiguo(self):
+        respuesta = self.client.post(
+            reverse("actualizar_soporte_cotizacion", args=[self.cotizacion.pk]),
+            {"soporte": SimpleUploadedFile(
+                "recuperado.pdf", b"%PDF-1.4\nrecuperado", content_type="application/pdf"
+            )},
+        )
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.cotizacion.refresh_from_db()
+        self.assertEqual(self.cotizacion.soporte_nombre, "recuperado.pdf")
+        self.assertEqual(
+            bytes(self.cotizacion.soporte_contenido),
+            b"%PDF-1.4\nrecuperado",
+        )
+
+    def test_exporta_cotizaciones_en_excel(self):
+        respuesta = self.client.get(reverse("exportar_cotizaciones_excel"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn("spreadsheetml", respuesta["Content-Type"])
+        libro = load_workbook(BytesIO(respuesta.content), read_only=True)
+        hoja = libro["Cotizaciones"]
+        self.assertEqual(hoja.cell(1, 3).value, "Registro / solicitante")
+        self.assertEqual(hoja.cell(2, 3).value, "TKT-20")
 

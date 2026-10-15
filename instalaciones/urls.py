@@ -114,6 +114,16 @@ urlpatterns = [
         name='descargar_soporte_cotizacion',
     ),
     path(
+        'cotizaciones/exportar-excel/',
+        user_views.exportar_cotizaciones_excel,
+        name='exportar_cotizaciones_excel',
+    ),
+    path(
+        'cotizaciones/<int:pk>/actualizar-soporte/',
+        user_views.actualizar_soporte_cotizacion,
+        name='actualizar_soporte_cotizacion',
+    ),
+    path(
         'cotizaciones/<int:pk>/gestionar/',
         user_views.gestionar_cotizacion_tecnica,
         name='gestionar_cotizacion_tecnica',
