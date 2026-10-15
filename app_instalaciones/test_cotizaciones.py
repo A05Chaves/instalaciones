@@ -59,6 +59,13 @@ class SeguimientoCotizacionesTests(TestCase):
             f'{reverse("home")}?next={reverse("listar_cotizaciones_tecnicas")}',
         )
 
+    def test_muestra_alerta_emergente_por_orden_nueva(self):
+        inicio = self.client.get(reverse("home"))
+
+        self.assertContains(inicio, "Nueva orden para cotización")
+        self.assertContains(inicio, "Se asignó una nueva orden para cotización.")
+        self.assertContains(inicio, "Revisar cotizaciones")
+
     def test_envio_seguimiento_y_respuesta(self):
         self.client.post(
             reverse("gestionar_cotizacion_tecnica", args=[self.cotizacion.pk]),

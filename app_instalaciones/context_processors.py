@@ -5,6 +5,15 @@ def permisos_usuario(request):
     if not user.is_authenticated:
         return {}
 
+    es_cotizaciones = user.groups.filter(name='Cotizaciones').exists()
+    cotizaciones_nuevas = 0
+    if user.is_superuser or es_cotizaciones:
+        from app_instalaciones.models import CotizacionServicioTecnico
+
+        cotizaciones_nuevas = CotizacionServicioTecnico.objects.filter(
+            estado='REGISTRADA'
+        ).count()
+
     return {
         'es_superusuario': user.is_superuser,
 
@@ -28,9 +37,9 @@ def permisos_usuario(request):
             name='Facturacion'
         ).exists(),
 
-        'es_cotizaciones': user.groups.filter(
-            name='Cotizaciones'
-        ).exists(),
+        'es_cotizaciones': es_cotizaciones,
+
+        'cotizaciones_nuevas': cotizaciones_nuevas,
 
         'es_visor': user.groups.filter(
             name='Visor'
