@@ -2,8 +2,10 @@ import json
 import re
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
@@ -1672,10 +1674,42 @@ def descargar_soporte_cotizacion(request, pk):
             as_attachment=False,
             filename=nombre,
         )
+    contenido = None
     try:
         with cotizacion.soporte.open("rb") as archivo:
             contenido = archivo.read()
     except (FileNotFoundError, OSError, ValueError):
+        pass
+
+    # Algunas filas antiguas guardaron únicamente el nombre (o una ruta que
+    # cambió entre despliegues). Se permite recuperar el original del árbol de
+    # medios solo cuando los archivos coincidentes tienen contenido idéntico.
+    if contenido is None:
+        directorio = Path(settings.MEDIA_ROOT) / "cotizaciones_tecnicas"
+        nombre_guardado = Path(cotizacion.soporte.name or "").name.casefold()
+        registro = re.sub(r"\W+", "", cotizacion.registro or "").casefold()
+        candidatos = []
+        if directorio.exists():
+            for ruta in directorio.rglob("*.pdf"):
+                nombre_ruta = ruta.name.casefold()
+                nombre_normalizado = re.sub(r"\W+", "", ruta.stem).casefold()
+                if (
+                    (nombre_guardado and nombre_ruta == nombre_guardado)
+                    or (registro and registro in nombre_normalizado)
+                ):
+                    candidatos.append(ruta)
+        contenidos = []
+        for ruta in candidatos:
+            try:
+                datos = ruta.read_bytes()
+            except OSError:
+                continue
+            if datos and datos not in contenidos:
+                contenidos.append(datos)
+        if len(contenidos) == 1:
+            contenido = contenidos[0]
+
+    if contenido is None:
         messages.error(
             request,
             "El soporte PDF original no está disponible en el almacenamiento. "

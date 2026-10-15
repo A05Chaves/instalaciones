@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 import shutil
 import tempfile
 from unittest.mock import patch
@@ -305,6 +306,27 @@ class SeguimientoCotizacionesTests(TestCase):
         self.cotizacion.refresh_from_db()
         self.assertEqual(bytes(self.cotizacion.soporte_contenido), contenido)
         self.assertEqual(self.cotizacion.soporte_nombre, "soporte-original.pdf")
+
+    def test_recupera_soporte_antiguo_por_registro_si_la_ruta_cambio(self):
+        contenido = b"%PDF-1.4\nsoporte original por registro"
+        ruta = (
+            Path(self.media_root)
+            / "cotizaciones_tecnicas"
+            / "2026"
+            / "10"
+            / "VISITA_TECNICA_TKT-20_CLIENTE.pdf"
+        )
+        ruta.parent.mkdir(parents=True)
+        ruta.write_bytes(contenido)
+
+        respuesta = self.client.get(
+            reverse("descargar_soporte_cotizacion", args=[self.cotizacion.pk])
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(b"".join(respuesta.streaming_content), contenido)
+        self.cotizacion.refresh_from_db()
+        self.assertEqual(bytes(self.cotizacion.soporte_contenido), contenido)
 
     def test_exporta_cotizaciones_en_excel(self):
         respuesta = self.client.get(reverse("exportar_cotizaciones_excel"))
