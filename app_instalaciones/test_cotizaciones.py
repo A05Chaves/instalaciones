@@ -81,8 +81,14 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertEqual(self.cotizacion.numero_cotizacion, "COT-2026-001")
         self.assertIsNotNone(self.cotizacion.fecha_envio)
 
-        self.cotizacion.fecha_orden = timezone.now() - timedelta(days=8)
+        self.cotizacion.fecha_orden = timezone.now() - timedelta(days=20)
         self.cotizacion.save(update_fields=["fecha_orden"])
+        listado_reciente = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+        self.assertNotContains(listado_reciente, "Seguimiento vencido desde:")
+        self.assertNotContains(listado_reciente, 'class="btn btn-outline-primary btn-sm w-100 mt-2 abrir-seguimiento"')
+
+        self.cotizacion.fecha_envio = timezone.now() - timedelta(days=8)
+        self.cotizacion.save(update_fields=["fecha_envio"])
         listado = self.client.get(reverse("listar_cotizaciones_tecnicas"))
         self.assertContains(listado, "Tienes 1 cotización enviada sin respuesta")
         self.assertContains(listado, "Primer seguimiento")
@@ -106,6 +112,16 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertEqual(self.cotizacion.estado, "APROBADA")
         self.assertEqual(self.cotizacion.accion_seguimiento, "GESTIONADA")
         self.assertIsNotNone(self.cotizacion.fecha_gestion)
+
+    def test_muestra_fecha_de_carga_debajo_del_registro(self):
+        respuesta = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+
+        self.assertContains(respuesta, self.cotizacion.registro)
+        self.assertContains(respuesta, "Cargada:")
+        self.assertContains(
+            respuesta,
+            timezone.localtime(self.cotizacion.fecha_registro).strftime("%Y-%m-%d %H:%M"),
+        )
 
     def test_rechazo_exige_nota(self):
         self.cotizacion.estado = "PENDIENTE"

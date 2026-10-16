@@ -44,7 +44,10 @@ def home(request):
             estado="PENDIENTE",
         ).filter(
             Q(fecha_seguimiento__date__lte=limite)
-            | Q(fecha_seguimiento__isnull=True, fecha_orden__date__lte=limite)
+            | Q(
+                fecha_seguimiento__isnull=True,
+                fecha_envio__date__lte=limite,
+            )
         ).count()
     return render(request, "home.html", {
         "cotizaciones_sin_respuesta": cotizaciones_sin_respuesta,

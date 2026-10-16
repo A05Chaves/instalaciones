@@ -1386,7 +1386,9 @@ def listar_cotizaciones_tecnicas(request):
     limite = timezone.localdate() - timedelta(days=8)
     for cotizacion in cotizaciones:
         cotizacion.total_seguimientos = len(cotizacion.seguimientos.all())
-        ultima_gestion = cotizacion.fecha_seguimiento or cotizacion.fecha_orden
+        # El plazo comercial comienza cuando la cotización fue enviada. Después
+        # de cada seguimiento, el siguiente plazo se cuenta desde esa gestión.
+        ultima_gestion = cotizacion.fecha_seguimiento or cotizacion.fecha_envio
         fecha_ultima_gestion = (
             timezone.localtime(ultima_gestion).date() if ultima_gestion else None
         )
@@ -1404,7 +1406,10 @@ def listar_cotizaciones_tecnicas(request):
         CotizacionServicioTecnico.objects.filter(estado="PENDIENTE")
         .filter(
             Q(fecha_seguimiento__date__lte=limite)
-            | Q(fecha_seguimiento__isnull=True, fecha_orden__date__lte=limite)
+            | Q(
+                fecha_seguimiento__isnull=True,
+                fecha_envio__date__lte=limite,
+            )
         )
         .select_related("ejecutivo")
     )
@@ -1713,10 +1718,11 @@ def exportar_cotizaciones_excel(request):
     hoja = libro.active
     hoja.title = "Cotizaciones"
     hoja.append([
-        "Fecha de la orden", "Código", "Registro / solicitante", "Cliente",
-        "Dirección", "Descripción", "Técnico", "Ejecutivo", "Medio de envío",
-        "Dirigida a", "Teléfono", "Número de cotización", "Estado",
-        "Fecha de envío", "Fecha de gestión", "Último seguimiento",
+        "Fecha de la orden", "Código", "Registro / solicitante", "Fecha de carga",
+        "Horas orden a carga", "Cliente", "Dirección", "Descripción", "Técnico",
+        "Ejecutivo", "Medio de envío", "Dirigida a", "Teléfono",
+        "Número de cotización", "Estado", "Fecha de envío",
+        "Horas carga a envío", "Fecha de gestión", "Último seguimiento",
     ])
     cotizaciones = CotizacionServicioTecnico.objects.select_related(
         "tecnico", "ejecutivo"
@@ -1729,6 +1735,11 @@ def exportar_cotizaciones_excel(request):
             fecha_local(cotizacion.fecha_orden),
             cotizacion.codigo,
             cotizacion.registro,
+            fecha_local(cotizacion.fecha_registro),
+            round(
+                (cotizacion.fecha_registro - cotizacion.fecha_orden).total_seconds() / 3600,
+                2,
+            ) if cotizacion.fecha_registro and cotizacion.fecha_orden else "",
             cotizacion.cliente,
             cotizacion.direccion,
             cotizacion.descripcion,
@@ -1740,6 +1751,10 @@ def exportar_cotizaciones_excel(request):
             cotizacion.numero_cotizacion,
             cotizacion.get_estado_display(),
             fecha_local(cotizacion.fecha_envio),
+            round(
+                (cotizacion.fecha_envio - cotizacion.fecha_registro).total_seconds() / 3600,
+                2,
+            ) if cotizacion.fecha_envio and cotizacion.fecha_registro else "",
             fecha_local(cotizacion.fecha_gestion),
             fecha_local(cotizacion.fecha_seguimiento),
         ])

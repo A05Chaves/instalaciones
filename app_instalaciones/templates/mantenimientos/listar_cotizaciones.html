@@ -118,7 +118,12 @@
                 <tr id="cotizacion-{{ cotizacion.pk }}">
                     <td class="text-nowrap">{{ cotizacion.fecha_orden|date:"Y-m-d H:i" }}</td>
                     <td><strong>{{ cotizacion.codigo }}</strong></td>
-                    <td>{{ cotizacion.registro|default:"---" }}</td>
+                    <td class="text-nowrap">
+                        {{ cotizacion.registro|default:"---" }}
+                        <small class="d-block text-muted mt-1">
+                            Cargada: {{ cotizacion.fecha_registro|date:"Y-m-d H:i" }}
+                        </small>
+                    </td>
                     <td>{{ cotizacion.cliente }}</td>
                     <td>{{ cotizacion.direccion }}</td>
                     <td style="white-space:pre-line">
