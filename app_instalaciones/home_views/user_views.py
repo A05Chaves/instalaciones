@@ -29,6 +29,7 @@ from openpyxl import Workbook
 from app_instalaciones.models.cuadroInstalaciones import (
     CuadroInsta,
     Ciudad,
+    CorteIndicadorCotizacion,
     CotizacionServicioTecnico,
     DiaNoLaboralTecnico,
     Ejecutivo,
@@ -1421,6 +1422,228 @@ def listar_cotizaciones_tecnicas(request):
         "filtro_estado": filtro_estado,
         "contadores": contadores,
     })
+
+
+def _duracion_legible(segundos):
+    if segundos is None:
+        return "---"
+    minutos = max(0, round(segundos / 60))
+    dias, minutos = divmod(minutos, 1440)
+    horas, minutos = divmod(minutos, 60)
+    partes = []
+    if dias:
+        partes.append(f"{dias} d")
+    if horas:
+        partes.append(f"{horas} h")
+    partes.append(f"{minutos} min")
+    return " ".join(partes)
+
+
+@login_required(login_url="login")
+@user_passes_test(lambda user: user.is_superuser, login_url="home")
+def indicadores_cotizaciones(request):
+    fecha_desde = parse_date(request.GET.get("desde") or "")
+    fecha_hasta = parse_date(request.GET.get("hasta") or "")
+    cotizaciones = CotizacionServicioTecnico.objects.select_related(
+        "creado_por", "tecnico"
+    ).order_by("-fecha_registro", "-pk")
+    if fecha_desde:
+        cotizaciones = cotizaciones.filter(fecha_registro__date__gte=fecha_desde)
+    if fecha_hasta:
+        cotizaciones = cotizaciones.filter(fecha_registro__date__lte=fecha_hasta)
+
+    detalle = []
+    por_responsable = {}
+    tiempos_carga = []
+    tiempos_envio = []
+    pendientes_envio = 0
+    for cotizacion in cotizaciones:
+        responsable = cotizacion.creado_por
+        nombre_responsable = (
+            responsable.get_full_name().strip() or responsable.username
+            if responsable else "Sin identificar"
+        )
+        carga = None
+        if cotizacion.fecha_orden and cotizacion.fecha_registro:
+            diferencia = (
+                cotizacion.fecha_registro - cotizacion.fecha_orden
+            ).total_seconds()
+            if diferencia >= 0:
+                carga = diferencia
+                tiempos_carga.append(diferencia)
+        envio = None
+        if cotizacion.fecha_envio and cotizacion.fecha_registro:
+            diferencia = (
+                cotizacion.fecha_envio - cotizacion.fecha_registro
+            ).total_seconds()
+            if diferencia >= 0:
+                envio = diferencia
+                tiempos_envio.append(diferencia)
+        else:
+            pendientes_envio += 1
+
+        resumen = por_responsable.setdefault(nombre_responsable, {
+            "nombre": nombre_responsable,
+            "cargadas": 0,
+            "enviadas": 0,
+            "pendientes": 0,
+            "tiempos_carga": [],
+            "tiempos_envio": [],
+        })
+        resumen["cargadas"] += 1
+        if carga is not None:
+            resumen["tiempos_carga"].append(carga)
+        if cotizacion.fecha_envio:
+            resumen["enviadas"] += 1
+        else:
+            resumen["pendientes"] += 1
+        if envio is not None:
+            resumen["tiempos_envio"].append(envio)
+        detalle.append({
+            "cotizacion": cotizacion,
+            "responsable": nombre_responsable,
+            "tiempo_carga": _duracion_legible(carga),
+            "tiempo_envio": _duracion_legible(envio),
+        })
+
+    responsables = []
+    for resumen in por_responsable.values():
+        cargas = resumen.pop("tiempos_carga")
+        envios = resumen.pop("tiempos_envio")
+        resumen["promedio_carga"] = _duracion_legible(
+            sum(cargas) / len(cargas) if cargas else None
+        )
+        resumen["promedio_envio"] = _duracion_legible(
+            sum(envios) / len(envios) if envios else None
+        )
+        responsables.append(resumen)
+    responsables.sort(key=lambda item: item["nombre"].casefold())
+
+    cortes = CorteIndicadorCotizacion.objects.select_related("cerrado_por")
+    corte_id = request.GET.get("corte")
+    corte_seleccionado = cortes.filter(pk=corte_id).first() if corte_id else None
+    return render(request, "mantenimientos/indicadores_cotizaciones.html", {
+        "detalle": detalle,
+        "responsables": responsables,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "total": len(detalle),
+        "total_enviadas": sum(1 for item in detalle if item["cotizacion"].fecha_envio),
+        "pendientes_envio": pendientes_envio,
+        "promedio_carga": _duracion_legible(
+            sum(tiempos_carga) / len(tiempos_carga) if tiempos_carga else None
+        ),
+        "promedio_envio": _duracion_legible(
+            sum(tiempos_envio) / len(tiempos_envio) if tiempos_envio else None
+        ),
+        "cortes": cortes,
+        "corte_seleccionado": corte_seleccionado,
+        "hoy": timezone.localdate(),
+    })
+
+
+def _snapshot_corte_cotizaciones(cotizaciones):
+    detalles = []
+    cargas = []
+    envios = []
+    enviadas = 0
+    pendientes = 0
+    for cotizacion in cotizaciones:
+        responsable = cotizacion.creado_por
+        nombre = (
+            responsable.get_full_name().strip() or responsable.username
+            if responsable else "Sin identificar"
+        )
+        carga = None
+        if cotizacion.fecha_orden and cotizacion.fecha_registro:
+            valor = (cotizacion.fecha_registro - cotizacion.fecha_orden).total_seconds()
+            if valor >= 0:
+                carga = valor
+                cargas.append(valor)
+        envio = None
+        if cotizacion.fecha_envio and cotizacion.fecha_registro:
+            valor = (cotizacion.fecha_envio - cotizacion.fecha_registro).total_seconds()
+            if valor >= 0:
+                envio = valor
+                envios.append(valor)
+            enviadas += 1
+        else:
+            pendientes += 1
+        detalles.append({
+            "registro": cotizacion.registro or "---",
+            "cliente": cotizacion.cliente,
+            "responsable": nombre,
+            "fecha_orden": timezone.localtime(cotizacion.fecha_orden).strftime("%Y-%m-%d %H:%M") if cotizacion.fecha_orden else "---",
+            "fecha_carga": timezone.localtime(cotizacion.fecha_registro).strftime("%Y-%m-%d %H:%M"),
+            "tiempo_carga": _duracion_legible(carga),
+            "fecha_envio": timezone.localtime(cotizacion.fecha_envio).strftime("%Y-%m-%d %H:%M") if cotizacion.fecha_envio else "Pendiente",
+            "tiempo_envio": _duracion_legible(envio),
+        })
+    return {
+        "resumen": {
+            "total": len(detalles),
+            "enviadas": enviadas,
+            "pendientes": pendientes,
+            "promedio_carga": _duracion_legible(
+                sum(cargas) / len(cargas) if cargas else None
+            ),
+            "promedio_envio": _duracion_legible(
+                sum(envios) / len(envios) if envios else None
+            ),
+        },
+        "detalle": detalles,
+    }
+
+
+@login_required(login_url="login")
+@user_passes_test(lambda user: user.is_superuser, login_url="home")
+@require_POST
+def finalizar_corte_cotizaciones(request):
+    fecha_hasta = parse_date(request.POST.get("fecha_hasta") or "")
+    if not fecha_hasta or fecha_hasta > timezone.localdate():
+        messages.error(request, "Selecciona una fecha de corte válida que no sea futura.")
+        return redirect("indicadores_cotizaciones")
+    if CorteIndicadorCotizacion.objects.filter(fecha_hasta=fecha_hasta).exists():
+        messages.error(request, "Ya existe un corte finalizado para esa fecha.")
+        return redirect("indicadores_cotizaciones")
+
+    corte_anterior = CorteIndicadorCotizacion.objects.order_by("-fecha_hasta").first()
+    if corte_anterior:
+        fecha_desde = corte_anterior.fecha_hasta + timedelta(days=1)
+    else:
+        primera = CotizacionServicioTecnico.objects.order_by("fecha_registro").first()
+        fecha_desde = (
+            timezone.localtime(primera.fecha_registro).date()
+            if primera else fecha_hasta
+        )
+    if fecha_hasta < fecha_desde:
+        messages.error(
+            request,
+            f"El nuevo corte debe ser posterior al último cierre ({corte_anterior.fecha_hasta:%Y-%m-%d}).",
+        )
+        return redirect("indicadores_cotizaciones")
+
+    cotizaciones = list(
+        CotizacionServicioTecnico.objects.select_related("creado_por")
+        .filter(
+            fecha_registro__date__gte=fecha_desde,
+            fecha_registro__date__lte=fecha_hasta,
+        )
+        .order_by("-fecha_registro", "-pk")
+    )
+    snapshot = _snapshot_corte_cotizaciones(cotizaciones)
+    corte = CorteIndicadorCotizacion.objects.create(
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        cerrado_por=request.user,
+        resumen=snapshot["resumen"],
+        detalle=snapshot["detalle"],
+    )
+    messages.success(
+        request,
+        f"Corte de comisiones finalizado hasta {fecha_hasta:%Y-%m-%d}.",
+    )
+    return redirect(f'{reverse("indicadores_cotizaciones")}?corte={corte.pk}')
 
 
 @login_required(login_url="login")

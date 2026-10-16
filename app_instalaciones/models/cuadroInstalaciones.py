@@ -624,6 +624,27 @@ class SeguimientoCotizacionTecnica(models.Model):
         return f"{self.cotizacion} - seguimiento {self.numero}"
 
 
+class CorteIndicadorCotizacion(models.Model):
+    fecha_desde = models.DateField()
+    fecha_hasta = models.DateField(unique=True)
+    cerrado_en = models.DateTimeField(auto_now_add=True)
+    cerrado_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="cortes_indicadores_cotizaciones",
+    )
+    resumen = models.JSONField(default=dict)
+    detalle = models.JSONField(default=list)
+
+    class Meta:
+        ordering = ["-fecha_hasta", "-pk"]
+        verbose_name = "corte de indicador de cotizaciones"
+        verbose_name_plural = "cortes de indicadores de cotizaciones"
+
+    def __str__(self):
+        return f"Corte {self.fecha_desde:%Y-%m-%d} a {self.fecha_hasta:%Y-%m-%d}"
+
+
 # MODELO PARA CIUDADES
 
 class Ciudad(models.Model):

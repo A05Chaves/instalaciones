@@ -1,7 +1,7 @@
 # from app_instalaciones import *
 
 from .cuadroInstalaciones import (
-    Ciudad, CotizacionServicioTecnico, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
+    Ciudad, CorteIndicadorCotizacion, CotizacionServicioTecnico, CuadroInsta, Ejecutivo, HistorialAsignacionMantenimiento,
     DiaNoLaboralTecnico, JornadaLaboralTecnico, Mantenimiento,
     NotificacionTecnico, RotacionTecnicoDisponible, SeguimientoCotizacionTecnica,
     Tecnico,

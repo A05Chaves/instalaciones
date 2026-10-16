@@ -102,6 +102,16 @@ urlpatterns = [
         name='crear_cotizacion_tecnica_manual',
     ),
     path(
+        'cotizaciones/indicadores/',
+        user_views.indicadores_cotizaciones,
+        name='indicadores_cotizaciones',
+    ),
+    path(
+        'cotizaciones/indicadores/finalizar-corte/',
+        user_views.finalizar_corte_cotizaciones,
+        name='finalizar_corte_cotizaciones',
+    ),
+    path(
         'api/cotizaciones/buscar-cliente/',
         user_views.buscar_cliente_mantenimiento,
         name='buscar_cliente_mantenimiento',

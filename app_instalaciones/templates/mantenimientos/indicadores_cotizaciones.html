@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block titulo %}Indicadores de cotizaciones{% endblock %}
+
+{% block content %}
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show">
+    {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="fas fa-chart-column text-danger me-2"></i>Indicadores de cotizaciones</h2>
+        <p class="text-muted mb-0">Tiempos transcurridos entre la orden, su carga y el envío comercial.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalFinalizarCorte">
+            <i class="fas fa-lock me-1"></i>Finalizar corte de comisiones
+        </button>
+        <a href="{% url 'listar_cotizaciones_tecnicas' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Volver a cotizaciones
+        </a>
+    </div>
+</div>
+
+{% if corte_seleccionado %}
+<div class="card border-danger shadow-sm mb-4">
+    <div class="card-header bg-danger text-white d-flex justify-content-between">
+        <strong>Corte cerrado: {{ corte_seleccionado.fecha_desde|date:"Y-m-d" }} a {{ corte_seleccionado.fecha_hasta|date:"Y-m-d" }}</strong>
+        <span>{{ corte_seleccionado.cerrado_en|date:"Y-m-d H:i" }}</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Cerrado por {{ corte_seleccionado.cerrado_por.get_full_name|default:corte_seleccionado.cerrado_por.username }}. Esta información es una fotografía histórica y no cambia.</p>
+        <div class="row g-3 mb-3">
+            <div class="col-md"><div class="border rounded p-3 text-center"><small>Órdenes</small><h3>{{ corte_seleccionado.resumen.total }}</h3></div></div>
+            <div class="col-md"><div class="border rounded p-3 text-center"><small>Orden → carga</small><h4>{{ corte_seleccionado.resumen.promedio_carga }}</h4></div></div>
+            <div class="col-md"><div class="border rounded p-3 text-center"><small>Carga → envío</small><h4>{{ corte_seleccionado.resumen.promedio_envio }}</h4></div></div>
+            <div class="col-md"><div class="border rounded p-3 text-center"><small>Pendientes</small><h3>{{ corte_seleccionado.resumen.pendientes }}</h3></div></div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Registro</th><th>Cliente</th><th>Responsable</th><th>Fecha orden</th><th>Fecha carga</th><th>Orden → carga</th><th>Fecha envío</th><th>Carga → envío</th></tr></thead>
+                <tbody>{% for item in corte_seleccionado.detalle %}<tr><td>{{ item.registro }}</td><td>{{ item.cliente }}</td><td>{{ item.responsable }}</td><td>{{ item.fecha_orden }}</td><td>{{ item.fecha_carga }}</td><td>{{ item.tiempo_carga }}</td><td>{{ item.fecha_envio }}</td><td>{{ item.tiempo_envio }}</td></tr>{% empty %}<tr><td colspan="8" class="text-center text-muted">El corte no contiene órdenes.</td></tr>{% endfor %}</tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-secondary text-white"><strong>Historial de cortes de comisiones</strong></div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        {% for corte in cortes %}
+        <a href="?corte={{ corte.pk }}" class="btn {% if corte_seleccionado.pk == corte.pk %}btn-danger{% else %}btn-outline-secondary{% endif %}">
+            {{ corte.fecha_desde|date:"Y-m-d" }} → {{ corte.fecha_hasta|date:"Y-m-d" }}
+        </a>
+        {% empty %}<span class="text-muted">Todavía no se han finalizado cortes.</span>{% endfor %}
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Cargadas desde</label>
+                <input type="date" name="desde" class="form-control" value="{{ fecha_desde|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Cargadas hasta</label>
+                <input type="date" name="hasta" class="form-control" value="{{ fecha_hasta|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-danger flex-grow-1" type="submit">Aplicar intervalo</button>
+                <a href="{% url 'indicadores_cotizaciones' %}" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Órdenes cargadas</small><h2 class="fw-bold mb-0">{{ total }}</h2></div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Promedio orden → carga</small><h3 class="fw-bold text-primary mb-0">{{ promedio_carga }}</h3></div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Promedio carga → envío</small><h3 class="fw-bold text-success mb-0">{{ promedio_envio }}</h3><small>{{ total_enviadas }} enviadas</small></div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center"><small class="text-muted">Pendientes de envío</small><h2 class="fw-bold text-warning mb-0">{{ pendientes_envio }}</h2></div></div></div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-dark text-white"><strong>Resultado por responsable de la carga</strong></div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Responsable</th><th>Cargadas</th><th>Promedio orden → carga</th><th>Enviadas</th><th>Promedio carga → envío</th><th>Pendientes</th></tr></thead>
+            <tbody>
+                {% for item in responsables %}
+                <tr><td>{{ item.nombre }}</td><td>{{ item.cargadas }}</td><td>{{ item.promedio_carga }}</td><td>{{ item.enviadas }}</td><td>{{ item.promedio_envio }}</td><td>{{ item.pendientes }}</td></tr>
+                {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No hay datos para el intervalo seleccionado.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-dark text-white"><strong>Detalle de las órdenes</strong></div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Registro</th><th>Cliente</th><th>Responsable</th><th>Fecha orden</th><th>Fecha carga</th><th>Orden → carga</th><th>Fecha envío</th><th>Carga → envío</th></tr></thead>
+            <tbody>
+                {% for item in detalle %}
+                <tr>
+                    <td>{{ item.cotizacion.registro|default:"---" }}</td><td>{{ item.cotizacion.cliente }}</td><td>{{ item.responsable }}</td>
+                    <td class="text-nowrap">{{ item.cotizacion.fecha_orden|date:"Y-m-d H:i" }}</td><td class="text-nowrap">{{ item.cotizacion.fecha_registro|date:"Y-m-d H:i" }}</td><td>{{ item.tiempo_carga }}</td>
+                    <td class="text-nowrap">{{ item.cotizacion.fecha_envio|date:"Y-m-d H:i"|default:"Pendiente" }}</td><td>{{ item.tiempo_envio }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No hay órdenes para mostrar.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalFinalizarCorte" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'finalizar_corte_cotizaciones' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header"><h5 class="modal-title">Finalizar corte de comisiones</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="text-muted">Se guardará una fotografía inalterable de todas las órdenes cargadas en el período pendiente de cierre.</p>
+                <label class="form-label">Fecha final del corte</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ hoy|date:'Y-m-d' }}" max="{{ hoy|date:'Y-m-d' }}" required>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-danger">Finalizar y guardar corte</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -20,6 +20,7 @@ from django.contrib import admin
 from django import forms
 from app_instalaciones.models.cuadroInstalaciones import (
     CotizacionServicioTecnico,
+    CorteIndicadorCotizacion,
     CuadroInsta,
     Ejecutivo,
     Mantenimiento,
@@ -35,6 +36,7 @@ admin.site.register(Mantenimiento)
 admin.site.register(Tecnico)
 admin.site.register(Ejecutivo)
 admin.site.register(Ciudad)
+admin.site.register(CorteIndicadorCotizacion)
 
 
 class SeguimientoCotizacionTecnicaInline(admin.TabularInline):

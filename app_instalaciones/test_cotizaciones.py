@@ -14,6 +14,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from app_instalaciones.models import (
+    CorteIndicadorCotizacion,
     CotizacionServicioTecnico,
     Ejecutivo,
     Mantenimiento,
@@ -122,6 +123,73 @@ class SeguimientoCotizacionesTests(TestCase):
             respuesta,
             timezone.localtime(self.cotizacion.fecha_registro).strftime("%Y-%m-%d %H:%M"),
         )
+
+    def test_indicador_solo_es_visible_para_superadministrador(self):
+        listado_rol = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+        indicador_rol = self.client.get(reverse("indicadores_cotizaciones"))
+
+        self.assertNotContains(listado_rol, reverse("indicadores_cotizaciones"))
+        self.assertRedirects(
+            indicador_rol,
+            f'{reverse("home")}?next={reverse("indicadores_cotizaciones")}',
+        )
+
+        superusuario = User.objects.create_superuser(
+            "super_indicadores", "super@example.com", "clave-segura"
+        )
+        self.client.force_login(superusuario)
+        ahora = timezone.now()
+        CotizacionServicioTecnico.objects.filter(pk=self.cotizacion.pk).update(
+            fecha_orden=ahora - timedelta(hours=10),
+            fecha_registro=ahora - timedelta(hours=8),
+            fecha_envio=ahora - timedelta(hours=2),
+            estado="PENDIENTE",
+        )
+
+        listado_super = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+        indicador_super = self.client.get(reverse("indicadores_cotizaciones"))
+
+        self.assertContains(listado_super, reverse("indicadores_cotizaciones"))
+        self.assertEqual(indicador_super.status_code, 200)
+        self.assertContains(indicador_super, "Promedio orden → carga")
+        self.assertContains(indicador_super, "2 h 0 min")
+        self.assertContains(indicador_super, "6 h 0 min")
+        self.assertContains(indicador_super, "tecnico_cotizacion")
+
+    def test_superadministrador_finaliza_y_consulta_corte_historico(self):
+        superusuario = User.objects.create_superuser(
+            "super_corte", "corte@example.com", "clave-segura"
+        )
+        self.client.force_login(superusuario)
+        ahora = timezone.now()
+        CotizacionServicioTecnico.objects.filter(pk=self.cotizacion.pk).update(
+            fecha_orden=ahora - timedelta(hours=5),
+            fecha_registro=ahora - timedelta(hours=4),
+            fecha_envio=ahora - timedelta(hours=1),
+            estado="PENDIENTE",
+        )
+
+        respuesta = self.client.post(
+            reverse("finalizar_corte_cotizaciones"),
+            {"fecha_hasta": timezone.localdate().isoformat()},
+            follow=True,
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        corte = CorteIndicadorCotizacion.objects.get()
+        self.assertEqual(corte.cerrado_por, superusuario)
+        self.assertEqual(corte.resumen["total"], 1)
+        self.assertEqual(corte.resumen["promedio_carga"], "1 h 0 min")
+        self.assertEqual(corte.resumen["promedio_envio"], "3 h 0 min")
+        self.assertEqual(corte.detalle[0]["registro"], "TKT-20")
+        self.assertContains(respuesta, "Esta información es una fotografía histórica")
+
+        self.cotizacion.delete()
+        consulta = self.client.get(
+            reverse("indicadores_cotizaciones"), {"corte": corte.pk}
+        )
+        self.assertContains(consulta, "TKT-20")
+        self.assertContains(consulta, "1 h 0 min")
 
     def test_rechazo_exige_nota(self):
         self.cotizacion.estado = "PENDIENTE"
