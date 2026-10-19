@@ -49,6 +49,7 @@ class PerfilUsuarioTests(TestCase):
 
         self.assertContains(respuesta, reverse("mi_perfil"))
         self.assertContains(respuesta, reverse("cambiar_contrasena"))
+        self.assertContains(respuesta, 'id="modo-oscuro-toggle"')
 
     def test_usuario_puede_actualizar_su_perfil(self):
         respuesta = self.client.post(reverse("mi_perfil"), {

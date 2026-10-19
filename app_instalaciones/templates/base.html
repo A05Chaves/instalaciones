@@ -6,6 +6,16 @@
   <meta charset="UTF-8">
   <title>{% block titulo %}Seguridad del Sur App{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      try {
+        const temaGuardado = localStorage.getItem("sesur-tema") || "light";
+        document.documentElement.setAttribute("data-bs-theme", temaGuardado);
+      } catch (_) {
+        document.documentElement.setAttribute("data-bs-theme", "light");
+      }
+    })();
+  </script>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -40,7 +50,7 @@
     letter-spacing: .3px;
   }
 
-  .nav-link {
+  .navbar-custom .nav-link {
     font-weight: 600;
     border-radius: 999px;
     margin: 0 5px;
@@ -49,13 +59,13 @@
     transition: all .2s ease-in-out;
   }
 
-  .nav-link:hover {
+  .navbar-custom .nav-link:hover {
     background: #ffffff;
     color: #111827 !important;
     transform: translateY(-1px);
   }
 
-  .nav-link.active {
+  .navbar-custom .nav-link.active {
     background: #0d6efd;
     color: #ffffff !important;
     box-shadow: 0 4px 12px rgba(13, 110, 253, .35);
@@ -107,6 +117,47 @@
     width: 22px;
   }
 
+  [data-bs-theme="dark"] body {
+    background: linear-gradient(to bottom, #111827, #0f172a);
+  }
+
+  [data-bs-theme="dark"] .navbar-custom {
+    background: linear-gradient(90deg, #050914, #111827);
+  }
+
+  [data-bs-theme="dark"] .footer-custom {
+    background: #050914;
+  }
+
+  [data-bs-theme="dark"] .select2-container--default .select2-selection--multiple,
+  [data-bs-theme="dark"] .select2-container--default .select2-selection--single,
+  [data-bs-theme="dark"] .select2-dropdown,
+  [data-bs-theme="dark"] .select2-search__field {
+    background-color: #212529 !important;
+    color: #f8f9fa !important;
+    border-color: #495057 !important;
+  }
+
+  [data-bs-theme="dark"] .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #343a40;
+    color: #f8f9fa;
+    border-color: #6c757d;
+  }
+
+  [data-bs-theme="dark"] .bg-white,
+  [data-bs-theme="dark"] .tabla-fija,
+  [data-bs-theme="dark"] #tabla-instalaciones tbody td:first-child,
+  [data-bs-theme="dark"] .system-card {
+    background-color: #212529 !important;
+    color: #f8f9fa !important;
+  }
+
+  [data-bs-theme="dark"] .table-light {
+    --bs-table-color: #f8f9fa;
+    --bs-table-bg: #2b3035;
+    --bs-table-border-color: #495057;
+  }
+
   .table-responsive {
   width: 100%;
   }
@@ -139,7 +190,7 @@
       padding-top: 12px;
     }
 
-    .nav-link {
+    .navbar-custom .nav-link {
       margin-bottom: 6px;
     }
   }
@@ -282,6 +333,13 @@
                 </li>
 
                 <li>
+                  <button type="button" class="dropdown-item" id="modo-oscuro-toggle">
+                    <i class="fas fa-moon" id="modo-oscuro-icono"></i>
+                    <span id="modo-oscuro-texto">Modo oscuro</span>
+                  </button>
+                </li>
+
+                <li>
                   <hr class="dropdown-divider">
                 </li>
 
@@ -381,6 +439,31 @@
   {% endif %}
 
   <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const botonTema = document.getElementById("modo-oscuro-toggle");
+      const iconoTema = document.getElementById("modo-oscuro-icono");
+      const textoTema = document.getElementById("modo-oscuro-texto");
+
+      function actualizarBotonTema() {
+        const oscuro = document.documentElement.getAttribute("data-bs-theme") === "dark";
+        if (iconoTema) iconoTema.className = oscuro ? "fas fa-sun" : "fas fa-moon";
+        if (textoTema) textoTema.textContent = oscuro ? "Modo claro" : "Modo oscuro";
+      }
+
+      actualizarBotonTema();
+      if (botonTema) {
+        botonTema.addEventListener("click", function () {
+          const oscuro = document.documentElement.getAttribute("data-bs-theme") === "dark";
+          const nuevoTema = oscuro ? "light" : "dark";
+          document.documentElement.setAttribute("data-bs-theme", nuevoTema);
+          try {
+            localStorage.setItem("sesur-tema", nuevoTema);
+          } catch (_) {}
+          actualizarBotonTema();
+        });
+      }
+    });
+
     function updateDateTime() {
       const now = new Date();
       const options = {
