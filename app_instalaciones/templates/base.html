@@ -252,7 +252,7 @@
               </a>
             </li>
 
-            {% if request.user.perfil_tecnico or request.user.is_staff or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_monitoreo or es_administrador_monitoreo %}
+            {% if request.user.perfil_tecnico or request.user.is_staff or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_monitoreo or es_administrador_monitoreo or es_auditor %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'portal_tecnico' or request.resolver_match.url_name == 'lista_instalaciones' or request.resolver_match.url_name == 'listar_mantenimientos' %}active{% endif %}"
                  href="#" id="operacionDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -264,12 +264,12 @@
                   <i class="fas fa-mobile-alt fa-fw me-2"></i>Mis servicios
                 </a></li>
                 {% endif %}
-                {% if request.user.is_staff or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion %}
+                {% if request.user.is_staff or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_auditor %}
                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'lista_instalaciones' %}active{% endif %}" href="{% url 'lista_instalaciones' %}">
                   <i class="fas fa-list fa-fw me-2"></i>Instalaciones
                 </a></li>
                 {% endif %}
-                {% if request.user.is_superuser or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo %}
+                {% if request.user.is_superuser or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo or es_auditor %}
                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'listar_mantenimientos' %}active{% endif %}" href="{% url 'listar_mantenimientos' %}">
                   <i class="fas fa-tools fa-fw me-2"></i>Mantenimientos
                 </a></li>
@@ -278,19 +278,19 @@
             </li>
             {% endif %}
 
-            {% if request.user.is_superuser or es_administrador or es_coordinador or es_cotizaciones %}
+            {% if request.user.is_superuser or es_administrador or es_coordinador or es_cotizaciones or es_auditor %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name|slice:':10' == 'smartcheck' or request.resolver_match.url_name == 'listar_cotizaciones_tecnicas' %}active{% endif %}"
                  href="#" id="comercialDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-briefcase me-1"></i> Gestión comercial
               </a>
               <ul class="dropdown-menu" aria-labelledby="comercialDropdown">
-                {% if request.user.is_superuser or es_administrador or es_coordinador %}
+                {% if request.user.is_superuser or es_administrador or es_coordinador or es_auditor %}
                 <li><a class="dropdown-item {% if request.resolver_match.url_name|slice:':10' == 'smartcheck' %}active{% endif %}" href="{% url 'smartcheck_listar' %}">
                   <i class="fas fa-clipboard-check fa-fw me-2"></i>Proyectos comerciales
                 </a></li>
                 {% endif %}
-                {% if request.user.is_superuser or es_cotizaciones %}
+                {% if request.user.is_superuser or es_cotizaciones or es_auditor %}
                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'listar_cotizaciones_tecnicas' %}active{% endif %}" href="{% url 'listar_cotizaciones_tecnicas' %}">
                   <i class="fas fa-file-invoice-dollar fa-fw me-2"></i>Cotizaciones
                 </a></li>
@@ -299,7 +299,7 @@
             </li>
             {% endif %}
 
-            {% if not es_monitoreo and not es_administrador_monitoreo or request.user.is_superuser %}
+            {% if not es_monitoreo and not es_administrador_monitoreo and not es_almacen and not es_programador and not es_cotizaciones or request.user.is_superuser or es_auditor %}
             <li class="nav-item">
               <a class="nav-link {% if request.resolver_match.url_name == 'dashboard_instalaciones' %}active{% endif %}"
                 href="{% url 'dashboard_instalaciones' %}">
@@ -308,20 +308,20 @@
             </li>
             {% endif %}
 
-            {% if request.user.is_superuser or es_administrador_monitoreo %}
+            {% if request.user.is_superuser or es_administrador_monitoreo or es_administrador %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'configuracion_usuarios' or request.resolver_match.url_name == 'registro_movimientos' or request.resolver_match.url_name == 'configuracion_horarios_tecnicos' or request.resolver_match.url_name == 'configuracion_catalogo_comercial' %}active{% endif %}"
                  href="#" id="administracionDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-cog me-1"></i> Administración
               </a>
               <ul class="dropdown-menu" aria-labelledby="administracionDropdown">
-                <li><a class="dropdown-item {% if request.resolver_match.url_name == 'configuracion_usuarios' %}active{% endif %}" href="{% url 'configuracion_usuarios' %}">
+                {% if request.user.is_superuser or es_administrador_monitoreo %}<li><a class="dropdown-item {% if request.resolver_match.url_name == 'configuracion_usuarios' %}active{% endif %}" href="{% url 'configuracion_usuarios' %}">
                   <i class="fas fa-users-cog fa-fw me-2"></i>Usuarios y roles
-                </a></li>
-                {% if request.user.is_superuser %}
-                <li><a class="dropdown-item {% if request.resolver_match.url_name == 'configuracion_horarios_tecnicos' %}active{% endif %}" href="{% url 'configuracion_horarios_tecnicos' %}">
+                </a></li>{% endif %}
+                {% if request.user.is_superuser or es_administrador %}<li><a class="dropdown-item {% if request.resolver_match.url_name == 'configuracion_horarios_tecnicos' %}active{% endif %}" href="{% url 'configuracion_horarios_tecnicos' %}">
                   <i class="fas fa-business-time fa-fw me-2"></i>Horarios técnicos
-                </a></li>
+                </a></li>{% endif %}
+                {% if request.user.is_superuser %}
                 <li><a class="dropdown-item {% if request.resolver_match.url_name == 'configuracion_catalogo_comercial' %}active{% endif %}" href="{% url 'configuracion_catalogo_comercial' %}">
                   <i class="fas fa-boxes fa-fw me-2"></i>Catálogo comercial
                 </a></li>

@@ -15,12 +15,14 @@
         </div>
         <div class="text-end">
             <span class="badge bg-light text-dark mb-2">{{ proyecto.get_estado_display }}</span><br>
+            {% if puede_gestionar_smartcheck %}
             <a href="{% url 'smartcheck_editar' proyecto.pk %}" class="btn btn-light btn-sm">
                 <i class="fas fa-edit me-1"></i> Editar proyecto
             </a>
             <a href="{% url 'smartcheck_propuesta' proyecto.pk %}" class="btn btn-warning btn-sm">
                 <i class="fas fa-file-invoice-dollar me-1"></i> Propuesta final
             </a>
+            {% endif %}
         </div>
         {% if cotizacion %}
         <div class="card shadow-sm border-0 mt-3">

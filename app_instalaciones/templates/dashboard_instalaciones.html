@@ -37,9 +37,11 @@ Dashboard Instalaciones
 </div>
 
 <nav class="nav nav-pills nav-fill gap-2 mb-4" aria-label="Procesos del dashboard">
+    {% if not dashboard_solo_logistica %}
     <a class="nav-link {% if seccion == 'resumen' %}active{% endif %}" href="?seccion=resumen"><i class="fas fa-th-large me-1"></i>Resumen</a>
     <a class="nav-link {% if seccion == 'instalaciones' %}active{% endif %}" href="?seccion=instalaciones"><i class="fas fa-tools me-1"></i>Instalaciones</a>
     {% if puede_ver_indicadores_mantenimiento %}<a class="nav-link {% if seccion == 'mantenimientos' %}active{% endif %}" href="?seccion=mantenimientos"><i class="fas fa-wrench me-1"></i>Mantenimientos</a>{% endif %}
+    {% endif %}
     <a class="nav-link {% if seccion == 'almacen' %}active{% endif %}" href="?seccion=almacen"><i class="fas fa-box me-1"></i>Almacén</a>
     <a class="nav-link {% if seccion == 'facturacion' %}active{% endif %}" href="?seccion=facturacion"><i class="fas fa-file-invoice-dollar me-1"></i>Facturación</a>
 </nav>
@@ -234,9 +236,9 @@ Dashboard Instalaciones
             <h3 class="fw-bold mb-1"><i class="fas fa-user-clock text-primary me-2"></i>Efectividad por horas trabajadas</h3>
             <p class="text-muted mb-0">Horas acumuladas en órdenes ÷ horas laborales esperadas del período × 100.</p>
         </div>
-        <a href="{% url 'configuracion_horarios_tecnicos' %}" class="btn btn-outline-primary btn-sm">
+        {% if puede_configurar_horarios %}<a href="{% url 'configuracion_horarios_tecnicos' %}" class="btn btn-outline-primary btn-sm">
             <i class="fas fa-cog me-1"></i>Configurar horarios
-        </a>
+        </a>{% endif %}
     </div>
 
     <div class="row g-3 mb-3">

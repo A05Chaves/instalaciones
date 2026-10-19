@@ -12,9 +12,11 @@
         <p class="mb-0">Visitas, levantamientos, propuestas y entregas de sistemas.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        {% if puede_gestionar_smartcheck %}
         <a href="{% url 'smartcheck_crear' %}" class="btn btn-light fw-semibold">
             <i class="fas fa-plus me-1"></i> Nuevo proyecto
         </a>
+        {% endif %}
         <a href="{% url 'smartcheck_visitas' %}" class="btn btn-warning fw-semibold">
             <i class="fas fa-handshake me-1"></i> Visita comercial
         </a>

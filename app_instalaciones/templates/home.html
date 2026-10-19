@@ -62,7 +62,7 @@ App_Sesur
 
 <div class="row g-4">
 
-    {% if user.is_staff or user.is_superuser or es_coordinador %}
+    {% if user.is_staff or user.is_superuser or es_administrador or es_coordinador or es_programador %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
@@ -85,24 +85,11 @@ App_Sesur
 
                 {% if request.user.is_authenticated %}
 
-                    {% if not request.user.groups.all.0.name == "Visor" %}
-
                     <a href="{% url 'registro_inst' %}"
                        class="btn btn-primary w-100">
                         <i class="fas fa-plus-circle me-1"></i>
                         Registrar Instalación
                     </a>
-
-                    {% else %}
-
-                    <button class="btn btn-secondary w-100"
-                            disabled
-                            title="No tienes permisos para registrar">
-                        <i class="fas fa-lock me-1"></i>
-                        Acceso restringido
-                    </button>
-
-                    {% endif %}
 
                 {% else %}
 
@@ -120,7 +107,7 @@ App_Sesur
 
     {% endif %}
 
-    {% if es_superusuario or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_visor %}
+    {% if es_superusuario or es_administrador or es_coordinador or es_programador or es_almacen or es_facturacion or es_auditor %}
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
 
@@ -153,7 +140,7 @@ App_Sesur
 
     {% endif %}
 
-    {% if es_superusuario or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo %}
+    {% if es_superusuario or es_administrador or es_coordinador or es_monitoreo or es_administrador_monitoreo or es_auditor %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
@@ -187,7 +174,7 @@ App_Sesur
 
     {% endif %}
 
-    {% if es_superusuario or es_administrador or es_coordinador %}
+    {% if es_superusuario or es_administrador or es_coordinador or es_auditor %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">
@@ -221,7 +208,7 @@ App_Sesur
 
     {% endif %}
 
-    {% if es_superusuario or es_cotizaciones %}
+    {% if es_superusuario or es_cotizaciones or es_auditor %}
 
     <div class="col-12 col-md-6 col-xxl-3 home-module-card">
         <div class="card h-100 border-0 shadow-sm">

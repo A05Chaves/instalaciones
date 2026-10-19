@@ -11,8 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from app_instalaciones.home_views.user_views import (
-    puede_editar_instalacion, puede_gestionar_cotizaciones, puede_programar,
-    puede_ver_instalaciones,
+    es_auditor, pertenece_grupo, puede_editar_instalacion,
+    puede_gestionar_cotizaciones, puede_programar, puede_ver_instalaciones,
 )
 from app_instalaciones.models.cuadroInstalaciones import (
     Ciudad,
@@ -57,7 +57,7 @@ def home(request):
 @login_required(login_url='login')
 @user_passes_test(puede_programar)
 def registro_inst(request):
-    if request.user.groups.filter(name='Visor').exists():
+    if es_auditor(request.user):
         messages.warning(
             request, " No tienes permisos para registrar instalaciones.")
         return redirect('home')
@@ -247,6 +247,16 @@ def is_editor_or_admin(user):
 @user_passes_test(puede_editar_instalacion)
 def editar_instalacion(request, id):
     instalacion = get_object_or_404(CuadroInsta, pk=id)
+    observacion_anterior = instalacion.observacion or ""
+    es_almacen = pertenece_grupo(request.user, "Almacen")
+    es_facturacion = pertenece_grupo(request.user, "Facturacion")
+
+    if es_almacen and instalacion.alistado and not request.user.is_superuser:
+        messages.warning(request, "La instalación ya fue alistada y está bloqueada para Almacén.")
+        return redirect('lista_instalaciones')
+    if es_facturacion and not instalacion.alistado and not request.user.is_superuser:
+        messages.warning(request, "Facturación sólo puede intervenir después del alistado.")
+        return redirect('lista_instalaciones')
 
     # Bloquea si está anulada (salvo superusuario)
     if instalacion.estado and instalacion.estado.strip().upper() == "ANULADO" and not request.user.is_superuser:
@@ -279,6 +289,18 @@ def editar_instalacion(request, id):
                 obj.ejecutivo_id = ej if ej not in (None, "") else getattr(
                     instalacion, "ejecutivo_id", None)
 
+                if es_almacen or es_facturacion:
+                    nota = (form.cleaned_data.get("observacion") or "").strip()
+                    obj.observacion = observacion_anterior
+                    if nota:
+                        etiqueta = "ALMACÉN" if es_almacen else "FACTURACIÓN"
+                        marca = timezone.localtime().strftime("%Y-%m-%d %H:%M")
+                        nueva_nota = f"[NOTA {etiqueta} - {request.user.username} - {marca}]\n{nota}"
+                        obj.observacion = (
+                            f"{observacion_anterior}\n{nueva_nota}"
+                            if observacion_anterior else nueva_nota
+                        )
+
                 obj.save()
 
                 messages.success(
@@ -308,7 +330,10 @@ def editar_instalacion(request, id):
 
 @login_required
 def eliminar_instalacion(request, id):
-    if not request.user.is_staff:
+    if not (
+        request.user.is_superuser
+        or pertenece_grupo(request.user, "Administrador")
+    ):
         messages.error(
             request, "Acceso denegado: solo los administradores pueden eliminar instalaciones.")
         return redirect('lista_instalaciones')

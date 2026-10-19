@@ -83,6 +83,86 @@ class PerfilUsuarioTests(TestCase):
         )
 
 
+class MatrizRolesTests(TestCase):
+    def usuario_con_rol(self, username, rol):
+        usuario = User.objects.create_user(username, password="Clave-12345")
+        grupo, _ = Group.objects.get_or_create(name=rol)
+        usuario.groups.add(grupo)
+        return usuario
+
+    def test_auditor_consulta_modulos_y_soportes_sin_editar(self):
+        auditor = self.usuario_con_rol("auditor_prueba", "Auditor")
+        mantenimiento = Mantenimiento.objects.create(
+            codigo="AUD-1", cliente="Cliente", direccion="Calle 1"
+        )
+        cotizacion = CotizacionServicioTecnico.objects.create(
+            codigo="AUD-1", registro="REG-AUD-1", cliente="Cliente",
+            direccion="Calle 1", descripcion="Cotización auditoría",
+            soporte_contenido=b"%PDF-1.4 soporte de prueba",
+            soporte_nombre="soporte-auditor.pdf",
+        )
+        proyecto = ProyectoSmartCheck.objects.create(
+            numero="PRO-AUD-1", nombre="Proyecto", cliente="Cliente",
+            ciudad="Pasto", direccion="Calle 1", sistemas=["ALARMA"],
+        )
+        self.client.force_login(auditor)
+
+        for nombre, args in [
+            ("lista_instalaciones", []),
+            ("listar_mantenimientos", []),
+            ("dashboard_instalaciones", []),
+            ("smartcheck_listar", []),
+            ("smartcheck_visitas", []),
+            ("smartcheck_detalle", [proyecto.pk]),
+            ("listar_cotizaciones_tecnicas", []),
+            ("descargar_soporte_cotizacion", [cotizacion.pk]),
+        ]:
+            self.assertEqual(self.client.get(reverse(nombre, args=args)).status_code, 200)
+
+        self.assertEqual(
+            self.client.post(reverse("mantenimiento_eliminar", args=[mantenimiento.pk])).status_code,
+            302,
+        )
+        self.assertTrue(Mantenimiento.objects.filter(pk=mantenimiento.pk).exists())
+        self.assertEqual(self.client.get(reverse("configuracion_usuarios")).status_code, 302)
+
+    def test_almacen_anexa_observacion_y_no_reemplaza_historial(self):
+        almacen = self.usuario_con_rol("almacen_prueba", "Almacen")
+        Ciudad.objects.create(nombre="Pasto")
+        instalacion = CuadroInsta.objects.create(
+            pvg=99001, codigo="123", cliente="Cliente", ciudad="Pasto",
+            direccion="Calle 1", observacion="NOTA ANTERIOR", en_bodega="NO",
+        )
+        self.client.force_login(almacen)
+
+        respuesta = self.client.post(
+            reverse("editar_instalacion", args=[instalacion.pk]),
+            {"en_bodega": "SI", "observacion": "Nueva nota de bodega"},
+        )
+
+        self.assertEqual(
+            respuesta.status_code,
+            302,
+            getattr(respuesta.context.get("form"), "errors", {}) if respuesta.context else {},
+        )
+        instalacion.refresh_from_db()
+        self.assertEqual(instalacion.en_bodega, "SI")
+        self.assertIn("NOTA ANTERIOR", instalacion.observacion)
+        self.assertIn("Nueva nota de bodega", instalacion.observacion)
+
+    def test_facturacion_solo_ve_indicadores_logisticos(self):
+        facturacion = self.usuario_con_rol("facturacion_prueba", "Facturacion")
+        self.client.force_login(facturacion)
+
+        respuesta = self.client.get(
+            reverse("dashboard_instalaciones"), {"seccion": "mantenimientos"}
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.context["seccion"], "almacen")
+        self.assertNotContains(respuesta, "Mantenimientos</a>")
+
+
 class EstadoFacturacionTests(TestCase):
     def crear_instalacion_alistada(self):
         return CuadroInsta.objects.create(

@@ -179,14 +179,25 @@ class CuadroInstaForm(forms.ModelForm):
                 pass
 
             elif es_almacen:
+                campos_almacen = ['en_bodega', 'observacion']
+                if self.instance.orden:
+                    campos_almacen = ['observacion']
                 for field in self.fields:
-                    if field not in ['en_bodega', 'observacion']:
+                    if self.instance.alistado or field not in campos_almacen:
                         self.fields[field].disabled = True
+                self.fields['observacion'].initial = ''
+                self.fields['observacion'].widget.attrs['placeholder'] = (
+                    'Agregar una nota nueva; el historial anterior se conservará'
+                )
 
             elif es_facturacion:
                 for field in self.fields:
                     if field != 'observacion':
                         self.fields[field].disabled = True
+                self.fields['observacion'].initial = ''
+                self.fields['observacion'].widget.attrs['placeholder'] = (
+                    'Agregar una nota nueva; el historial anterior se conservará'
+                )
 
             elif es_programador:
                 if self.instance.bloqueado_por_orden or self.instance.alistado:

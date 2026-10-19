@@ -67,6 +67,13 @@ def puede_gestionar_smartcheck(user):
     )
 
 
+def puede_ver_smartcheck(user):
+    return (
+        puede_gestionar_smartcheck(user)
+        or user.groups.filter(name__in=["Auditor", "Visor"]).exists()
+    )
+
+
 def sincronizar_checklist(proyecto):
     proyecto.items_checklist.exclude(sistema__in=proyecto.sistemas).delete()
     for sistema in proyecto.sistemas:
@@ -83,7 +90,7 @@ def sincronizar_checklist(proyecto):
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_smartcheck, login_url="home")
+@user_passes_test(puede_ver_smartcheck, login_url="home")
 def listar_proyectos(request):
     busqueda = (request.GET.get("busqueda") or "").strip()
     estado = (request.GET.get("estado") or "").strip()
@@ -110,12 +117,16 @@ def listar_proyectos(request):
         "sistema_filtro": sistema,
         "estados": ProyectoSmartCheck.ESTADOS,
         "sistemas": ProyectoSmartCheck.SISTEMAS,
+        "puede_gestionar_smartcheck": puede_gestionar_smartcheck(request.user),
     })
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_smartcheck, login_url="home")
+@user_passes_test(puede_ver_smartcheck, login_url="home")
 def visitas_comerciales_fonel(request, pk=None):
+    if request.method == "POST" and not puede_gestionar_smartcheck(request.user):
+        messages.error(request, "El perfil Auditor sólo puede consultar visitas comerciales.")
+        return redirect("smartcheck_visitas")
     visita = get_object_or_404(VisitaComercialFonel, pk=pk) if pk else None
     form = VisitaComercialFonelForm(request.POST or None, instance=visita)
     if request.method == "POST" and form.is_valid():
@@ -150,6 +161,7 @@ def visitas_comerciales_fonel(request, pk=None):
         "busqueda": busqueda,
         "etapa_filtro": etapa,
         "etapas": VisitaComercialFonel.ETAPAS,
+        "puede_gestionar_smartcheck": puede_gestionar_smartcheck(request.user),
     })
 
 
@@ -220,7 +232,7 @@ def editar_proyecto(request, pk):
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_smartcheck, login_url="home")
+@user_passes_test(puede_ver_smartcheck, login_url="home")
 def detalle_proyecto(request, pk):
     proyecto = get_object_or_404(
         ProyectoSmartCheck.objects.select_related("ejecutivo", "tecnico"),
@@ -281,6 +293,7 @@ def detalle_proyecto(request, pk):
         "dispositivos_alarma": dispositivos_alarma,
         "modulos_alarma": modulos_alarma,
         "cotizacion": CotizacionProyectoComercial.objects.filter(proyecto=proyecto).prefetch_related("items").first(),
+        "puede_gestionar_smartcheck": puede_gestionar_smartcheck(request.user),
     })
 
 

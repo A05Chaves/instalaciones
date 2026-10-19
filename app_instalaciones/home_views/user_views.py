@@ -77,6 +77,10 @@ def pertenece_grupo(user, nombre_grupo):
     return user.groups.filter(name=nombre_grupo).exists()
 
 
+def es_auditor(user):
+    return user.groups.filter(name__in={"Auditor", "Visor"}).exists()
+
+
 def puede_editar_instalacion(user):
     return (
         user.is_superuser
@@ -117,6 +121,7 @@ def puede_ver_dashboard(user):
     return (
         user.is_staff
         or puede_editar_instalacion(user)
+        or es_auditor(user)
     )
 
 
@@ -130,7 +135,7 @@ def puede_ver_instalaciones(user):
         or user.is_staff
         or user.groups.filter(name__in={
             "Administrador", "Coordinador", "Programador", "Almacen",
-            "Facturacion", "Visor",
+            "Facturacion", "Auditor", "Visor",
         }).exists()
     )
 
@@ -148,6 +153,7 @@ def puede_ver_mantenimientos(user):
         puede_gestionar_mantenimientos(user)
         or pertenece_grupo(user, "Monitoreo")
         or pertenece_grupo(user, "Administrador Monitoreo")
+        or es_auditor(user)
     )
 
 
@@ -169,6 +175,14 @@ def puede_gestionar_cotizaciones(user):
     return user.is_superuser or pertenece_grupo(user, "Cotizaciones")
 
 
+def puede_ver_cotizaciones(user):
+    return puede_gestionar_cotizaciones(user) or es_auditor(user)
+
+
+def puede_configurar_horarios(user):
+    return user.is_superuser or pertenece_grupo(user, "Administrador")
+
+
 def puede_eliminar_mantenimientos(user):
     return user.is_superuser or pertenece_grupo(user, "Administrador")
 
@@ -181,7 +195,7 @@ def es_usuario_solo_tecnico(user):
         return False
     roles_administrativos = {
         "Administrador", "Coordinador", "Programador", "Almacen",
-        "Facturacion", "Visor", "Cotizaciones", "Monitoreo",
+        "Facturacion", "Auditor", "Visor", "Cotizaciones", "Monitoreo",
         "Administrador Monitoreo",
     }
     return not user.groups.filter(name__in=roles_administrativos).exists()
@@ -290,7 +304,7 @@ def registrate(request):
         user = User.objects.create_user(
             username, email, password, first_name=nombre, last_name=apellido)
 
-        grupo_visores, _ = Group.objects.get_or_create(name='Visor')
+        grupo_visores, _ = Group.objects.get_or_create(name='Auditor')
         user.groups.add(grupo_visores)
 
         return redirect(f"{reverse('login')}?greetings=true")
@@ -1397,7 +1411,7 @@ def registrar_cotizacion_tecnico(request, pk):
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@user_passes_test(puede_ver_cotizaciones, login_url="home")
 def listar_cotizaciones_tecnicas(request):
     busqueda = (request.GET.get("busqueda") or "").strip()
     filtro_estado = (request.GET.get("estado") or "").upper()
@@ -1462,6 +1476,7 @@ def listar_cotizaciones_tecnicas(request):
         "cotizaciones_vencidas": cotizaciones_vencidas,
         "filtro_estado": filtro_estado,
         "contadores": contadores,
+        "puede_gestionar_cotizaciones": puede_gestionar_cotizaciones(request.user),
     })
 
 
@@ -1904,7 +1919,7 @@ def gestionar_cotizacion_tecnica(request, pk):
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@user_passes_test(puede_ver_cotizaciones, login_url="home")
 def descargar_soporte_cotizacion(request, pk):
     cotizacion = get_object_or_404(CotizacionServicioTecnico, pk=pk)
     nombre = (
@@ -1976,7 +1991,7 @@ def descargar_soporte_cotizacion(request, pk):
 
 
 @login_required(login_url="login")
-@user_passes_test(puede_gestionar_cotizaciones, login_url="home")
+@user_passes_test(puede_ver_cotizaciones, login_url="home")
 def exportar_cotizaciones_excel(request):
     libro = Workbook()
     hoja = libro.active
@@ -2085,6 +2100,13 @@ def dashboard_instalaciones(request):
     secciones_validas = {"resumen", "instalaciones", "mantenimientos", "almacen", "facturacion"}
     if seccion not in secciones_validas:
         seccion = "resumen"
+    if pertenece_grupo(request.user, "Facturacion") and not (
+        request.user.is_superuser
+        or pertenece_grupo(request.user, "Administrador")
+        or es_auditor(request.user)
+    ):
+        if seccion not in {"almacen", "facturacion"}:
+            seccion = "almacen"
     mes = request.GET.get('mes')
     ciudades_seleccionadas = request.GET.getlist('ciudad')
     fecha_corte = timezone.localdate()
@@ -2344,6 +2366,13 @@ def dashboard_instalaciones(request):
 
     contexto = {
         'seccion': seccion,
+        'dashboard_solo_logistica': (
+            pertenece_grupo(request.user, "Facturacion")
+            and not request.user.is_superuser
+            and not pertenece_grupo(request.user, "Administrador")
+            and not es_auditor(request.user)
+        ),
+        'puede_configurar_horarios': puede_configurar_horarios(request.user),
         'mes': mes,
         'ciudades_seleccionadas': ciudades_seleccionadas,
         'ciudades': ciudades,
@@ -2385,7 +2414,9 @@ def dashboard_instalaciones(request):
         'pvg_ejecutados_rango': pvg_ejecutados_rango,
         'pendientes_ejecucion_rango': pendientes_ejecucion_rango,
         'eficiencia_ejecucion_rango': eficiencia_ejecucion_rango,
-        'puede_ver_indicadores_mantenimiento': puede_gestionar_mantenimientos(request.user),
+        'puede_ver_indicadores_mantenimiento': (
+            puede_gestionar_mantenimientos(request.user) or es_auditor(request.user)
+        ),
         'detalle_instalaciones': qs.order_by('-fecha', '-pk')[:500],
         'detalle_almacen': registros_almacen.order_by('-finaliza', '-pk')[:500],
         'detalle_facturacion': registros_facturacion.order_by('-fecha_alistado', '-pk')[:500],
@@ -2447,7 +2478,7 @@ def configuracion_usuarios(request):
         'Programador',
         'Almacen',
         'Facturacion',
-        'Visor',
+        'Auditor',
         'Tecnico',
         'Cotizaciones',
         'Monitoreo',
@@ -2580,7 +2611,7 @@ def configuracion_usuarios(request):
 
 
 @login_required(login_url='login')
-@user_passes_test(lambda u: u.is_superuser, login_url='home')
+@user_passes_test(puede_configurar_horarios, login_url='home')
 def configuracion_horarios_tecnicos(request):
     asegurar_horarios_tecnicos()
     if request.method == "POST":

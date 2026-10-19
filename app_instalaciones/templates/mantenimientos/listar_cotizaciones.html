@@ -37,6 +37,7 @@
         <a href="{% url 'exportar_cotizaciones_excel' %}" class="btn btn-success">
             <i class="fas fa-file-excel me-1"></i>Exportar Excel
         </a>
+        {% if puede_gestionar_cotizaciones %}
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
                 data-bs-target="#modalImportarVisita">
             <i class="fas fa-file-import me-1"></i>Importar orden PDF
@@ -45,6 +46,7 @@
                 data-bs-target="#modalCotizacionManual">
             <i class="fas fa-plus me-1"></i>Nueva cotización manual
         </button>
+        {% endif %}
         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i>Volver al inicio
         </a>
@@ -101,7 +103,7 @@
             </div>
         </form>
     </div>
-    <div class="table-responsive">
+    <div class="table-responsive {% if not puede_gestionar_cotizaciones %}cotizaciones-solo-lectura{% endif %}">
         <table class="table table-bordered table-hover align-middle mb-0">
             <thead class="table-dark">
                 <tr>
@@ -153,6 +155,9 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if not puede_gestionar_cotizaciones %}
+                        <span class="badge bg-secondary">{{ cotizacion.get_estado_display }}</span>
+                        {% endif %}
                         {% if cotizacion.estado == "REGISTRADA" %}
                         <select id="ejecutivo-{{ cotizacion.pk }}" class="form-select form-select-sm">
                             <option value="">Seleccionar…</option>
@@ -289,6 +294,15 @@
         </table>
     </div>
 </div>
+
+{% if not puede_gestionar_cotizaciones %}
+<style>
+    .cotizaciones-solo-lectura select,
+    .cotizaciones-solo-lectura input,
+    .cotizaciones-solo-lectura form,
+    .cotizaciones-solo-lectura button { display: none !important; }
+</style>
+{% endif %}
 
 <div class="modal fade" id="modalCotizacionManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">

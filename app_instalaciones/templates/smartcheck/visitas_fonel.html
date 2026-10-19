@@ -20,7 +20,7 @@
     {% for message in messages %}<div class="alert alert-{{ message.tags }}">{{ message }}</div>{% endfor %}
 {% endif %}
 
-<div class="card shadow-sm border-0 mb-4">
+{% if puede_gestionar_smartcheck %}<div class="card shadow-sm border-0 mb-4">
     <button class="card-header bg-primary text-white border-0 text-start d-flex justify-content-between align-items-center"
             type="button" data-bs-toggle="collapse" data-bs-target="#formulario-fonel"
             aria-expanded="{% if form.errors or visita_editar %}true{% else %}false{% endif %}">
@@ -49,6 +49,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="card shadow-sm border-0">
     <div class="card-body">
@@ -91,6 +92,7 @@
                         <td>{{ visita.proxima_gestion|date:"Y-m-d"|default:"—" }}</td>
                         <td>${{ visita.valor_estimado|floatformat:0 }}</td>
                         <td>
+                            {% if puede_gestionar_smartcheck %}
                             <div class="d-flex flex-wrap gap-1">
                                 <a href="{% url 'smartcheck_visita_editar' visita.pk %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i> Editar</a>
                                 {% if visita.etapa != "FORECAST" and visita.etapa != "GANADA" and visita.etapa != "PERDIDA" %}
@@ -103,6 +105,7 @@
                                 </form>
                                 {% endif %}
                             </div>
+                            {% else %}<span class="text-muted">Solo lectura</span>{% endif %}
                         </td>
                     </tr>
                 {% empty %}
