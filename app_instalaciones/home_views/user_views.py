@@ -1609,28 +1609,21 @@ def indicadores_cotizaciones(request):
     )
     escala_maxima = max(5, ((grafico_maximo + 4) // 5) * 5)
     margen_izquierdo, margen_superior = 60, 20
-    ancho_trazado, alto_trazado = 910, 235
     cantidad_puntos = len(grafico_diario)
-    salto_etiqueta = max(1, (cantidad_puntos + 7) // 8)
+    ancho_grafico = max(1000, 90 + cantidad_puntos * 75)
+    ancho_trazado, alto_trazado = ancho_grafico - 90, 235
+    ancho_grupo = ancho_trazado / max(cantidad_puntos, 1)
+    ancho_barra = min(24, ancho_grupo * .32)
     for indice, item in enumerate(grafico_diario):
-        if cantidad_puntos <= 1:
-            posicion_x = margen_izquierdo + ancho_trazado / 2
-        else:
-            posicion_x = margen_izquierdo + (
-                indice * ancho_trazado / (cantidad_puntos - 1)
-            )
+        posicion_x = margen_izquierdo + (indice + .5) * ancho_grupo
         item["x"] = f"{posicion_x:.1f}"
         item["y_subidas"] = f"{margen_superior + alto_trazado * (1 - item['subidas'] / escala_maxima):.1f}"
         item["y_enviadas"] = f"{margen_superior + alto_trazado * (1 - item['enviadas'] / escala_maxima):.1f}"
-        item["mostrar_fecha"] = (
-            indice % salto_etiqueta == 0 or indice == cantidad_puntos - 1
-        )
-    puntos_subidas = " ".join(
-        f"{item['x']},{item['y_subidas']}" for item in grafico_diario
-    )
-    puntos_enviadas = " ".join(
-        f"{item['x']},{item['y_enviadas']}" for item in grafico_diario
-    )
+        item["x_subidas"] = f"{posicion_x - ancho_barra - 2:.1f}"
+        item["x_enviadas"] = f"{posicion_x + 2:.1f}"
+        item["ancho_barra"] = f"{ancho_barra:.1f}"
+        item["alto_subidas"] = f"{alto_trazado * item['subidas'] / escala_maxima:.1f}"
+        item["alto_enviadas"] = f"{alto_trazado * item['enviadas'] / escala_maxima:.1f}"
     lineas_escala = []
     for indice in range(6):
         lineas_escala.append({
@@ -1646,8 +1639,8 @@ def indicadores_cotizaciones(request):
         "responsables": responsables,
         "grafico_diario": grafico_diario,
         "grafico_maximo": grafico_maximo,
-        "puntos_subidas": puntos_subidas,
-        "puntos_enviadas": puntos_enviadas,
+        "ancho_grafico": ancho_grafico,
+        "fin_eje_x": ancho_grafico - 30,
         "lineas_escala": lineas_escala,
         "fecha_desde": fecha_desde,
         "fecha_hasta": fecha_hasta,

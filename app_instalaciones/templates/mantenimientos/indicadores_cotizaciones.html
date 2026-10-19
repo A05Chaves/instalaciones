@@ -5,14 +5,14 @@
 {% block content %}
 <style>
     .grafico-comercial .contenedor-lineas { overflow-x: auto; }
-    .grafico-comercial .grafico-lineas { min-width: 760px; color: var(--bs-body-color); }
+    .grafico-comercial .grafico-barras { color: var(--bs-body-color); }
     .grafico-comercial .linea-cuadricula { stroke: var(--bs-border-color); stroke-width: 1; }
     .grafico-comercial .texto-eje { fill: currentColor; font-size: 12px; }
     .grafico-comercial .valor-punto { fill: currentColor; font-size: 11px; font-weight: 700; }
-    .grafico-comercial .linea-subidas { fill: none; stroke: #0d6efd; stroke-width: 3; }
-    .grafico-comercial .linea-enviadas { fill: none; stroke: #198754; stroke-width: 3; }
-    .grafico-comercial .punto-subidas { fill: #0d6efd; stroke: var(--bs-body-bg); stroke-width: 2; }
-    .grafico-comercial .punto-enviadas { fill: #198754; stroke: var(--bs-body-bg); stroke-width: 2; }
+    .grafico-comercial .barra-subidas { fill: #0d6efd; }
+    .grafico-comercial .barra-enviadas { fill: #198754; }
+    .grafico-comercial rect { transition: opacity .15s ease; }
+    .grafico-comercial rect:hover { opacity: .75; }
     .grafico-comercial .leyenda-muestra {
         display: inline-block;
         width: .8rem;
@@ -116,23 +116,21 @@
         <p class="text-muted small mb-3">Compara cuántas órdenes se cargaron y cuántas cotizaciones se enviaron en cada fecha del intervalo seleccionado.</p>
         {% if grafico_diario %}
         <div class="contenedor-lineas">
-            <svg class="grafico-lineas w-100" viewBox="0 0 1000 320" role="img" aria-label="Gráfica diaria de órdenes subidas y cotizaciones enviadas">
+            <svg class="grafico-barras" width="{{ ancho_grafico }}" height="320" viewBox="0 0 {{ ancho_grafico }} 320" role="img" aria-label="Gráfica diaria de barras de órdenes subidas y cotizaciones enviadas">
                 {% for linea in lineas_escala %}
-                <line class="linea-cuadricula" x1="60" y1="{{ linea.y }}" x2="970" y2="{{ linea.y }}"></line>
+                <line class="linea-cuadricula" x1="60" y1="{{ linea.y }}" x2="{{ fin_eje_x }}" y2="{{ linea.y }}"></line>
                 <text class="texto-eje" x="50" y="{{ linea.y }}" text-anchor="end" dominant-baseline="middle">{{ linea.valor }}</text>
                 {% endfor %}
-                <polyline class="linea-subidas" points="{{ puntos_subidas }}"></polyline>
-                <polyline class="linea-enviadas" points="{{ puntos_enviadas }}"></polyline>
                 {% for item in grafico_diario %}
                 <g aria-label="{{ item.fecha|date:'Y-m-d' }}: {{ item.subidas }} subidas y {{ item.enviadas }} enviadas">
-                    <circle class="punto-subidas" cx="{{ item.x }}" cy="{{ item.y_subidas }}" r="5"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.subidas }} subidas</title></circle>
-                    <text class="valor-punto" x="{{ item.x }}" y="{{ item.y_subidas }}" dy="-9" text-anchor="middle">{{ item.subidas }}</text>
-                    <circle class="punto-enviadas" cx="{{ item.x }}" cy="{{ item.y_enviadas }}" r="5"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.enviadas }} enviadas</title></circle>
-                    <text class="valor-punto" x="{{ item.x }}" y="{{ item.y_enviadas }}" dy="16" text-anchor="middle">{{ item.enviadas }}</text>
-                    {% if item.mostrar_fecha %}<text class="texto-eje" x="{{ item.x }}" y="282" text-anchor="middle">{{ item.fecha|date:"d/m" }}</text>{% endif %}
+                    <rect class="barra-subidas" x="{{ item.x_subidas }}" y="{{ item.y_subidas }}" width="{{ item.ancho_barra }}" height="{{ item.alto_subidas }}" rx="2"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.subidas }} subidas</title></rect>
+                    <text class="valor-punto" x="{{ item.x_subidas }}" dx="{{ item.ancho_barra }}" y="{{ item.y_subidas }}" dy="-6" text-anchor="end">{{ item.subidas }}</text>
+                    <rect class="barra-enviadas" x="{{ item.x_enviadas }}" y="{{ item.y_enviadas }}" width="{{ item.ancho_barra }}" height="{{ item.alto_enviadas }}" rx="2"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.enviadas }} enviadas</title></rect>
+                    <text class="valor-punto" x="{{ item.x_enviadas }}" dx="{{ item.ancho_barra }}" y="{{ item.y_enviadas }}" dy="-6" text-anchor="end">{{ item.enviadas }}</text>
+                    <text class="texto-eje" x="{{ item.x }}" y="278" text-anchor="middle">{{ item.fecha|date:"d/m" }}</text>
                 </g>
                 {% endfor %}
-                <text class="texto-eje" x="515" y="310" text-anchor="middle">Fecha</text>
+                <text class="texto-eje" x="50%" y="310" text-anchor="middle">Fecha</text>
                 <text class="texto-eje" transform="translate(15 140) rotate(-90)" text-anchor="middle">Cantidad de órdenes</text>
             </svg>
         </div>
