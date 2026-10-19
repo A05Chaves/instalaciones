@@ -118,6 +118,16 @@
             <button id="btn-cerrar-alerta" class="enlace cerrar-alerta" type="button">Cerrar</button>
         </div>
     </div>
+    <div id="alerta-servicio-abierto" class="modal-alerta oculto" role="dialog" aria-modal="true" aria-labelledby="titulo-alerta-servicio-abierto">
+        <div class="modal-alerta-contenido">
+            <div class="icono-alerta" aria-hidden="true">⏱️</div>
+            <small>Servicio pendiente de cierre</small>
+            <h2 id="titulo-alerta-servicio-abierto">Llevas más de 2 horas en este servicio</h2>
+            <p id="texto-alerta-servicio-abierto"></p>
+            <button id="btn-ver-servicio-abierto" class="boton" type="button">Revisar y cerrar servicio</button>
+            <button id="btn-cerrar-servicio-abierto" class="enlace cerrar-alerta" type="button">Recordar después</button>
+        </div>
+    </div>
     <script>
         window.SESUR_TECNICO = {
             api: "{% url 'api_servicios_tecnico' %}",
@@ -130,6 +140,6 @@
         };
     </script>
     <script src="{% static 'sesur/js/session_activity.js' %}?v=19"></script>
-    <script src="{% static 'sesur/js/portal_tecnico.js' %}?v=20"></script>
+    <script src="{% static 'sesur/js/portal_tecnico.js' %}?v=21"></script>
 </body>
 </html>

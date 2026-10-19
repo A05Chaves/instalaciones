@@ -1,7 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.utils import timezone
+
+
+def _restriccion_check_compatible(*, condicion, nombre):
+    """Compatibilidad entre Django 4.2 (Render) y Django 6 local."""
+    try:
+        return models.CheckConstraint(condition=condicion, name=nombre)
+    except TypeError:
+        return models.CheckConstraint(check=condicion, name=nombre)
 
 
 class Tecnico(models.Model):
@@ -407,6 +416,24 @@ class Mantenimiento(models.Model):
         blank=True
     )
 
+    class Meta:
+        constraints = [
+            _restriccion_check_compatible(
+                condicion=(
+                    ~models.Q(estado_operativo="EN_PROCESO")
+                    | models.Q(tecnico__isnull=False)
+                ),
+                nombre="mantenimiento_en_proceso_requiere_tecnico",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.estado_operativo == "EN_PROCESO" and not self.tecnico_id:
+            raise ValidationError({
+                "tecnico": "Un mantenimiento en proceso debe tener un técnico asignado."
+            })
+
     @property
     def duracion_servicio(self):
         """Devuelve la duración en formato HH:MM:SS sin cambiar el valor decimal."""
@@ -467,6 +494,10 @@ class Mantenimiento(models.Model):
         ])
         if cierre_operador_completo and not permitir_estado_manual:
             self.estado_operativo = "FINALIZADO"
+        if self.estado_operativo == "EN_PROCESO" and not self.tecnico_id:
+            raise ValidationError(
+                "Un mantenimiento en proceso debe tener un técnico asignado."
+            )
         if self.orden and not self.fecha_orden:
             self.fecha_orden = timezone.now()
         super().save(*args, **kwargs)

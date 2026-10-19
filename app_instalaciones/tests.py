@@ -318,6 +318,33 @@ class ListaMantenimientosTests(TestCase):
         response = self.client.get(reverse("listar_mantenimientos"))
         self.assertContains(response, "Asignado")
 
+    def test_no_permite_estado_en_proceso_sin_tecnico(self):
+        mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
+        Ciudad.objects.get_or_create(nombre=mantenimiento.ciudad)
+        superusuario = User.objects.create_superuser(
+            "super_sin_tecnico", "super2@example.com", "Clave-12345"
+        )
+        self.client.force_login(superusuario)
+        response = self.client.post(
+            reverse("mantenimiento_actualizar", args=[mantenimiento.pk]),
+            {
+                "codigo": mantenimiento.codigo,
+                "cliente": mantenimiento.cliente,
+                "direccion": mantenimiento.direccion,
+                "tipo_servicio": mantenimiento.tipo_servicio,
+                "tipo_falla": "F.COMUNICACION",
+                "tecnico": "",
+                "estado_operativo": "EN_PROCESO",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        respuesta = response.json()
+        self.assertIn("error", respuesta, respuesta)
+        self.assertIn("sin asignar un técnico", respuesta["error"])
+        mantenimiento.refresh_from_db()
+        self.assertEqual(mantenimiento.estado_operativo, "PENDIENTE")
+        self.assertIsNone(mantenimiento.tecnico)
+
     def test_superadministrador_puede_editar_completo_un_servicio_cerrado(self):
         Ciudad.objects.get_or_create(nombre="Pasto")
         mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
@@ -749,7 +776,22 @@ class PortalTecnicoTests(TestCase):
 
         portal = self.client.get(reverse("portal_tecnico"))
         self.assertContains(portal, "Soltar servicio")
-        self.assertContains(portal, "portal_tecnico.js?v=20")
+        self.assertContains(portal, "portal_tecnico.js?v=21")
+
+    def test_alerta_servicio_en_ejecucion_despues_de_dos_horas(self):
+        self.servicio.estado_operativo = "EN_PROCESO"
+        self.servicio.inicio_tecnico = timezone.now() - timedelta(hours=2, minutes=5)
+        self.servicio.save(update_fields=["estado_operativo", "inicio_tecnico"])
+
+        respuesta = self.client.get(reverse("api_servicios_tecnico"))
+
+        self.assertEqual(respuesta.status_code, 200)
+        servicio = respuesta.json()["servicios"][0]
+        self.assertTrue(servicio["alerta_cierre"])
+        self.assertGreaterEqual(servicio["minutos_en_ejecucion"], 125)
+        portal = self.client.get(reverse("portal_tecnico"))
+        self.assertContains(portal, "Servicio pendiente de cierre")
+        self.assertContains(portal, "Revisar y cerrar servicio")
 
     def test_tecnico_registra_cotizacion_con_descripcion_sin_pdf(self):
         response = self.client.post(

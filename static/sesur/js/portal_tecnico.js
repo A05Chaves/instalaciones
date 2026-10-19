@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let filtro = "HOY";
     let terminoBusqueda = "";
     let servicioAlertaId = null;
+    let servicioDemoradoId = null;
     const claveBorradores = "sesur-tecnico-borradores-novedad";
     let borradoresNovedad = {};
     try {
@@ -287,6 +288,61 @@ document.addEventListener("DOMContentLoaded", () => {
         await notificarTelefono(aviso).catch(() => {});
         if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
     }
+    function minutosServicioAbierto(servicio) {
+        if (servicio.inicio) {
+            return Math.max(0, Math.floor((Date.now() - new Date(servicio.inicio).getTime()) / 60000));
+        }
+        return Number.isFinite(Number(servicio.minutos_en_ejecucion))
+            ? Number(servicio.minutos_en_ejecucion)
+            : 0;
+    }
+    function referenciaServicio(servicio) {
+        return servicio.ticket || servicio.codigo || `#${servicio.id}`;
+    }
+    function textoDuracion(minutos) {
+        const horas = Math.floor(minutos / 60);
+        const resto = minutos % 60;
+        return `${horas} h ${resto} min`;
+    }
+    async function procesarServiciosPendientesDeCierre() {
+        const demorados = servicios
+            .filter(servicio => servicio.estado === "EN_PROCESO" && minutosServicioAbierto(servicio) >= 120)
+            .sort((a, b) => minutosServicioAbierto(b) - minutosServicioAbierto(a));
+        const idsActivos = new Set(demorados.map(servicio => String(servicio.id)));
+        Object.keys(localStorage).filter(clave => clave.startsWith("sesur-alerta-cierre-")).forEach(clave => {
+            if (!idsActivos.has(clave.replace("sesur-alerta-cierre-", ""))) localStorage.removeItem(clave);
+        });
+        if (!demorados.length) {
+            document.getElementById("alerta-servicio-abierto").classList.add("oculto");
+            return;
+        }
+        const servicio = demorados[0];
+        const clave = `sesur-alerta-cierre-${servicio.id}`;
+        const ultimoAviso = Number(localStorage.getItem(clave) || 0);
+        if (Date.now() - ultimoAviso < 30 * 60 * 1000) return;
+        localStorage.setItem(clave, String(Date.now()));
+        servicioDemoradoId = servicio.id;
+        const minutos = minutosServicioAbierto(servicio);
+        const texto = `El servicio ${referenciaServicio(servicio)} de ${servicio.cliente} lleva ${textoDuracion(minutos)} abierto. Finalízalo si el trabajo ya terminó o verifica por qué continúa en ejecución.`;
+        document.getElementById("texto-alerta-servicio-abierto").textContent = texto;
+        document.getElementById("alerta-servicio-abierto").classList.remove("oculto");
+        if ("Notification" in window && Notification.permission === "granted") {
+            const opciones = {
+                body: texto,
+                icon: "/static/sesur/img/logosesur.png",
+                badge: "/static/sesur/img/logosesur.png",
+                tag: `servicio-abierto-${servicio.id}`,
+                renotify: true,
+                data: {url: window.location.href},
+            };
+            const registro = "serviceWorker" in navigator
+                ? await navigator.serviceWorker.getRegistration()
+                : null;
+            if (registro) await registro.showNotification("Servicio pendiente de cierre", opciones);
+            else new Notification("Servicio pendiente de cierre", opciones);
+        }
+        if (navigator.vibrate) navigator.vibrate([250, 100, 250, 100, 250]);
+    }
     async function encolar(payload) {
         const db = await abrirDB();
         const cambio = {clave: `${payload.id}-${Date.now()}`, payload};
@@ -435,6 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 await guardar("datos", "servicios", servicios);
                 render();
             }
+            await procesarServiciosPendientesDeCierre();
             await guardar("datos", "avisos", data.notificaciones);
             renderAvisos(data.notificaciones);
             await procesarAvisosNuevos(data.notificaciones);
@@ -473,6 +530,22 @@ document.addEventListener("DOMContentLoaded", () => {
             articulo.querySelector(".resumen-servicio").click();
         }
     });
+    document.getElementById("btn-cerrar-servicio-abierto").addEventListener("click", () => {
+        document.getElementById("alerta-servicio-abierto").classList.add("oculto");
+    });
+    document.getElementById("btn-ver-servicio-abierto").addEventListener("click", () => {
+        document.getElementById("alerta-servicio-abierto").classList.add("oculto");
+        filtro = "EJECUCION";
+        document.querySelectorAll(".filtro").forEach(b => b.classList.toggle("activo", b.dataset.filtro === "EJECUCION"));
+        terminoBusqueda = "";
+        document.getElementById("buscar-servicio").value = "";
+        render();
+        const articulo = document.querySelector(`[data-servicio-id="${servicioDemoradoId}"]`);
+        if (articulo) {
+            articulo.scrollIntoView({behavior: "smooth", block: "center"});
+            articulo.querySelector(".resumen-servicio").click();
+        }
+    });
     document.getElementById("btn-leer-avisos").addEventListener("click", async () => {
         if (!navigator.onLine) return mensaje("Necesitas conexión para confirmar las notificaciones.");
         await fetch(cfg.leerAvisos, {method: "POST", headers: {"X-CSRFToken": cookie("csrftoken")}});
@@ -491,7 +564,9 @@ document.addEventListener("DOMContentLoaded", () => {
         servicios = await leer("datos", "servicios") || [];
         servicios = servicios.filter(estaActivo);
         await guardar("datos", "servicios", servicios);
-        render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); actualizarBotonAlertas(); sincronizar(true);
+        render(); renderAvisos(await leer("datos", "avisos") || []); actualizarRed(); actualizarBotonAlertas();
+        await procesarServiciosPendientesDeCierre();
+        sincronizar(true);
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register(cfg.serviceWorker).then(registro => registro.update());
         }

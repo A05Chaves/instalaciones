@@ -959,6 +959,11 @@ def mantenimiento_actualizar(request, pk):
             m.fecha_orden = timezone.now()
         if not m.orden_registrada_por:
             m.orden_registrada_por = request.user
+    if m.estado_operativo == "EN_PROCESO" and not m.tecnico_id:
+        return JsonResponse({
+            "ok": False,
+            "error": "No puedes poner el mantenimiento en proceso sin asignar un técnico.",
+        }, status=400)
     if m.orden and not orden_anterior:
         m.fecha_orden = timezone.now()
         m.orden_registrada_por = request.user
@@ -1095,6 +1100,12 @@ def _serializar_servicio_tecnico(mantenimiento):
         cotizacion_registrada = bool(mantenimiento.cotizacion_tecnica)
     except CotizacionServicioTecnico.DoesNotExist:
         cotizacion_registrada = False
+    minutos_en_ejecucion = 0
+    if mantenimiento.estado_operativo == "EN_PROCESO" and mantenimiento.inicio_tecnico:
+        minutos_en_ejecucion = max(
+            0,
+            int((timezone.now() - mantenimiento.inicio_tecnico).total_seconds() // 60),
+        )
     return {
         "id": mantenimiento.pk,
         "ticket": mantenimiento.numero_ticket or "",
@@ -1128,6 +1139,8 @@ def _serializar_servicio_tecnico(mantenimiento):
         ) else "",
         "bloqueado": mantenimiento.estado_operativo in {"PENDIENTE_OMT", "FINALIZADO"} or bool(mantenimiento.orden),
         "cotizacion_registrada": cotizacion_registrada,
+        "minutos_en_ejecucion": minutos_en_ejecucion,
+        "alerta_cierre": minutos_en_ejecucion >= 120,
     }
 
 
