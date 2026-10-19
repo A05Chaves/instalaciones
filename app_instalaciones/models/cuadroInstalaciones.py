@@ -595,6 +595,14 @@ class CotizacionServicioTecnico(models.Model):
         max_length=15, choices=ESTADOS, default="REGISTRADA", db_index=True
     )
     fecha_envio = models.DateTimeField(null=True, blank=True)
+    enviado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="cotizaciones_tecnicas_enviadas",
+    )
     fecha_gestion = models.DateTimeField(null=True, blank=True)
     nota_rechazo = models.TextField(blank=True)
     accion_seguimiento = models.CharField(

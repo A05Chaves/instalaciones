@@ -1416,7 +1416,7 @@ def listar_cotizaciones_tecnicas(request):
     busqueda = (request.GET.get("busqueda") or "").strip()
     filtro_estado = (request.GET.get("estado") or "").upper()
     cotizaciones_base = CotizacionServicioTecnico.objects.select_related(
-        "tecnico", "mantenimiento", "creado_por", "ejecutivo"
+        "tecnico", "mantenimiento", "creado_por", "ejecutivo", "enviado_por"
     ).prefetch_related("seguimientos")
     if busqueda:
         cotizaciones_base = cotizaciones_base.filter(
@@ -1501,7 +1501,7 @@ def indicadores_cotizaciones(request):
     fecha_desde = parse_date(request.GET.get("desde") or "")
     fecha_hasta = parse_date(request.GET.get("hasta") or "")
     cotizaciones = CotizacionServicioTecnico.objects.select_related(
-        "creado_por", "tecnico"
+        "creado_por", "tecnico", "enviado_por"
     ).order_by("-fecha_registro", "-pk")
     if fecha_desde:
         cotizaciones = cotizaciones.filter(fecha_registro__date__gte=fecha_desde)
@@ -1518,6 +1518,11 @@ def indicadores_cotizaciones(request):
         nombre_responsable = (
             responsable.get_full_name().strip() or responsable.username
             if responsable else "Sin identificar"
+        )
+        usuario_envio = cotizacion.enviado_por
+        nombre_usuario_envio = (
+            usuario_envio.get_full_name().strip() or usuario_envio.username
+            if usuario_envio else "Sin identificar"
         )
         carga = None
         if cotizacion.fecha_orden and cotizacion.fecha_registro:
@@ -1558,6 +1563,7 @@ def indicadores_cotizaciones(request):
         detalle.append({
             "cotizacion": cotizacion,
             "responsable": nombre_responsable,
+            "responsable_envio": nombre_usuario_envio,
             "tiempo_carga": _duracion_legible(carga),
             "tiempo_envio": _duracion_legible(envio),
         })
@@ -1610,6 +1616,11 @@ def _snapshot_corte_cotizaciones(cotizaciones):
             responsable.get_full_name().strip() or responsable.username
             if responsable else "Sin identificar"
         )
+        usuario_envio = cotizacion.enviado_por
+        nombre_usuario_envio = (
+            usuario_envio.get_full_name().strip() or usuario_envio.username
+            if usuario_envio else "Sin identificar"
+        )
         carga = None
         if cotizacion.fecha_orden and cotizacion.fecha_registro:
             valor = (cotizacion.fecha_registro - cotizacion.fecha_orden).total_seconds()
@@ -1629,6 +1640,7 @@ def _snapshot_corte_cotizaciones(cotizaciones):
             "registro": cotizacion.registro or "---",
             "cliente": cotizacion.cliente,
             "responsable": nombre,
+            "responsable_envio": nombre_usuario_envio,
             "fecha_orden": timezone.localtime(cotizacion.fecha_orden).strftime("%Y-%m-%d %H:%M") if cotizacion.fecha_orden else "---",
             "fecha_carga": timezone.localtime(cotizacion.fecha_registro).strftime("%Y-%m-%d %H:%M"),
             "tiempo_carga": _duracion_legible(carga),
@@ -1680,7 +1692,7 @@ def finalizar_corte_cotizaciones(request):
         return redirect("indicadores_cotizaciones")
 
     cotizaciones = list(
-        CotizacionServicioTecnico.objects.select_related("creado_por")
+        CotizacionServicioTecnico.objects.select_related("creado_por", "enviado_por")
         .filter(
             fecha_registro__date__gte=fecha_desde,
             fecha_registro__date__lte=fecha_hasta,
@@ -1867,9 +1879,10 @@ def gestionar_cotizacion_tecnica(request, pk):
             cotizacion.numero_cotizacion = numero_cotizacion[:80]
             cotizacion.estado = "PENDIENTE"
             cotizacion.fecha_envio = ahora
+            cotizacion.enviado_por = request.user
             cotizacion.save(update_fields=[
                 "ejecutivo", "medio_envio", "dirigida_a", "numero_cotizacion",
-                "estado", "fecha_envio"
+                "estado", "fecha_envio", "enviado_por"
             ])
             messages.success(request, "Cotización marcada como enviada y pendiente.")
     elif accion in {"APROBAR", "RECHAZAR"}:

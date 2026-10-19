@@ -81,6 +81,7 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertEqual(self.cotizacion.estado, "PENDIENTE")
         self.assertEqual(self.cotizacion.numero_cotizacion, "COT-2026-001")
         self.assertIsNotNone(self.cotizacion.fecha_envio)
+        self.assertEqual(self.cotizacion.enviado_por.username, "admin_cotizacion")
 
         self.cotizacion.fecha_orden = timezone.now() - timedelta(days=20)
         self.cotizacion.save(update_fields=["fecha_orden"])
@@ -155,6 +156,9 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertContains(indicador_super, "2 h 0 min")
         self.assertContains(indicador_super, "6 h 0 min")
         self.assertContains(indicador_super, "tecnico_cotizacion")
+        self.assertContains(indicador_super, "Responsable de subir soporte")
+        self.assertContains(indicador_super, "Estado de las órdenes por responsable")
+        self.assertContains(indicador_super, "1 enviadas y 0 pendientes")
 
     def test_superadministrador_finaliza_y_consulta_corte_historico(self):
         superusuario = User.objects.create_superuser(
