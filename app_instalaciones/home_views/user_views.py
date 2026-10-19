@@ -1607,6 +1607,36 @@ def indicadores_cotizaciones(request):
         (max(item["subidas"], item["enviadas"]) for item in grafico_diario),
         default=1,
     )
+    escala_maxima = max(5, ((grafico_maximo + 4) // 5) * 5)
+    margen_izquierdo, margen_superior = 60, 20
+    ancho_trazado, alto_trazado = 910, 235
+    cantidad_puntos = len(grafico_diario)
+    salto_etiqueta = max(1, (cantidad_puntos + 7) // 8)
+    for indice, item in enumerate(grafico_diario):
+        if cantidad_puntos <= 1:
+            posicion_x = margen_izquierdo + ancho_trazado / 2
+        else:
+            posicion_x = margen_izquierdo + (
+                indice * ancho_trazado / (cantidad_puntos - 1)
+            )
+        item["x"] = f"{posicion_x:.1f}"
+        item["y_subidas"] = f"{margen_superior + alto_trazado * (1 - item['subidas'] / escala_maxima):.1f}"
+        item["y_enviadas"] = f"{margen_superior + alto_trazado * (1 - item['enviadas'] / escala_maxima):.1f}"
+        item["mostrar_fecha"] = (
+            indice % salto_etiqueta == 0 or indice == cantidad_puntos - 1
+        )
+    puntos_subidas = " ".join(
+        f"{item['x']},{item['y_subidas']}" for item in grafico_diario
+    )
+    puntos_enviadas = " ".join(
+        f"{item['x']},{item['y_enviadas']}" for item in grafico_diario
+    )
+    lineas_escala = []
+    for indice in range(6):
+        lineas_escala.append({
+            "y": f"{margen_superior + indice * alto_trazado / 5:.1f}",
+            "valor": escala_maxima - indice * escala_maxima // 5,
+        })
 
     cortes = CorteIndicadorCotizacion.objects.select_related("cerrado_por")
     corte_id = request.GET.get("corte")
@@ -1616,6 +1646,9 @@ def indicadores_cotizaciones(request):
         "responsables": responsables,
         "grafico_diario": grafico_diario,
         "grafico_maximo": grafico_maximo,
+        "puntos_subidas": puntos_subidas,
+        "puntos_enviadas": puntos_enviadas,
+        "lineas_escala": lineas_escala,
         "fecha_desde": fecha_desde,
         "fecha_hasta": fecha_hasta,
         "total": len(detalle),

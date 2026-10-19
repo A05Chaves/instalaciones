@@ -4,40 +4,21 @@
 
 {% block content %}
 <style>
-    .grafico-comercial .grafico-fila {
-        display: grid;
-        grid-template-columns: 100px minmax(260px, 1fr);
-        gap: .85rem;
-        align-items: center;
-    }
-    .grafico-comercial .grafico-barra {
-        height: 18px;
-        overflow: hidden;
-        background: var(--bs-tertiary-bg);
-        border: 1px solid var(--bs-border-color);
-        border-radius: .3rem;
-    }
-    .grafico-comercial .grafico-valor {
-        display: flex;
-        align-items: center;
-        gap: .6rem;
-    }
-    .grafico-comercial .grafico-valor .grafico-barra { flex: 1; }
-    .grafico-comercial .grafico-cantidad { width: 2.5rem; font-weight: 700; }
-    .grafico-comercial .grafico-subidas { background: #0d6efd; height: 100%; }
-    .grafico-comercial .grafico-enviadas { background: #198754; height: 100%; }
+    .grafico-comercial .contenedor-lineas { overflow-x: auto; }
+    .grafico-comercial .grafico-lineas { min-width: 760px; color: var(--bs-body-color); }
+    .grafico-comercial .linea-cuadricula { stroke: var(--bs-border-color); stroke-width: 1; }
+    .grafico-comercial .texto-eje { fill: currentColor; font-size: 12px; }
+    .grafico-comercial .valor-punto { fill: currentColor; font-size: 11px; font-weight: 700; }
+    .grafico-comercial .linea-subidas { fill: none; stroke: #0d6efd; stroke-width: 3; }
+    .grafico-comercial .linea-enviadas { fill: none; stroke: #198754; stroke-width: 3; }
+    .grafico-comercial .punto-subidas { fill: #0d6efd; stroke: var(--bs-body-bg); stroke-width: 2; }
+    .grafico-comercial .punto-enviadas { fill: #198754; stroke: var(--bs-body-bg); stroke-width: 2; }
     .grafico-comercial .leyenda-muestra {
         display: inline-block;
         width: .8rem;
         height: .8rem;
         border-radius: .2rem;
         margin-right: .3rem;
-    }
-    @media (max-width: 767.98px) {
-        .grafico-comercial .grafico-fila {
-            grid-template-columns: 1fr;
-            gap: .35rem;
-        }
     }
 </style>
 {% if messages %}
@@ -133,27 +114,31 @@
     </div>
     <div class="card-body">
         <p class="text-muted small mb-3">Compara cuántas órdenes se cargaron y cuántas cotizaciones se enviaron en cada fecha del intervalo seleccionado.</p>
-        <div class="d-grid gap-3">
-            {% for item in grafico_diario %}
-            <div class="grafico-fila" aria-label="{{ item.fecha|date:'Y-m-d' }}: {{ item.subidas }} subidas y {{ item.enviadas }} enviadas">
-                <div class="fw-semibold text-nowrap">{{ item.fecha|date:"d M Y" }}</div>
-                <div class="d-grid gap-1">
-                    <div class="grafico-valor">
-                        <small class="text-muted" style="width:4.5rem">Subidas</small>
-                        <div class="grafico-barra"><div class="grafico-subidas" style="width:{% widthratio item.subidas grafico_maximo 100 %}%"></div></div>
-                        <span class="grafico-cantidad">{{ item.subidas }}</span>
-                    </div>
-                    <div class="grafico-valor">
-                        <small class="text-muted" style="width:4.5rem">Enviadas</small>
-                        <div class="grafico-barra"><div class="grafico-enviadas" style="width:{% widthratio item.enviadas grafico_maximo 100 %}%"></div></div>
-                        <span class="grafico-cantidad">{{ item.enviadas }}</span>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="text-center text-muted py-4">No hay datos para representar en el intervalo seleccionado.</div>
-            {% endfor %}
+        {% if grafico_diario %}
+        <div class="contenedor-lineas">
+            <svg class="grafico-lineas w-100" viewBox="0 0 1000 320" role="img" aria-label="Gráfica diaria de órdenes subidas y cotizaciones enviadas">
+                {% for linea in lineas_escala %}
+                <line class="linea-cuadricula" x1="60" y1="{{ linea.y }}" x2="970" y2="{{ linea.y }}"></line>
+                <text class="texto-eje" x="50" y="{{ linea.y }}" text-anchor="end" dominant-baseline="middle">{{ linea.valor }}</text>
+                {% endfor %}
+                <polyline class="linea-subidas" points="{{ puntos_subidas }}"></polyline>
+                <polyline class="linea-enviadas" points="{{ puntos_enviadas }}"></polyline>
+                {% for item in grafico_diario %}
+                <g aria-label="{{ item.fecha|date:'Y-m-d' }}: {{ item.subidas }} subidas y {{ item.enviadas }} enviadas">
+                    <circle class="punto-subidas" cx="{{ item.x }}" cy="{{ item.y_subidas }}" r="5"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.subidas }} subidas</title></circle>
+                    <text class="valor-punto" x="{{ item.x }}" y="{{ item.y_subidas }}" dy="-9" text-anchor="middle">{{ item.subidas }}</text>
+                    <circle class="punto-enviadas" cx="{{ item.x }}" cy="{{ item.y_enviadas }}" r="5"><title>{{ item.fecha|date:"Y-m-d" }}: {{ item.enviadas }} enviadas</title></circle>
+                    <text class="valor-punto" x="{{ item.x }}" y="{{ item.y_enviadas }}" dy="16" text-anchor="middle">{{ item.enviadas }}</text>
+                    {% if item.mostrar_fecha %}<text class="texto-eje" x="{{ item.x }}" y="282" text-anchor="middle">{{ item.fecha|date:"d/m" }}</text>{% endif %}
+                </g>
+                {% endfor %}
+                <text class="texto-eje" x="515" y="310" text-anchor="middle">Fecha</text>
+                <text class="texto-eje" transform="translate(15 140) rotate(-90)" text-anchor="middle">Cantidad de órdenes</text>
+            </svg>
         </div>
+        {% else %}
+            <div class="text-center text-muted py-4">No hay datos para representar en el intervalo seleccionado.</div>
+        {% endif %}
     </div>
 </div>
 
