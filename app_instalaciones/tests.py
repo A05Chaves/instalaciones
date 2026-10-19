@@ -35,6 +35,53 @@ from app_instalaciones.utils.importar_mantenimientos_pdf import (
 from app_instalaciones.utils.importar_mantenimientos_excel import analizar_excel_mantenimientos
 
 
+class PerfilUsuarioTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="usuario_perfil",
+            password="Clave-actual-123",
+            email="anterior@example.com",
+        )
+        self.client.force_login(self.usuario)
+
+    def test_menu_enlaza_perfil_y_cambio_de_contrasena(self):
+        respuesta = self.client.get(reverse("home"))
+
+        self.assertContains(respuesta, reverse("mi_perfil"))
+        self.assertContains(respuesta, reverse("cambiar_contrasena"))
+
+    def test_usuario_puede_actualizar_su_perfil(self):
+        respuesta = self.client.post(reverse("mi_perfil"), {
+            "username": "usuario_actualizado",
+            "first_name": "Andrea",
+            "last_name": "Trujillo",
+            "email": "andrea@example.com",
+        })
+
+        self.assertRedirects(respuesta, reverse("mi_perfil"))
+        self.usuario.refresh_from_db()
+        self.assertEqual(self.usuario.username, "usuario_actualizado")
+        self.assertEqual(self.usuario.email, "andrea@example.com")
+
+    def test_cambiar_contrasena_conserva_la_sesion(self):
+        respuesta = self.client.post(reverse("cambiar_contrasena"), {
+            "old_password": "Clave-actual-123",
+            "new_password1": "Nueva-clave-segura-456",
+            "new_password2": "Nueva-clave-segura-456",
+        })
+
+        self.assertRedirects(
+            respuesta,
+            reverse("cambiar_contrasena_completado"),
+        )
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password("Nueva-clave-segura-456"))
+        self.assertEqual(
+            int(self.client.session["_auth_user_id"]),
+            self.usuario.pk,
+        )
+
+
 class EstadoFacturacionTests(TestCase):
     def crear_instalacion_alistada(self):
         return CuadroInsta.objects.create(
@@ -183,6 +230,25 @@ class ListaMantenimientosTests(TestCase):
         response = self.client.get(reverse("listar_mantenimientos"))
 
         self.assertContains(response, 'id="panel-nuevo-mantenimiento" class="collapse"')
+
+    def test_tabla_muestra_diez_mantenimientos_por_pagina(self):
+        for numero in range(3, 13):
+            Mantenimiento.objects.create(
+                codigo=f"COD-{numero:03d}",
+                cliente=f"Cliente {numero}",
+                direccion=f"Calle {numero}",
+            )
+
+        primera = self.client.get(reverse("listar_mantenimientos"))
+        segunda = self.client.get(
+            reverse("listar_mantenimientos"),
+            {"pagina": 2},
+        )
+
+        self.assertEqual(len(primera.context["pagina_mantenimientos"]), 10)
+        self.assertEqual(len(segunda.context["pagina_mantenimientos"]), 2)
+        self.assertEqual(primera.context["total_mantenimientos"], 12)
+        self.assertContains(primera, "Siguiente")
 
     def test_filtra_mantenimientos_por_texto(self):
         response = self.client.get(

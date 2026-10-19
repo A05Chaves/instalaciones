@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block titulo %}Mi perfil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-7 col-xl-6">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="fw-bold mb-1"><i class="fas fa-user-circle text-primary me-2"></i>Mi perfil</h2>
+        <p class="text-muted mb-0">Consulta y actualiza tus datos personales.</p>
+      </div>
+      <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Volver
+      </a>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Guardar cambios
+          </button>
+          <a href="{% url 'cambiar_contrasena' %}" class="btn btn-outline-primary ms-1">
+            <i class="fas fa-key me-1"></i>Cambiar contraseña
+          </a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

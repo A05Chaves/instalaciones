@@ -323,7 +323,7 @@ Mantenimientos - App_Sesur
             </div>
             {% if busqueda or fecha_desde_filtro or fecha_hasta_filtro or estado_filtro or alerta_filtro %}
                 <small class="text-muted d-block mt-2">
-                    Resultados encontrados: {{ mantenimientos|length }}
+                    Resultados encontrados: {{ total_mantenimientos }}
                     {% if alerta_filtro == "prioritarios" %} · Filtro: prioritarios pendientes{% endif %}
                     {% if alerta_filtro == "otros" %} · Filtro: otros pendientes{% endif %}
                 </small>
@@ -359,7 +359,7 @@ Mantenimientos - App_Sesur
                 </thead>
 
                 <tbody>
-                    {% for m in mantenimientos %}
+                    {% for m in pagina_mantenimientos %}
 
                     <tr id="mantenimiento-{{ m.id }}" data-id="{{ m.id }}">
 
@@ -682,6 +682,34 @@ Mantenimientos - App_Sesur
 
             </table>
         </div>
+
+        {% if pagina_mantenimientos.paginator.num_pages > 1 %}
+        <nav class="mt-3" aria-label="Páginas de mantenimientos">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <small class="text-muted">
+                    Mostrando {{ pagina_mantenimientos.start_index }}–{{ pagina_mantenimientos.end_index }}
+                    de {{ total_mantenimientos }} mantenimientos
+                </small>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {% if not pagina_mantenimientos.has_previous %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagina_mantenimientos.has_previous %}?{% if parametros_paginacion %}{{ parametros_paginacion }}&amp;{% endif %}pagina={{ pagina_mantenimientos.previous_page_number }}{% else %}#{% endif %}">Anterior</a>
+                    </li>
+                    {% for numero in rango_paginas %}
+                        {% if numero == pagina_mantenimientos.paginator.ELLIPSIS %}
+                        <li class="page-item disabled"><span class="page-link">{{ numero }}</span></li>
+                        {% else %}
+                        <li class="page-item {% if numero == pagina_mantenimientos.number %}active{% endif %}">
+                            <a class="page-link" href="?{% if parametros_paginacion %}{{ parametros_paginacion }}&amp;{% endif %}pagina={{ numero }}">{{ numero }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not pagina_mantenimientos.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{% if pagina_mantenimientos.has_next %}?{% if parametros_paginacion %}{{ parametros_paginacion }}&amp;{% endif %}pagina={{ pagina_mantenimientos.next_page_number }}{% else %}#{% endif %}">Siguiente</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        {% endif %}
 
     </div>
 

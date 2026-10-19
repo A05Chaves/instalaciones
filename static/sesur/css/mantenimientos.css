@@ -50,6 +50,7 @@
     max-height: 68vh;
     overflow: auto;
     scrollbar-gutter: stable;
+    border-bottom: 1px solid #cbd5e1;
 }
 
 .tabla-mantenimientos-scroll #tabla-mantenimientos {

@@ -29,6 +29,22 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='users/password_reset_complete.html'), name='password_reset_complete'),
     path('logout/', LogoutView.as_view(next_page='login'), name='logout'),
+    path('mi-perfil/', user_views.mi_perfil, name='mi_perfil'),
+    path(
+        'cambiar-contrasena/',
+        auth_views.PasswordChangeView.as_view(
+            template_name='users/cambiar_contrasena.html',
+            success_url='/cambiar-contrasena/completado/',
+        ),
+        name='cambiar_contrasena',
+    ),
+    path(
+        'cambiar-contrasena/completado/',
+        auth_views.PasswordChangeDoneView.as_view(
+            template_name='users/cambiar_contrasena_completado.html',
+        ),
+        name='cambiar_contrasena_completado',
+    ),
     path('api/sesion/renovar/', user_views.renovar_sesion,
          name='renovar_sesion'),
     path('importar-excel/', views.importar_excel, name='importar_excel'),

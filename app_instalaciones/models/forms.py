@@ -5,6 +5,27 @@ from app_instalaciones.models.cuadroInstalaciones import CuadroInsta, Tecnico, E
 from django import forms
 from app_instalaciones.models.cuadroInstalaciones import Mantenimiento, Tecnico
 from app_instalaciones.models import Mantenimiento, Ciudad
+from django.contrib.auth.models import User
+
+
+class PerfilUsuarioForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["username", "first_name", "last_name", "email"]
+        labels = {
+            "username": "Usuario",
+            "first_name": "Nombres",
+            "last_name": "Apellidos",
+            "email": "Correo electrónico",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            campo.widget.attrs["class"] = "form-control"
+        self.fields["username"].help_text = (
+            "Este nombre se utiliza para iniciar sesión."
+        )
 
 
 class CuadroInstaForm(forms.ModelForm):

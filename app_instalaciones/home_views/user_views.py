@@ -41,7 +41,7 @@ from app_instalaciones.models.cuadroInstalaciones import (
     RotacionTecnicoDisponible,
     SeguimientoCotizacionTecnica,
 )
-from app_instalaciones.models.forms import MantenimientoForm
+from app_instalaciones.models.forms import MantenimientoForm, PerfilUsuarioForm
 from app_instalaciones.models.auditoria import RegistroAuditoria
 
 from app_instalaciones.utils.importar_mantenimientos_pdf import (
@@ -57,6 +57,20 @@ from app_instalaciones.utils.importar_cotizacion_visita_pdf import (
 )
 
 # VISTAS PARA LA GESTIÓN DE USUARIOS
+
+
+@login_required
+def mi_perfil(request):
+    if request.method == "POST":
+        form = PerfilUsuarioForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Tu perfil se actualizó correctamente.")
+            return redirect("mi_perfil")
+    else:
+        form = PerfilUsuarioForm(instance=request.user)
+
+    return render(request, "users/mi_perfil.html", {"form": form})
 
 
 def pertenece_grupo(user, nombre_grupo):
@@ -731,12 +745,26 @@ def listar_mantenimientos(request):
                 tipo_falla__in=FALLAS_PRIORITARIAS_MANTENIMIENTO
             )
 
+    total_mantenimientos = mantenimientos.count()
+    paginador = Paginator(mantenimientos, 10)
+    pagina_mantenimientos = paginador.get_page(request.GET.get("pagina"))
+    parametros_paginacion = request.GET.copy()
+    parametros_paginacion.pop("pagina", None)
+
     tecnicos = Tecnico.objects.all().order_by("nombre")
     ciudades_mantenimiento = Ciudad.objects.all().order_by("nombre")
 
     context = {
         "form": form,
         "mantenimientos": mantenimientos,
+        "pagina_mantenimientos": pagina_mantenimientos,
+        "rango_paginas": paginador.get_elided_page_range(
+            pagina_mantenimientos.number,
+            on_each_side=2,
+            on_ends=1,
+        ),
+        "parametros_paginacion": parametros_paginacion.urlencode(),
+        "total_mantenimientos": total_mantenimientos,
         "tecnicos": tecnicos,
         "ciudades_mantenimiento": ciudades_mantenimiento,
         "busqueda": busqueda,
