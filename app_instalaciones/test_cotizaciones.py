@@ -157,8 +157,8 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertContains(indicador_super, "6 h 0 min")
         self.assertContains(indicador_super, "tecnico_cotizacion")
         self.assertContains(indicador_super, "Responsable de subir soporte")
-        self.assertContains(indicador_super, "Estado de las órdenes por responsable")
-        self.assertContains(indicador_super, "1 enviadas y 0 pendientes")
+        self.assertContains(indicador_super, "Órdenes subidas y cotizaciones enviadas por día")
+        self.assertContains(indicador_super, "1 subidas y 1 enviadas")
 
     def test_superadministrador_finaliza_y_consulta_corte_historico(self):
         superusuario = User.objects.create_superuser(

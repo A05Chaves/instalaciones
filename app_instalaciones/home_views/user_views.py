@@ -1581,12 +1581,41 @@ def indicadores_cotizaciones(request):
         responsables.append(resumen)
     responsables.sort(key=lambda item: item["nombre"].casefold())
 
+    # La carga y el envío se contabilizan en el día real de cada evento.
+    eventos_por_dia = {}
+    cotizaciones_grafico = CotizacionServicioTecnico.objects.only(
+        "fecha_registro", "fecha_envio"
+    )
+    for cotizacion in cotizaciones_grafico:
+        fecha_carga = timezone.localtime(cotizacion.fecha_registro).date()
+        if ((not fecha_desde or fecha_carga >= fecha_desde)
+                and (not fecha_hasta or fecha_carga <= fecha_hasta)):
+            eventos_por_dia.setdefault(
+                fecha_carga, {"fecha": fecha_carga, "subidas": 0, "enviadas": 0}
+            )["subidas"] += 1
+
+        if cotizacion.fecha_envio:
+            fecha_envio = timezone.localtime(cotizacion.fecha_envio).date()
+            if ((not fecha_desde or fecha_envio >= fecha_desde)
+                    and (not fecha_hasta or fecha_envio <= fecha_hasta)):
+                eventos_por_dia.setdefault(
+                    fecha_envio, {"fecha": fecha_envio, "subidas": 0, "enviadas": 0}
+                )["enviadas"] += 1
+
+    grafico_diario = [eventos_por_dia[fecha] for fecha in sorted(eventos_por_dia)]
+    grafico_maximo = max(
+        (max(item["subidas"], item["enviadas"]) for item in grafico_diario),
+        default=1,
+    )
+
     cortes = CorteIndicadorCotizacion.objects.select_related("cerrado_por")
     corte_id = request.GET.get("corte")
     corte_seleccionado = cortes.filter(pk=corte_id).first() if corte_id else None
     return render(request, "mantenimientos/indicadores_cotizaciones.html", {
         "detalle": detalle,
         "responsables": responsables,
+        "grafico_diario": grafico_diario,
+        "grafico_maximo": grafico_maximo,
         "fecha_desde": fecha_desde,
         "fecha_hasta": fecha_hasta,
         "total": len(detalle),

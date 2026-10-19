@@ -6,31 +6,26 @@
 <style>
     .grafico-comercial .grafico-fila {
         display: grid;
-        grid-template-columns: minmax(160px, 240px) minmax(260px, 1fr) 90px;
+        grid-template-columns: 100px minmax(260px, 1fr);
         gap: .85rem;
         align-items: center;
     }
     .grafico-comercial .grafico-barra {
-        display: flex;
-        height: 30px;
+        height: 18px;
         overflow: hidden;
         background: var(--bs-tertiary-bg);
         border: 1px solid var(--bs-border-color);
-        border-radius: .45rem;
+        border-radius: .3rem;
     }
-    .grafico-comercial .grafico-enviadas,
-    .grafico-comercial .grafico-pendientes {
+    .grafico-comercial .grafico-valor {
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-width: 0;
-        color: #fff;
-        font-size: .78rem;
-        font-weight: 700;
-        white-space: nowrap;
+        gap: .6rem;
     }
-    .grafico-comercial .grafico-enviadas { background: #198754; }
-    .grafico-comercial .grafico-pendientes { background: #fd7e14; color: #212529; }
+    .grafico-comercial .grafico-valor .grafico-barra { flex: 1; }
+    .grafico-comercial .grafico-cantidad { width: 2.5rem; font-weight: 700; }
+    .grafico-comercial .grafico-subidas { background: #0d6efd; height: 100%; }
+    .grafico-comercial .grafico-enviadas { background: #198754; height: 100%; }
     .grafico-comercial .leyenda-muestra {
         display: inline-block;
         width: .8rem;
@@ -43,7 +38,6 @@
             grid-template-columns: 1fr;
             gap: .35rem;
         }
-        .grafico-comercial .grafico-total { text-align: left !important; }
     }
 </style>
 {% if messages %}
@@ -131,27 +125,30 @@
 
 <div class="card border-0 shadow-sm mb-4 grafico-comercial">
     <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <strong><i class="fas fa-chart-bar me-2"></i>Estado de las órdenes por responsable</strong>
+        <strong><i class="fas fa-chart-bar me-2"></i>Órdenes subidas y cotizaciones enviadas por día</strong>
         <div class="small d-flex gap-3">
+            <span><i class="leyenda-muestra bg-primary"></i>Subidas</span>
             <span><i class="leyenda-muestra bg-success"></i>Enviadas</span>
-            <span><i class="leyenda-muestra" style="background:#fd7e14"></i>Pendientes</span>
         </div>
     </div>
     <div class="card-body">
-        <p class="text-muted small mb-3">Cada barra representa todas las órdenes cuyo soporte fue cargado por el responsable.</p>
+        <p class="text-muted small mb-3">Compara cuántas órdenes se cargaron y cuántas cotizaciones se enviaron en cada fecha del intervalo seleccionado.</p>
         <div class="d-grid gap-3">
-            {% for item in responsables %}
-            <div class="grafico-fila">
-                <div class="fw-semibold text-truncate" title="{{ item.nombre }}">{{ item.nombre }}</div>
-                <div class="grafico-barra" aria-label="{{ item.nombre }}: {{ item.enviadas }} enviadas y {{ item.pendientes }} pendientes">
-                    <div class="grafico-enviadas" style="width:{% widthratio item.enviadas item.cargadas 100 %}%" title="{{ item.enviadas }} enviadas">
-                        {% if item.enviadas %}{{ item.enviadas }}{% endif %}
+            {% for item in grafico_diario %}
+            <div class="grafico-fila" aria-label="{{ item.fecha|date:'Y-m-d' }}: {{ item.subidas }} subidas y {{ item.enviadas }} enviadas">
+                <div class="fw-semibold text-nowrap">{{ item.fecha|date:"d M Y" }}</div>
+                <div class="d-grid gap-1">
+                    <div class="grafico-valor">
+                        <small class="text-muted" style="width:4.5rem">Subidas</small>
+                        <div class="grafico-barra"><div class="grafico-subidas" style="width:{% widthratio item.subidas grafico_maximo 100 %}%"></div></div>
+                        <span class="grafico-cantidad">{{ item.subidas }}</span>
                     </div>
-                    <div class="grafico-pendientes" style="width:{% widthratio item.pendientes item.cargadas 100 %}%" title="{{ item.pendientes }} pendientes">
-                        {% if item.pendientes %}{{ item.pendientes }}{% endif %}
+                    <div class="grafico-valor">
+                        <small class="text-muted" style="width:4.5rem">Enviadas</small>
+                        <div class="grafico-barra"><div class="grafico-enviadas" style="width:{% widthratio item.enviadas grafico_maximo 100 %}%"></div></div>
+                        <span class="grafico-cantidad">{{ item.enviadas }}</span>
                     </div>
                 </div>
-                <div class="grafico-total text-end small"><strong>{{ item.cargadas }}</strong> cargadas</div>
             </div>
             {% empty %}
             <div class="text-center text-muted py-4">No hay datos para representar en el intervalo seleccionado.</div>
