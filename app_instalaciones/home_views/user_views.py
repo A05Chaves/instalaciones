@@ -15,7 +15,9 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.forms import UserCreationForm
 from django.forms.models import model_to_dict
 from django.http import FileResponse, HttpResponse, JsonResponse
-from django.db.models import Q
+from django.db.models import (
+    Case, DurationField, ExpressionWrapper, F, IntegerField, Q, Value, When,
+)
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
@@ -700,10 +702,24 @@ def listar_mantenimientos(request):
     mantenimientos = (
         Mantenimiento.objects
         .select_related("tecnico")
-        .annotate(fecha_ordenamiento=Coalesce(
-            "fecha_creacion_servicio", "fecha_registro"
-        ))
-        .order_by("-fecha_ordenamiento", "-pk")
+        .annotate(
+            fecha_ordenamiento=Coalesce(
+                "fecha_creacion_servicio", "fecha_registro"
+            ),
+            duracion_ordenamiento=ExpressionWrapper(
+                F("fin_tecnico") - F("inicio_tecnico"),
+                output_field=DurationField(),
+            ),
+            estado_ordenamiento=Case(
+                When(estado_operativo="PENDIENTE", tecnico__isnull=True, then=Value(1)),
+                When(estado_operativo="PENDIENTE", tecnico__isnull=False, then=Value(2)),
+                When(estado_operativo="EN_PROCESO", then=Value(3)),
+                When(estado_operativo="PENDIENTE_OMT", then=Value(4)),
+                When(estado_operativo="FINALIZADO", then=Value(5)),
+                default=Value(6),
+                output_field=IntegerField(),
+            ),
+        )
     )
 
     if busqueda:
@@ -759,6 +775,79 @@ def listar_mantenimientos(request):
                 tipo_falla__in=FALLAS_PRIORITARIAS_MANTENIMIENTO
             )
 
+    columnas_ordenamiento = {
+        "fecha": "fecha_ordenamiento",
+        "codigo": "codigo",
+        "cliente": "cliente",
+        "ciudad": "ciudad",
+        "direccion": "direccion",
+        "servicio": "tipo_servicio",
+        "falla": "tipo_falla",
+        "observacion": "observacion",
+        "tecnico": "tecnico__nombre",
+        "programado": "fecha_programada",
+        "estado": "estado_ordenamiento",
+        "novedad": "novedad",
+        "inicio": "inicio_tecnico",
+        "fin": "fin_tecnico",
+        "duracion": "duracion_ordenamiento",
+        "orden_trabajo": "orden",
+        "realizado": "realizado",
+    }
+    orden_solicitado = (request.GET.get("orden") or "").strip().lower()
+    if orden_solicitado in columnas_ordenamiento:
+        orden_actual = orden_solicitado
+        direccion_orden = (
+            "desc" if request.GET.get("direccion_orden") == "desc" else "asc"
+        )
+    else:
+        orden_actual = "fecha"
+        direccion_orden = "desc"
+    campo_orden = columnas_ordenamiento[orden_actual]
+    prefijo_orden = "-" if direccion_orden == "desc" else ""
+    desempate = "-pk" if direccion_orden == "desc" else "pk"
+    mantenimientos = mantenimientos.order_by(
+        f"{prefijo_orden}{campo_orden}", desempate
+    )
+
+    encabezados_tabla = [
+        ("fecha", "Fecha", ""),
+        ("codigo", "Código", ""),
+        ("cliente", "Cliente", "col-cliente"),
+        ("ciudad", "Ciudad", ""),
+        ("direccion", "Dirección", "col-direccion"),
+        ("servicio", "Servicio", ""),
+        ("falla", "Tipo de falla", ""),
+        ("observacion", "Observación", "col-observacion"),
+        ("tecnico", "Técnico", ""),
+        ("programado", "Programado", ""),
+        ("estado", "Estado móvil", ""),
+        ("novedad", "Novedad técnico", ""),
+        ("inicio", "Inicio técnico", ""),
+        ("fin", "Fin técnico", ""),
+        ("duracion", "Duración", ""),
+        ("orden_trabajo", "Orden", ""),
+        ("realizado", "Realizado", ""),
+    ]
+    encabezados_ordenables = []
+    for clave, etiqueta, clase in encabezados_tabla:
+        parametros_orden = request.GET.copy()
+        parametros_orden.pop("pagina", None)
+        parametros_orden["orden"] = clave
+        parametros_orden["direccion_orden"] = (
+            "desc"
+            if clave == orden_actual and direccion_orden == "asc"
+            else "asc"
+        )
+        encabezados_ordenables.append({
+            "clave": clave,
+            "etiqueta": etiqueta,
+            "clase": clase,
+            "url": f"?{parametros_orden.urlencode()}",
+            "activo": clave == orden_actual,
+            "direccion": direccion_orden if clave == orden_actual else "",
+        })
+
     total_mantenimientos = mantenimientos.count()
     paginador = Paginator(mantenimientos, 10)
     pagina_mantenimientos = paginador.get_page(request.GET.get("pagina"))
@@ -778,6 +867,9 @@ def listar_mantenimientos(request):
             on_ends=1,
         ),
         "parametros_paginacion": parametros_paginacion.urlencode(),
+        "encabezados_ordenables": encabezados_ordenables,
+        "orden_actual": orden_actual,
+        "direccion_orden": direccion_orden,
         "total_mantenimientos": total_mantenimientos,
         "tecnicos": tecnicos,
         "ciudades_mantenimiento": ciudades_mantenimiento,

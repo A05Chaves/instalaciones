@@ -290,6 +290,8 @@ Mantenimientos - App_Sesur
     <div class="card-body p-0">
 
         <form method="get" class="p-3 bg-light border-bottom" role="search">
+            <input type="hidden" name="orden" value="{{ orden_actual }}">
+            <input type="hidden" name="direccion_orden" value="{{ direccion_orden }}">
             <div class="input-group">
                 <span class="input-group-text bg-white">
                     <i class="fas fa-search text-muted"></i>
@@ -336,23 +338,19 @@ Mantenimientos - App_Sesur
 
                 <thead class="table-dark text-center">
                     <tr>
-                        <th>Fecha</th>
-                        <th>Código</th>
-                        <th class="col-cliente">Cliente</th>
-                        <th>Ciudad</th>
-                        <th class="col-direccion">Dirección</th>
-                        <th>Servicio</th>
-                        <th>Tipo de falla</th>
-                        <th class="col-observacion">Observación</th>
-                        <th>Técnico</th>
-                        <th>Programado</th>
-                        <th>Estado móvil</th>
-                        <th>Novedad técnico</th>
-                        <th>Inicio técnico</th>
-                        <th>Fin técnico</th>
-                        <th>Duración</th>
-                        <th>Orden</th>
-                        <th>Realizado</th>
+                        {% for encabezado in encabezados_ordenables %}
+                        <th{% if encabezado.clase %} class="{{ encabezado.clase }}"{% endif %}>
+                            <a href="{{ encabezado.url }}" class="text-white text-decoration-none d-inline-flex align-items-center gap-1"
+                               title="Ordenar por {{ encabezado.etiqueta }}">
+                                {{ encabezado.etiqueta }}
+                                {% if encabezado.activo %}
+                                    <i class="fas fa-sort-{% if encabezado.direccion == 'asc' %}up{% else %}down{% endif %}" aria-hidden="true"></i>
+                                {% else %}
+                                    <i class="fas fa-sort opacity-50" aria-hidden="true"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        {% endfor %}
                         <th>Soporte</th>
                         <th>Acción</th>
                     </tr>

@@ -371,6 +371,41 @@ class ListaMantenimientosTests(TestCase):
 
         self.assertEqual(codigos, ["COD-002", "COD-001"])
 
+    def test_permite_ordenar_columnas_ascendente_y_descendente(self):
+        ascendente = self.client.get(
+            reverse("listar_mantenimientos"),
+            {"orden": "cliente", "direccion_orden": "asc"},
+        )
+        descendente = self.client.get(
+            reverse("listar_mantenimientos"),
+            {"orden": "cliente", "direccion_orden": "desc"},
+        )
+
+        clientes_asc = list(
+            ascendente.context["mantenimientos"].values_list("cliente", flat=True)
+        )
+        clientes_desc = list(
+            descendente.context["mantenimientos"].values_list("cliente", flat=True)
+        )
+        self.assertEqual(clientes_asc, ["Cliente Cali", "Cliente Pasto"])
+        self.assertEqual(clientes_desc, ["Cliente Pasto", "Cliente Cali"])
+        self.assertContains(ascendente, "Ordenar por Cliente")
+        self.assertContains(ascendente, "fa-sort-up")
+
+    def test_ordenamiento_conserva_los_filtros(self):
+        response = self.client.get(
+            reverse("listar_mantenimientos"),
+            {
+                "busqueda": "Cliente",
+                "fecha_desde": "2026-01-01",
+                "orden": "codigo",
+                "direccion_orden": "asc",
+            },
+        )
+
+        self.assertContains(response, "busqueda=Cliente")
+        self.assertContains(response, "fecha_desde=2026-01-01")
+
     def test_filtra_por_fecha_efectiva_del_mantenimiento(self):
         zona = timezone.get_current_timezone()
         Mantenimiento.objects.filter(codigo="COD-001").update(
