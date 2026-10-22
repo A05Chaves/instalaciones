@@ -108,12 +108,16 @@ class SeguimientoCotizacionesTests(TestCase):
         self.assertEqual(seguimiento.nota, "Se llamó al cliente.")
         self.client.post(
             reverse("gestionar_cotizacion_tecnica", args=[self.cotizacion.pk]),
-            {"accion": "APROBAR"},
+            {"accion": "APROBAR", "numero_pedido": "108745"},
         )
         self.cotizacion.refresh_from_db()
         self.assertEqual(self.cotizacion.estado, "APROBADA")
+        self.assertEqual(self.cotizacion.numero_pedido, "PVG - 108745")
         self.assertEqual(self.cotizacion.accion_seguimiento, "GESTIONADA")
         self.assertIsNotNone(self.cotizacion.fecha_gestion)
+        listado_aprobado = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+        self.assertContains(listado_aprobado, 'class="table-success"')
+        self.assertContains(listado_aprobado, "Pedido: PVG - 108745")
 
     def test_muestra_fecha_de_carga_debajo_del_registro(self):
         respuesta = self.client.get(reverse("listar_cotizaciones_tecnicas"))
@@ -213,6 +217,24 @@ class SeguimientoCotizacionesTests(TestCase):
         self.cotizacion.refresh_from_db()
         self.assertEqual(self.cotizacion.estado, "RECHAZADA")
         self.assertEqual(self.cotizacion.nota_rechazo, "Fuera del presupuesto.")
+        listado_rechazado = self.client.get(reverse("listar_cotizaciones_tecnicas"))
+        self.assertContains(listado_rechazado, 'class="table-danger"')
+
+    def test_aprobacion_exige_numero_de_pedido(self):
+        self.cotizacion.estado = "PENDIENTE"
+        self.cotizacion.fecha_envio = timezone.now()
+        self.cotizacion.save(update_fields=["estado", "fecha_envio"])
+
+        respuesta = self.client.post(
+            reverse("gestionar_cotizacion_tecnica", args=[self.cotizacion.pk]),
+            {"accion": "APROBAR", "numero_pedido": ""},
+            follow=True,
+        )
+
+        self.cotizacion.refresh_from_db()
+        self.assertEqual(self.cotizacion.estado, "PENDIENTE")
+        self.assertFalse(self.cotizacion.numero_pedido)
+        self.assertContains(respuesta, "Ingresa el número de pedido")
 
     def test_creacion_manual_y_contadores_como_filtros(self):
         respuesta = self.client.post(

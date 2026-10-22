@@ -122,7 +122,7 @@
             </thead>
             <tbody>
                 {% for cotizacion in cotizaciones %}
-                <tr id="cotizacion-{{ cotizacion.pk }}">
+                <tr id="cotizacion-{{ cotizacion.pk }}"{% if cotizacion.estado == "APROBADA" %} class="table-success"{% elif cotizacion.estado == "RECHAZADA" %} class="table-danger"{% endif %}>
                     <td class="text-nowrap">{{ cotizacion.fecha_orden|date:"Y-m-d H:i" }}</td>
                     <td><strong>{{ cotizacion.codigo }}</strong></td>
                     <td class="text-nowrap">
@@ -212,14 +212,11 @@
                                 Pendiente
                             </button>
                             <div class="dropdown-menu p-2 shadow">
-                                <form method="post" action="{% url 'gestionar_cotizacion_tecnica' cotizacion.pk %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="accion" value="APROBAR">
-                                    <input type="hidden" name="busqueda" value="{{ busqueda }}">
-                                    <button class="dropdown-item text-success" type="submit">
-                                        <i class="fas fa-check me-1"></i>Aprobada
-                                    </button>
-                                </form>
+                                <button class="dropdown-item text-success abrir-aprobacion" type="button"
+                                        data-url="{% url 'gestionar_cotizacion_tecnica' cotizacion.pk %}"
+                                        data-codigo="{{ cotizacion.numero_cotizacion|default:cotizacion.codigo }}">
+                                    <i class="fas fa-check me-1"></i>Aprobada
+                                </button>
                                 <button class="dropdown-item text-danger abrir-rechazo" type="button"
                                         data-url="{% url 'gestionar_cotizacion_tecnica' cotizacion.pk %}"
                                         data-codigo="{{ cotizacion.codigo }}">
@@ -236,6 +233,11 @@
                         </small>
                         {% if cotizacion.nota_rechazo %}
                         <small class="d-block mt-1">{{ cotizacion.nota_rechazo }}</small>
+                        {% endif %}
+                        {% if cotizacion.numero_pedido %}
+                        <small class="d-block mt-1 fw-bold text-success">
+                            Pedido: {{ cotizacion.numero_pedido }}
+                        </small>
                         {% endif %}
                         {% endif %}
 
@@ -426,6 +428,33 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalAprobacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="form-aprobacion" method="post" class="modal-content">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="APROBAR">
+            <input type="hidden" name="busqueda" value="{{ busqueda }}">
+            <div class="modal-header bg-success-subtle">
+                <h5 class="modal-title">Aprobar cotización</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="texto-aprobacion" class="text-muted"></p>
+                <label class="form-label">Número de pedido *</label>
+                <div class="input-group">
+                    <span class="input-group-text fw-bold">PVG -</span>
+                    <input name="numero_pedido" class="form-control" maxlength="74"
+                           autocomplete="off" placeholder="Completa el número" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar aprobación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="modalRechazo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form id="form-rechazo" method="post" class="modal-content">
@@ -594,6 +623,17 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("texto-rechazo").textContent =
                 "Cotización " + boton.dataset.codigo;
             bootstrap.Modal.getOrCreateInstance(rechazo).show();
+        });
+    });
+    const aprobacion = document.getElementById("modalAprobacion");
+    const formAprobacion = document.getElementById("form-aprobacion");
+    document.querySelectorAll(".abrir-aprobacion").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+            formAprobacion.action = boton.dataset.url;
+            document.getElementById("texto-aprobacion").textContent =
+                "Cotización " + boton.dataset.codigo;
+            formAprobacion.querySelector("[name='numero_pedido']").value = "";
+            bootstrap.Modal.getOrCreateInstance(aprobacion).show();
         });
     });
     const modalSeguimiento = document.getElementById("modalRegistrarSeguimiento");

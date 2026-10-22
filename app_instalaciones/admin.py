@@ -65,6 +65,7 @@ class CotizacionServicioTecnicoAdmin(admin.ModelAdmin):
     list_display = (
         "registro",
         "numero_cotizacion",
+        "numero_pedido",
         "codigo",
         "cliente",
         "tecnico",
@@ -77,6 +78,7 @@ class CotizacionServicioTecnicoAdmin(admin.ModelAdmin):
     search_fields = (
         "registro",
         "numero_cotizacion",
+        "numero_pedido",
         "codigo",
         "cliente",
         "direccion",

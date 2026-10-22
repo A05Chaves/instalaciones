@@ -500,6 +500,29 @@ class ListaMantenimientosTests(TestCase):
         response = self.client.get(reverse("listar_mantenimientos"))
         self.assertContains(response, "Asignado")
 
+    def test_edicion_parcial_no_registra_none_como_orden(self):
+        mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
+
+        response = self.client.post(
+            reverse("mantenimiento_actualizar", args=[mantenimiento.pk]),
+            {
+                "cliente": "Cliente corregido",
+                "orden": "None",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        mantenimiento.refresh_from_db()
+        self.assertEqual(mantenimiento.cliente, "Cliente corregido")
+        self.assertFalse(mantenimiento.orden)
+        self.assertIsNone(mantenimiento.fecha_orden)
+        self.assertEqual(mantenimiento.estado_operativo, "PENDIENTE")
+
+    def test_orden_vacia_no_se_renderiza_como_none(self):
+        response = self.client.get(reverse("listar_mantenimientos"))
+
+        self.assertNotContains(response, 'name="orden"\n                                   value="None"')
+
     def test_no_permite_estado_en_proceso_sin_tecnico(self):
         mantenimiento = Mantenimiento.objects.get(codigo="COD-001")
         Ciudad.objects.get_or_create(nombre=mantenimiento.ciudad)

@@ -374,14 +374,19 @@ class MantenimientoForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
+        self.validar_reglas_negocio = kwargs.pop("validar_reglas_negocio", True)
         super().__init__(*args, **kwargs)
 
-        self.fields['ciudad'].choices = [
-            ("", "Seleccione ciudad")
-        ] + [
+        opciones_ciudad = [
             (c.nombre, c.nombre)
             for c in Ciudad.objects.all().order_by('nombre')
         ]
+        ciudad_actual = self.instance.ciudad if self.instance and self.instance.pk else ""
+        if ciudad_actual and ciudad_actual not in {valor for valor, _ in opciones_ciudad}:
+            opciones_ciudad.append((ciudad_actual, ciudad_actual))
+        self.fields['ciudad'].choices = [
+            ("", "Seleccione ciudad")
+        ] + opciones_ciudad
 
         if self.instance and self.instance.pk:
             self.initial["ciudad"] = self.instance.ciudad
@@ -447,6 +452,9 @@ class MantenimientoForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        if not self.validar_reglas_negocio:
+            return cleaned_data
+
         tipo_servicio = cleaned_data.get('tipo_servicio')
         tipo_falla = cleaned_data.get('tipo_falla')
 

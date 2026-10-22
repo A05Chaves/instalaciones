@@ -198,6 +198,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function activarModoEdicion(tr, soloOrden = false) {
+        tr.querySelectorAll(".edit-mode[name]").forEach(input => {
+            input.dataset.valorInicial = input.value;
+        });
         if (soloOrden) {
             tr.classList.add("solo-orden");
             tr.querySelectorAll(".campo-cierre .view-mode").forEach(el => el.classList.add("d-none"));
@@ -224,10 +227,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function guardarFila(tr, id) {
         const formData = new FormData();
+        const camposCambiados = new Set();
 
         tr.querySelectorAll(".edit-mode[name]").forEach(input => {
-            formData.append(input.name, input.value);
+            if (input.value !== input.dataset.valorInicial) {
+                formData.append(input.name, input.value);
+                camposCambiados.add(input.name);
+            }
         });
+
+        // Las horas se validan como una pareja. Si cambia una, se envían
+        // ambas y la fecha, pero el servidor conserva los demás campos.
+        if (camposCambiados.has("hora_entrada") || camposCambiados.has("hora_salida")) {
+            ["hora_entrada", "hora_salida", "realizado"].forEach(nombre => {
+                if (!camposCambiados.has(nombre)) {
+                    const campo = tr.querySelector(`.edit-mode[name="${nombre}"]`);
+                    if (campo) formData.append(nombre, campo.value);
+                }
+            });
+        }
+
+        if (camposCambiados.size === 0) {
+            alert("No realizaste ningún cambio en este mantenimiento.");
+            return;
+        }
 
         fetch(`/mantenimientos/${id}/actualizar/`, {
             method: "POST",

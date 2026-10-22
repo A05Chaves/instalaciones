@@ -1035,6 +1035,7 @@ def mantenimiento_actualizar(request, pk):
         "tipo_falla", "tecnico", "fecha_programada", "orden", "realizado",
         "hora_entrada", "hora_salida", "novedad", "observacion",
     }
+    campos_recibidos = campos_editables.intersection(request.POST.keys())
     datos = model_to_dict(
         m,
         fields=[
@@ -1045,9 +1046,22 @@ def mantenimiento_actualizar(request, pk):
 
     for campo in campos_editables:
         if campo in request.POST:
-            datos[campo] = request.POST.get(campo, "")
+            valor = request.POST.get(campo, "")
+            # Versiones anteriores de la tabla enviaban el valor Python None
+            # como texto y Django lo interpretaba como una orden real.
+            if campo == "orden" and (valor or "").strip().lower() in {
+                "none", "null"
+            }:
+                valor = ""
+            datos[campo] = valor
 
-    form = MantenimientoForm(datos, instance=m)
+    form = MantenimientoForm(
+        datos,
+        instance=m,
+        validar_reglas_negocio=bool(
+            {"tipo_servicio", "tipo_falla"}.intersection(campos_recibidos)
+        ),
+    )
     if not form.is_valid():
         return JsonResponse(
             {"ok": False, "errors": form.errors.get_json_data()},
@@ -1055,12 +1069,22 @@ def mantenimiento_actualizar(request, pk):
         )
 
     m = form.save(commit=False)
+    campos_a_guardar = set(campos_recibidos)
+    if "tipo_servicio" in campos_recibidos:
+        campos_a_guardar.add("tipo_falla")
     error_horas = _aplicar_horas_manuales(m, request.POST)
     if error_horas:
         return JsonResponse({"ok": False, "error": error_horas}, status=400)
+    if {"hora_entrada", "hora_salida"}.intersection(campos_recibidos):
+        campos_a_guardar.update({
+            "realizado", "hora_entrada", "hora_salida",
+            "inicio_tecnico", "fin_tecnico", "horas",
+        })
     _aplicar_novedad_operador(
         m, request.POST, request.user, novedad_anterior
     )
+    if "novedad" in campos_recibidos:
+        campos_a_guardar.update({"novedad", "observacion"})
     if request.user.is_superuser:
         estado_manual = (request.POST.get("estado_operativo") or "").strip()
         if estado_manual:
@@ -1070,6 +1094,7 @@ def mantenimiento_actualizar(request, pk):
                     status=400,
                 )
             m.estado_operativo = estado_manual
+            campos_a_guardar.add("estado_operativo")
     elif m.orden:
         campos_faltantes = []
         if not m.realizado:
@@ -1089,10 +1114,13 @@ def mantenimiento_actualizar(request, pk):
                 ),
             }, status=400)
         m.estado_operativo = "FINALIZADO"
+        campos_a_guardar.add("estado_operativo")
         if not m.fecha_orden:
             m.fecha_orden = timezone.now()
+            campos_a_guardar.add("fecha_orden")
         if not m.orden_registrada_por:
             m.orden_registrada_por = request.user
+            campos_a_guardar.add("orden_registrada_por")
     if m.estado_operativo == "EN_PROCESO" and not m.tecnico_id:
         return JsonResponse({
             "ok": False,
@@ -1101,9 +1129,14 @@ def mantenimiento_actualizar(request, pk):
     if m.orden and not orden_anterior:
         m.fecha_orden = timezone.now()
         m.orden_registrada_por = request.user
+        campos_a_guardar.update({"fecha_orden", "orden_registrada_por"})
         if m.estado_operativo == "PENDIENTE_OMT":
             m.estado_operativo = "FINALIZADO"
-    m.save(permitir_estado_manual=request.user.is_superuser)
+            campos_a_guardar.add("estado_operativo")
+    m.save(
+        permitir_estado_manual=request.user.is_superuser,
+        update_fields=sorted(campos_a_guardar),
+    )
     registrar_cambio_tecnico(m, tecnico_anterior, m.tecnico, request.user)
 
     return JsonResponse({
@@ -2037,13 +2070,28 @@ def gestionar_cotizacion_tecnica(request, pk):
             messages.error(request, "Solo se puede gestionar una cotización pendiente.")
         else:
             nota = (request.POST.get("nota_rechazo") or "").strip()
-            if accion == "RECHAZAR" and not nota:
+            numero_pedido_ingresado = (
+                request.POST.get("numero_pedido") or ""
+            ).strip()
+            numero_pedido_ingresado = re.sub(
+                r"^PVG\s*-\s*", "", numero_pedido_ingresado,
+                flags=re.IGNORECASE,
+            ).strip()
+            if accion == "APROBAR" and not numero_pedido_ingresado:
+                messages.error(request, "Ingresa el número de pedido para aprobar la cotización.")
+            elif accion == "RECHAZAR" and not nota:
                 messages.error(request, "Escribe el motivo del rechazo.")
             else:
                 cotizacion.estado = "APROBADA" if accion == "APROBAR" else "RECHAZADA"
                 cotizacion.nota_rechazo = nota[:5000] if accion == "RECHAZAR" else ""
+                cotizacion.numero_pedido = (
+                    f"PVG - {numero_pedido_ingresado}"[:80]
+                    if accion == "APROBAR" else ""
+                )
                 cotizacion.fecha_gestion = ahora
-                cotizacion.save(update_fields=["estado", "nota_rechazo", "fecha_gestion"])
+                cotizacion.save(update_fields=[
+                    "estado", "nota_rechazo", "numero_pedido", "fecha_gestion"
+                ])
                 messages.success(request, f"Cotización {cotizacion.get_estado_display().lower()}.")
     elif accion in {"SEGUIMIENTO", "GESTIONADA"}:
         if cotizacion.estado != "PENDIENTE":
@@ -2160,7 +2208,7 @@ def exportar_cotizaciones_excel(request):
         "Fecha de la orden", "Código", "Registro / solicitante", "Fecha de carga",
         "Horas orden a carga", "Cliente", "Dirección", "Descripción", "Técnico",
         "Ejecutivo", "Medio de envío", "Dirigida a", "Teléfono",
-        "Número de cotización", "Estado", "Fecha de envío",
+        "Número de cotización", "Número de pedido", "Estado", "Fecha de envío",
         "Horas carga a envío", "Fecha de gestión", "Último seguimiento",
     ])
     cotizaciones = CotizacionServicioTecnico.objects.select_related(
@@ -2188,6 +2236,7 @@ def exportar_cotizaciones_excel(request):
             cotizacion.dirigida_a,
             cotizacion.telefono,
             cotizacion.numero_cotizacion,
+            cotizacion.numero_pedido,
             cotizacion.get_estado_display(),
             fecha_local(cotizacion.fecha_envio),
             round(

@@ -591,6 +591,7 @@ class CotizacionServicioTecnico(models.Model):
     medio_envio = models.CharField(max_length=10, choices=MEDIOS_ENVIO, blank=True)
     dirigida_a = models.CharField(max_length=150, blank=True)
     numero_cotizacion = models.CharField(max_length=80, blank=True, db_index=True)
+    numero_pedido = models.CharField(max_length=80, blank=True, db_index=True)
     estado = models.CharField(
         max_length=15, choices=ESTADOS, default="REGISTRADA", db_index=True
     )

@@ -587,7 +587,7 @@ Mantenimientos - App_Sesur
                             {% elif puede_gestionar_mantenimientos %}
                             <input class="edit-mode form-control form-control-sm d-none"
                                    name="orden"
-                                   value="{{ m.orden }}">
+                                   value="{{ m.orden|default_if_none:'' }}">
                             {% endif %}
 
                         </td>
